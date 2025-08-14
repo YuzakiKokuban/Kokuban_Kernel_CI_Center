@@ -213,7 +213,8 @@ tar -xzf "$TAR_FILE"
 
 print_info "  - Locating kernel source directory..."
 # Find the directory containing the top-level Kconfig file. This is a reliable way to identify the kernel source root.
-KERNEL_SRC_ROOT=$(find . -name "Kconfig" -type f -printf '%h\n' | head -n 1)
+# We limit the search depth to 4 to avoid finding Kconfig files in sub-modules.
+KERNEL_SRC_ROOT=$(find . -maxdepth 4 -name "Kconfig" -type f -printf '%h\n' | head -n 1)
 if [ -z "$KERNEL_SRC_ROOT" ]; then
     print_error "Could not locate the kernel source root (Kconfig file not found)."
 fi
