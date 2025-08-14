@@ -1,0 +1,68 @@
+# This workflow is designed to update the kernel source for Samsung devices automatically.
+# It's triggered manually and requires the user to provide information about the project and the source code URL.
+name: '7. Update Samsung Source'
+
+on:
+  workflow_dispatch:
+    inputs:
+      project_name:
+        description: '选择要更新的项目 (必须与 projects.json 中的键匹配)。'
+        required: true
+        type: choice
+        options: [s23_sm8550, s24_sm8650, s25_sm8750, tabs10_mt6989, tabs9_sm8550, s25e_sm8750, z4_sm8475, z5_sm8550, s24fe_s5e9945]
+      source_zip_url:
+        description: '三星内核源码 .zip 文件的直接下载链接。'
+        required: true
+        type: string
+      kmi_version:
+        description: '选择内核的 KMI 版本 (用于 susfs 等补丁)。'
+        required: true
+        type: choice
+        options:
+          - gki-android15-6.6
+          - gki-android14-6.1
+          - gki-android14-5.15
+          - gki-android13-5.15
+          - gki-android13-5.10
+          - gki-android12-5.10
+
+jobs:
+  update-source-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      # Step 1: 检出 CI 中心仓库以访问所有脚本、补丁和配置文件。
+      - name: Checkout CI Center Repo
+        uses: actions/checkout@v4
+        with:
+          # 需要获取所有历史记录以备将来版本控制之需。
+          fetch-depth: 0
+
+      # Step 2: 运行核心更新脚本。
+      - name: Run Samsung Source Update Script
+        env:
+          # 将 GitHub Token 传递给脚本用于 Git 操作的认证。
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          bash scripts/samsung_update.sh \
+            --project-name "${{ github.event.inputs.project_name }}" \
+            --source-zip-url "${{ github.event.inputs.source_zip_url }}" \
+            --kmi-version "${{ github.event.inputs.kmi_version }}"
+
+      # Step 3: 在脚本成功更新并推送代码后，触发中央编译流程。
+      - name: Trigger Central Build
+        env:
+          # 使用 'gh' 命令行工具需要 GitHub Token。
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          # 从 projects.json 中提取仓库信息 (例如: YuzakiKokuban/android_kernel_samsung_sm8550_S23)
+          PROJECT_REPO_SLUG=$(jq -r --arg PKEY "${{ github.event.inputs.project_name }}" '.[$PKEY].repo' configs/projects.json)
+          
+          if [ -z "$PROJECT_REPO_SLUG" ] || [ "$PROJECT_REPO_SLUG" == "null" ]; then
+            echo "错误: 在 configs/projects.json 中未找到项目 '${{ github.event.inputs.project_name }}'。"
+            exit 1
+          fi
+          
+          echo "正在为仓库触发构建: $PROJECT_REPO_SLUG"
+          
+          # 远程触发本仓库的 '4-universal-build.yml' 工作流。
+          gh workflow run 4-universal-build.yml --repo "${{ github.repository }}" -f project="${{ github.event.inputs.project_name }}" -f branch=main
