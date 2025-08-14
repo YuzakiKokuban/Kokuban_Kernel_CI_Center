@@ -37,14 +37,14 @@ apply_lz4_patch() {
     rm -rf "$kernel_root/lib/lz4" && mkdir -p "$kernel_root/lib/lz4"
     cp -r "$zram_dir/lz4/." "$kernel_root/lib/lz4/"
     git add include/linux/lz4.h lib/lz4
-    git commit -m "feat: Import lz4 v1.10 library files" -m "[skip build]"
+    git commit -m "feat: Import lz4 v1.10 library files [skip ci]"
 
     local version_patch_file="$zram_dir/$kmi_version/lz4_1.10.0.patch"
     [ ! -f "$version_patch_file" ] && print_error "LZ4 patch for KMI $kmi_version not found at $version_patch_file"
     
     print_info "  - Applying version-specific patch: $(basename "$version_patch_file")"
     git apply "$version_patch_file"
-    git commit -am "feat: Apply lz4 backport patch for KMI $kmi_version" -m "[skip build]"
+    git commit -am "feat: Apply lz4 backport patch for KMI $kmi_version [skip ci]"
 }
 
 # Function to apply the universal syscall hooks patch.
@@ -56,7 +56,7 @@ apply_syscall_patch() {
     [ ! -f "$syscall_patch_file" ] && print_error "Syscall patch not found at $syscall_patch_file"
 
     git apply "$syscall_patch_file"
-    git commit -am "feat: Apply syscall hooks for sukisu" -m "[skip build]"
+    git commit -am "feat: Apply syscall hooks for sukisu [skip ci]"
 }
 
 # Function to apply the susfs patch.
@@ -80,24 +80,27 @@ apply_susfs_patch() {
     cp "$susfs_patch_dir/include/linux/sus_su.h" "include/linux/"
     cp "$susfs_patch_dir/include/linux/susfs_def.h" "include/linux/"
     git add fs/susfs.c fs/sus_su.c include/linux/susfs.h include/linux/sus_su.h include/linux/susfs_def.h
-    git commit -m "feat: Add susfs source files" -m "[skip build]"
+    git commit -m "feat: Add susfs source files [skip ci]"
 
     print_info "  - Applying main susfs patch..."
     local main_patch_file=$(find "$susfs_patch_dir" -name '50_*.patch' | head -n 1)
     [ -z "$main_patch_file" ] && print_error "Main susfs patch (50_*.patch) not found."
     
-    if ! git apply --3way "$main_patch_file"; then
-        print_info "  - 'git apply --3way' failed. Checking for fs/namespace.c.rej..."
-        if [ -f "fs/namespace.c.rej" ]; then
-            print_info "  - Found 'fs/namespace.c.rej'. Attempting manual patch with .rej file..."
-            patch fs/namespace.c < fs/namespace.c.rej
-            rm fs/namespace.c.rej fs/namespace.c.orig
-            git add fs/namespace.c
+    local apply_status_file=$(mktemp)
+    git apply --3way "$main_patch_file" 2>/dev/null || echo $? > "$apply_status_file"
+    
+    if [ -s "$apply_status_file" ]; then
+        print_info "  - 'git apply --3way' failed. Attempting manual patch with pre-supplied .rej file..."
+        local rej_fix_file="$patch_root/samsung/namespace.c.rej"
+        if [ -f "$rej_fix_file" ]; then
+             patch fs/namespace.c < "$rej_fix_file"
+             git add fs/namespace.c
         else
-            print_error "Failed to apply susfs patch and no .rej file found for automatic fixing. Manual intervention required."
+            print_error "Failed to apply susfs patch and the fallback .rej file is missing."
         fi
     fi
-    git commit -am "feat: Apply susfs main patch for KMI $kmi_version" -m "[skip build]"
+    rm -f "$apply_status_file"
+    git commit -am "feat: Apply susfs main patch for KMI $kmi_version [skip ci]"
 }
 
 # Function to update defconfig for sukisuultra by appending settings.
@@ -134,7 +137,7 @@ CONFIG_KPM=y
 EOF
 
     git add "$defconfig_path"
-    git commit -m "feat: Update defconfig for sukisuultra" -m "[skip build]"
+    git commit -m "feat: Update defconfig for sukisuultra [skip ci]"
 }
 
 # Function to run the appropriate KernelSU/SukiSU setup script.
@@ -155,7 +158,7 @@ run_ksu_setup_script() {
     fi
     
     git add .
-    git commit -m "feat: Integrate $ksu_type via setup.sh" -m "[skip build]"
+    git commit -m "feat: Integrate $ksu_type via setup.sh [skip ci]"
 }
 
 
@@ -204,7 +207,6 @@ cd "$SOURCE_DIR"
 
 wget --quiet -O source.zip "$SOURCE_ZIP_URL"
 unzip -q source.zip
-# Find the kernel tarball by looking for a file with "kernel" in its name, case-insensitive.
 TAR_FILE=$(find . -iname "*kernel*.tar.gz" -print -quit)
 [ -z "$TAR_FILE" ] && print_error "Could not find a kernel tarball (*kernel*.tar.gz) in the downloaded zip."
 
@@ -212,8 +214,6 @@ print_info "  - Extracting kernel tarball: $TAR_FILE"
 tar -xzf "$TAR_FILE"
 
 print_info "  - Locating kernel source directory..."
-# Find all Kconfig files, sort them by path length, take the shortest one, and get its directory.
-# This is a robust way to find the top-level source directory.
 KCONFIG_PATH=$(find . -name "Kconfig" -type f | awk '{ print length, $0 }' | sort -n | head -n 1 | cut -d" " -f2)
 if [ -z "$KCONFIG_PATH" ]; then
     print_error "Could not locate the kernel source root (Kconfig file not found)."
@@ -233,12 +233,28 @@ cd target_repo
 # --- Update main Branch ---
 print_info "Updating 'main' (LKM) branch..."
 git checkout main
-print_info "  - Cleaning old source files..."
-ls -a | grep -vE '^\.$|^\.\.$|^\.git$|^\.github$' | xargs rm -rf
-print_info "  - Copying new source files..."
-cp -r "$KERNEL_SRC_PATH"/. .
+print_info "  - Syncing new source files while preserving local changes (e.g., defconfig)..."
+# Use rsync to intelligently sync the directories.
+# -a: archive mode (preserves permissions, etc.)
+# --delete: deletes files in the destination that are not in the source.
+# --exclude: preserves specified files/dirs in the destination.
+rsync -a --delete --exclude=".git" --exclude=".github" --exclude="arch/arm64/configs/${DEFCONFIG}" --exclude="LICENSE" "$KERNEL_SRC_PATH/" .
+
+print_info "  - Ensuring write permissions for all files..."
+chmod -R u+w .
+
+print_info "  - Cleaning up unnecessary GKI directories..."
+rm -rf android/
+
 git add .
-git commit -m "build: Update kernel source for $PROJECT_NAME" -m "From: $SOURCE_ZIP_URL" -m "[skip build]"
+# Use a single -m flag with newlines for a multi-line commit message that is more reliable.
+COMMIT_MSG=$(cat <<EOF
+build: Update kernel source for $PROJECT_NAME [skip ci]
+
+From: $SOURCE_ZIP_URL
+EOF
+)
+git commit -m "$COMMIT_MSG"
 
 apply_lz4_patch "$(pwd)" "$PATCH_DIR" "$KMI_VERSION"
 
