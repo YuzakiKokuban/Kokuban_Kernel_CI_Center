@@ -34,8 +34,8 @@ apply_lz4_patch() {
 
     print_info "  - Overwriting include/linux/lz4.h and replacing lib/lz4/..."
     cp -f "$zram_dir/include/linux/lz4.h" "$kernel_root/include/linux/lz4.h"
-    rm -rf "$kernel_root/lib/lz4" && mkdir -p "$kernel_root/lib/lz4"
-    cp -r "$zram_dir/lz4/." "$kernel_root/lib/lz4/"
+    # Non-destructive update of the lz4 library
+    rsync -a "$zram_dir/lz4/" "$kernel_root/lib/lz4/"
     git add include/linux/lz4.h lib/lz4
     git commit -m "feat: Import lz4 v1.10 library files [skip ci]"
 
@@ -184,8 +184,8 @@ fi
 # --- Setup ---
 print_info "Setting up environment..."
 export TZ='Asia/Shanghai'
-git config --global user.name "Yuzaki-Kokuban"
-git config --global user.email "yuzakikokuban@github.com"
+git config --global user.name "YuzakiKokuban"
+git config --global user.email "heibanbaize@gmail.com"
 WORKSPACE=$(pwd)
 SOURCE_DIR="$WORKSPACE/source_code"
 PATCH_DIR="$WORKSPACE/patches" 
@@ -227,7 +227,7 @@ print_info "Kernel source root identified at: $KERNEL_SRC_PATH"
 # --- Clone and Update Target Repository ---
 print_info "Cloning target repository: $PROJECT_REPO"
 cd "$WORKSPACE"
-git clone "https://yuzakikokuban:$GH_TOKEN@github.com/$PROJECT_REPO.git" target_repo
+git clone "https://YuzakiKokuban:$GH_TOKEN@github.com/$PROJECT_REPO.git" target_repo
 cd target_repo
 
 # --- Update main Branch ---
@@ -243,8 +243,8 @@ rsync -a --delete --exclude=".git" --exclude=".github" --exclude="arch/arm64/con
 print_info "  - Ensuring write permissions for all files..."
 chmod -R u+w .
 
-print_info "  - Cleaning up unnecessary GKI directories..."
-rm -rf android/
+print_info "  - Cleaning up unnecessary GKI files..."
+rm -f android/abi_gki_* android/gki_*
 
 git add .
 # Use a single -m flag with newlines for a multi-line commit message that is more reliable.
