@@ -204,8 +204,11 @@ cd "$SOURCE_DIR"
 
 wget --quiet -O source.zip "$SOURCE_ZIP_URL"
 unzip -q source.zip
-TAR_FILE=$(find . -name "kernel_platform.tar.gz" -print -quit)
-[ -z "$TAR_FILE" ] && print_error "kernel_platform.tar.gz not found in the downloaded zip."
+# Find the kernel tarball by looking for a file with "kernel" in its name, case-insensitive.
+TAR_FILE=$(find . -iname "*kernel*.tar.gz" -print -quit)
+[ -z "$TAR_FILE" ] && print_error "Could not find a kernel tarball (*kernel*.tar.gz) in the downloaded zip."
+
+print_info "  - Extracting kernel tarball: $TAR_FILE"
 tar -xzf "$TAR_FILE"
 
 print_info "  - Locating kernel source directory..."
