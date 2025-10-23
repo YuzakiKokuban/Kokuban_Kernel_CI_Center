@@ -120,7 +120,7 @@
   "tabs10_mt6989": {
     "repo": "YuzakiKokuban/android_kernel_samsung_mt6989_TabS10",
     "defconfig": "mt6989_defconfig",
-    "localversion_base": "-android14-Kokuban-Exusiai-BYE1",
+    "localversion_base": "-android14-Kokuban-Exusiai-CYI6",
     "lto": "",
     "supported_ksu": [
       "sukisuultra",
