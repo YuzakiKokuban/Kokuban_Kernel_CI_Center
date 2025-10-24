@@ -325,7 +325,7 @@
     "repo": "YuzakiKokuban/android_kernel_samsung_s5e9945",
     "defconfig": "s5e9945_gki_defconfig",
     "localversion_base": "-android14-Kokuban-Haruka-CYI5",
-    "lto": "",
+    "lto": "thin",
     "supported_ksu": [
       "sukisuultra",
       "mksu",
@@ -364,7 +364,7 @@
       "DEVICE_NAME_CN": "三星 Galaxy S24 Exynos 系列",
       "DEVICE_NAME_EN": "Samsung Galaxy S24 Exynos Series"
     },
-    "push_build_enabled": false,
+    "push_build_enabled": true,
     "push_server": {
       "enabled": true,
       "webhook_url": "http://74.176.37.71:8080/webhook"
