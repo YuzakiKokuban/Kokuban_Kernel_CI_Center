@@ -364,7 +364,7 @@
       "DEVICE_NAME_CN": "三星 Galaxy S24 Exynos 系列",
       "DEVICE_NAME_EN": "Samsung Galaxy S24 Exynos Series"
     },
-    "push_build_enabled": true,
+    "push_build_enabled": false,
     "push_server": {
       "enabled": true,
       "webhook_url": "http://74.176.37.71:8080/webhook"
