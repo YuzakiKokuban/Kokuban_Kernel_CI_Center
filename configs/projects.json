@@ -251,7 +251,7 @@
   "z4_sm8475": {
     "repo": "YuzakiKokuban/android_kernel_samsung_sm8475",
     "defconfig": "taro_gki_defconfig",
-    "localversion_base": "-android12-Kokuban-Bronya-HYDB",
+    "localversion_base": "-android12-Kokuban-Bronya-HYGB",
     "lto": "thin",
     "supported_ksu": [
       "sukisuultra",
