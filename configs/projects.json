@@ -36,7 +36,7 @@
   "s24_sm8650": {
     "repo": "YuzakiKokuban/android_kernel_samsung_sm8650",
     "defconfig": "pineapple_gki_defconfig",
-    "localversion_base": "-android14-Kokuban-Elysia-BYH2",
+    "localversion_base": "-android14-Kokuban-Elysia-CYI7",
     "lto": "",
     "supported_ksu": [
       "sukisuultra",
@@ -62,7 +62,7 @@
     "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
     "anykernel_branch": "pineapple",
     "zip_name_prefix": "S24_Snapdragon_kernel",
-    "push_build_enabled": true,
+    "push_build_enabled": false,
     "push_server": {
       "enabled": true,
       "webhook_url": "http://74.176.37.71:8080/webhook"
