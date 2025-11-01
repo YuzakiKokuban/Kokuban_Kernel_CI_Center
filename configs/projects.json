@@ -62,7 +62,7 @@
     "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
     "anykernel_branch": "pineapple",
     "zip_name_prefix": "S24_Snapdragon_kernel",
-    "push_build_enabled": false,
+    "push_build_enabled": true,
     "push_server": {
       "enabled": true,
       "webhook_url": "http://74.176.37.71:8080/webhook"
