@@ -15,13 +15,8 @@ VERSION_METHOD="${PROJECT_VERSION_METHOD:-param}"
 EXTRA_HOST_ENV="${PROJECT_EXTRA_HOST_ENV:-false}"
 DISABLE_SECURITY_JSON="${PROJECT_DISABLE_SECURITY:-[]}"
 
-# --- 动态决定是否运行 patch_linux ---
+# --- 决定是否运行 patch_linux ---
 DO_PATCH_LINUX=false
-if [[ "$BRANCH_NAME" == "sukisuultra" ]]; then
-  if [[ "$PROJECT_KEY" == "s24_sm8650" || "$PROJECT_KEY" == "tabs10_mt6989" || "$PROJECT_KEY" == "s25e_sm8750" || "$PROJECT_KEY" == "s24_s5e9945" || "$PROJECT_KEY" == "tabs10fe_s5e8855" || "$PROJECT_KEY" == "z6_sm8650" ]]; then
-    DO_PATCH_LINUX=true
-  fi
-fi
 
 # --- 根据分支名生成版本后缀 ---
 case "$BRANCH_NAME" in
