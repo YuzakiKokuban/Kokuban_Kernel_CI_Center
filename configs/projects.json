@@ -2,7 +2,7 @@
   "s23_sm8550": {
     "repo": "YuzakiKokuban/android_kernel_samsung_sm8550_S23",
     "defconfig": "kalama_gki_defconfig",
-    "localversion_base": "-android13-Kokuban-Firefly-DYF1",
+    "localversion_base": "-android13-Kokuban-Firefly-EYI7",
     "lto": "thin",
     "supported_ksu": [
       "sukisuultra",
