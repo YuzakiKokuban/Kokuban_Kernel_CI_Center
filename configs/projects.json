@@ -71,7 +71,7 @@
   "s25_sm8750": {
     "repo": "YuzakiKokuban/android_kernel_samsung_sm8750",
     "defconfig": "sun_gki_defconfig",
-    "localversion_base": "-android15-Kokuban-Herta-BYI3",
+    "localversion_base": "-android15-Kokuban-Herta-BYIF",
     "lto": "",
     "supported_ksu": [
       "sukisuultra",
