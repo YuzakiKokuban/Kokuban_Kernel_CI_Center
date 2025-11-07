@@ -39,17 +39,26 @@ esac
 
 # --- 脚本开始 ---
 cd "$(dirname "$0")"
+
+# --- [CUSTOM PATCH] 根据分支名和 CI 输入修补 KERNEL_SU_RC ---
+
+# [已修复] 1. 脚本现在读取 APPLY_SAMSUNG_PATCH 变量 (由 reusable-build-job.yml 设置)
 APPLY_SAMSUNG_PATCH="${APPLY_SAMSUNG_PATCH:-false}"
 
 if [ "$APPLY_SAMSUNG_PATCH" != "true" ]; then
-  echo "--- 选项未开启, 跳过 Samsung Activation 补丁 ---"
+  echo "--- CI 选项未开启, 跳过 Samsung Activation 补丁 ---"
 else
   case "$BRANCH_NAME" in
     ksu|mksu|sukisuultra)
       echo "--- [PATCH ENABLED] 正在为 $BRANCH_NAME 分支修补 ksud.c ---"
+      
+      # build.sh 位于 scripts/ 目录, 源码根目录是 ../
       KSU_FILE_PATH="../KernelSU/kernel/ksud.c"
+
       if [ -f "$KSU_FILE_PATH" ]; then
         echo "找到 ksud.c 于: $KSU_FILE_PATH"
+        
+        # [已修复] 2. 确保 sed 搜索模式是正确的 C 字符串
         sed -i '/"    start logd\n"/{a\
 "\\n"\
 "    # Disable Samsung Activation (CI Patch)\\n"\
@@ -67,6 +76,9 @@ else
       ;;
   esac
 fi
+# --- [CUSTOM PATCH] 结束 ---
+
+
 TOOLCHAIN_BASE_PATH=$(realpath "./toolchain/${TOOLCHAIN_PATH_PREFIX}")
 
 # --- 动态设置工具链环境 ---

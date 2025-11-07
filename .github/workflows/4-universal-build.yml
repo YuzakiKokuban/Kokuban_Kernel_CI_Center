@@ -24,7 +24,7 @@ on:
         required: true
         type: boolean
         default: true
-      disable_samsung_activation:
+      apply_samsung_patch:
         description: '是否禁用三星设备激活检查?(KernelSU专用)'
         type: boolean
         default: false
@@ -39,7 +39,7 @@ jobs:
       branch_name: ${{ steps.parse.outputs.branch_name }}
       do_release: ${{ steps.parse.outputs.do_release }}
       is_prerelease: ${{ steps.parse.outputs.is_prerelease }}
-      disable_samsung_activation: ${{ steps.parse.outputs.disable_samsung_activation }}
+      apply_samsung_patch: ${{ steps.parse.outputs.apply_samsung_patch }}
     steps:
       - name: Checkout Central Repo
         uses: actions/checkout@v4
@@ -56,8 +56,8 @@ jobs:
             echo "branch_name=${{ github.event.inputs.branch }}" >> $GITHUB_OUTPUT
             echo "do_release=${{ github.event.inputs.do_release }}" >> $GITHUB_OUTPUT
             echo "is_prerelease=${{ github.event.inputs.is_prerelease }}" >> $GITHUB_OUTPUT
-            # [已修复] 从 manual input 传递值
-            echo "disable_samsung_activation=${{ github.event.inputs.disable_samsung_activation }}" >> $GITHUB_OUTPUT
+            # [已修复] 3. 从 inputs 中正确设置输出值
+            echo "apply_samsung_patch=${{ github.event.inputs.apply_samsung_patch }}" >> $GITHUB_OUTPUT
           else
             echo "Push-triggered event detected. Checking build flag..."
             PROJECT_KEY="${{ github.event.client_payload.project }}"
@@ -78,7 +78,8 @@ jobs:
             echo "branch_name=${{ github.event.client_payload.branch }}" >> $GITHUB_OUTPUT
             echo "do_release=true" >> $GITHUB_OUTPUT
             echo "is_prerelease=true" >> $GITHUB_OUTPUT
-            echo "disable_samsung_activation=false" >> $GITHUB_OUTPUT
+            # [已修复] 4. 自动触发时, 补丁默认为 false
+            echo "apply_samsung_patch=false" >> $GITHUB_OUTPUT
           fi
 
   # 此任务调用可复用的构建工作流
@@ -91,6 +92,6 @@ jobs:
       branch_name: ${{ needs.prepare-inputs.outputs.branch_name }}
       do_release: ${{ needs.prepare-inputs.outputs.do_release }}
       is_prerelease: ${{ needs.prepare-inputs.outputs.is_prerelease }}
-      disable_samsung_activation: ${{ needs.prepare-inputs.outputs.disable_samsung_activation }}
+      apply_samsung_patch: ${{ needs.prepare-inputs.outputs.apply_samsung_patch == 'true' }}
     secrets:
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
