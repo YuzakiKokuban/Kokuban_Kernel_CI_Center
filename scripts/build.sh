@@ -39,6 +39,34 @@ esac
 
 # --- 脚本开始 ---
 cd "$(dirname "$0")"
+APPLY_SAMSUNG_PATCH="${APPLY_SAMSUNG_PATCH:-false}"
+
+if [ "$APPLY_SAMSUNG_PATCH" != "true" ]; then
+  echo "--- 选项未开启, 跳过 Samsung Activation 补丁 ---"
+else
+  case "$BRANCH_NAME" in
+    ksu|mksu|sukisuultra)
+      echo "--- [PATCH ENABLED] 正在为 $BRANCH_NAME 分支修补 ksud.c ---"
+      KSU_FILE_PATH="../KernelSU/kernel/ksud.c"
+      if [ -f "$KSU_FILE_PATH" ]; then
+        echo "找到 ksud.c 于: $KSU_FILE_PATH"
+        sed -i '/"    start logd\n"/{a\
+"\\n"\
+"    # Disable Samsung Activation (CI Patch)\\n"\
+"    log -p i -t KernelSU \\"Disable Samsung Activation\\"\\n"\
+"    mkdir /data/local/tmp/ActivationDevice_V2 0755 root root\\n"\
+"    mount none /data/local/tmp/ActivationDevice_V2 /system/app/ActivationDevice_V2 bind\\n"\
+        }' "$KSU_FILE_PATH"
+        echo "ksud.c 修补完成。"
+      else
+        echo "警告: 未能在指定路径 '$KSU_FILE_PATH' 找到 ksud.c 文件，跳过修补。"
+      fi
+      ;;
+    *)
+      echo "--- 分支 $BRANCH_NAME (LKM) 不是 KSU 分支, 跳过 Samsung 补丁 ---"
+      ;;
+  esac
+fi
 TOOLCHAIN_BASE_PATH=$(realpath "./toolchain/${TOOLCHAIN_PATH_PREFIX}")
 
 # --- 动态设置工具链环境 ---

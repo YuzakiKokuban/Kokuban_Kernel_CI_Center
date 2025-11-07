@@ -24,11 +24,13 @@ on:
         required: true
         type: boolean
         default: true
+      disable_samsung_activation:
+        description: '是否禁用三星设备激活检查?(KernelSU专用)'
+        type: boolean
+        default: false
   repository_dispatch:
     types: [build-kernel]
 jobs:
-  # 此任务负责解析不同的触发类型，并为下一步准备统一的输入参数
-  # 【新增】它现在还负责检查 push 构建开关
   prepare-inputs:
     runs-on: ubuntu-latest
     outputs:
@@ -37,8 +39,8 @@ jobs:
       branch_name: ${{ steps.parse.outputs.branch_name }}
       do_release: ${{ steps.parse.outputs.do_release }}
       is_prerelease: ${{ steps.parse.outputs.is_prerelease }}
+      disable_samsung_activation: ${{ steps.parse.outputs.disable_samsung_activation }}
     steps:
-      # 【新增】检出仓库以读取配置文件
       - name: Checkout Central Repo
         uses: actions/checkout@v4
 
@@ -79,7 +81,6 @@ jobs:
   # 此任务调用可复用的构建工作流
   call-reusable-build:
     needs: prepare-inputs
-    # 【新增】只有在 prepare-inputs 任务允许时才运行
     if: needs.prepare-inputs.outputs.run_build == 'true'
     uses: ./.github/workflows/reusable-build-job.yml
     with:
@@ -87,6 +88,7 @@ jobs:
       branch_name: ${{ needs.prepare-inputs.outputs.branch_name }}
       do_release: ${{ needs.prepare-inputs.outputs.do_release }}
       is_prerelease: ${{ needs.prepare-inputs.outputs.is_prerelease }}
+      disable_samsung_activation: ${{ needs.prepare-inputs.outputs.disable_samsung_activation }}
     secrets:
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
 

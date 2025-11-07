@@ -15,6 +15,10 @@ on:
       is_prerelease:
         required: true
         type: string
+      disable_samsung_activation:
+        required: false
+        type: boolean
+        default: false
     secrets:
       GH_TOKEN:
         required: true
@@ -29,6 +33,7 @@ jobs:
       BRANCH_NAME: ${{ inputs.branch_name }}
       DO_RELEASE: ${{ inputs.do_release }}
       IS_PRERELEASE_INPUT: ${{ inputs.is_prerelease }}
+      disable_samsung_activation: ${{ inputs.disable_samsung_activation }}
     steps:
       - uses: actions/checkout@v4
 
