@@ -46,7 +46,7 @@ jobs:
           declare -A KSU_SETUP_URLS
           KSU_SETUP_URLS["ksu"]="https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh"
           KSU_SETUP_URLS["mksu"]="https://raw.githubusercontent.com/5ec1cff/KernelSU/main/kernel/setup.sh"
-          KSU_SETUP_URLS["sukisuultra"]="https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh"
+          KSU_SETUP_URLS["sukisuultra"]="https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/susfs-main/kernel/setup.sh"
           SETUP_URL="${KSU_SETUP_URLS[$KSU_TYPE]}"
 
           echo "Updating projects with commit message: '$COMMIT_MESSAGE'"
