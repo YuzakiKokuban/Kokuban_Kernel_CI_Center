@@ -287,7 +287,7 @@
   "z5_sm8550": {
     "repo": "YuzakiKokuban/android_kernel_samsung_sm8550_Z5",
     "defconfig": "kalama_gki_defconfig",
-    "localversion_base": "-android13-Kokuban-Mei-EYG7",
+    "localversion_base": "-android13-Kokuban-Mei-FYIA",
     "lto": "thin",
     "supported_ksu": [
       "sukisuultra",
