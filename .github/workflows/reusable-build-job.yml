@@ -114,7 +114,7 @@ jobs:
               curl -LSs "https://raw.githubusercontent.com/vc-teahouse/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-legacy
             else
               echo "--- 使用标准的 SukiSU-Ultra ---"
-              curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-test
+              curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
             fi
           elif [[ "${{ env.BRANCH_NAME }}" == "mksu" ]]; then
             curl -LSs "https://raw.githubusercontent.com/5ec1cff/KernelSU/main/kernel/setup.sh" | bash -
