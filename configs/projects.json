@@ -467,7 +467,7 @@
   "z6_sm8650": {
     "repo": "YuzakiKokuban/android_kernel_samsung_sm8650_Z6",
     "defconfig": "pineapple_gki_defconfig",
-    "localversion_base": "-android14-Kokuban-Cyrene-BYGB",
+    "localversion_base": "-android14-Kokuban-Cyrene-CYI7",
     "lto": "",
     "supported_ksu": [
       "sukisuultra",
