@@ -19,9 +19,7 @@ DISABLE_SECURITY_JSON="${PROJECT_DISABLE_SECURITY:-[]}"
 KSU_OVERRIDE="${KSU_OVERRIDE:-}"
 
 # --- 决定构建变体 (Build Variant) ---
-# 如果有 KSU_OVERRIDE，则使用它；否则使用 BRANCH_NAME
-BUILD_VARIANT="${KSU_OVERRIDE:-$BRANCH_NAME}"
-echo "--- Build Variant determined as: $BUILD_VARIANT (Branch: $BRANCH_NAME) ---"
+BUILD_VARIANT="${BRANCH_NAME}"
 
 # --- 决定是否运行 patch_linux ---
 DO_PATCH_LINUX=false
