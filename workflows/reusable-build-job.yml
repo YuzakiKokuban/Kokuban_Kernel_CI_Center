@@ -19,11 +19,6 @@ on:
         required: false
         type: boolean
         default: false
-      # [新增] 接收覆盖参数
-      ksu_override:
-        required: false
-        type: string
-        default: ''
     secrets:
       GH_TOKEN:
         required: true
@@ -39,8 +34,6 @@ jobs:
       DO_RELEASE: ${{ inputs.do_release }}
       IS_PRERELEASE_INPUT: ${{ inputs.is_prerelease }}
       APPLY_SAMSUNG_PATCH: ${{ inputs.apply_samsung_patch }}
-      # [新增] 将覆盖参数传入环境变量
-      KSU_OVERRIDE: ${{ inputs.ksu_override }}
     steps:
       - uses: actions/checkout@v4
 
@@ -115,24 +108,18 @@ jobs:
       - name: 根据分支设置 KernelSU
         working-directory: ./kernel_source
         run: |
-          # [修改] 优先使用 override 参数，如果为空则回退到 branch_name (兼容旧逻辑)
-          TARGET_TYPE="${KSU_OVERRIDE:-${{ env.BRANCH_NAME }}}"
-          echo "Target KSU Type determined as: $TARGET_TYPE"
-
-          if [[ "$TARGET_TYPE" == "sukisuultra" ]]; then
+          if [[ "${{ env.BRANCH_NAME }}" == "sukisuultra" ]]; then
             if [[ "${{ env.PROJECT_KEY }}" == "z3_sm8350" ]]; then
-              echo "--- 检测到 z3_sm8350 的 sukisuultra 模式, 使用 susfs-legacy 版本的 SukiSU ---"
+              echo "--- 检测到 z3_sm8350 的 sukisuultra 分支, 使用 susfs-legacy 版本的 SukiSU ---"
               curl -LSs "https://raw.githubusercontent.com/vc-teahouse/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-legacy
             else
               echo "--- 使用标准的 SukiSU-Ultra ---"
               curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
             fi
-          elif [[ "$TARGET_TYPE" == "mksu" ]]; then
+          elif [[ "${{ env.BRANCH_NAME }}" == "mksu" ]]; then
             curl -LSs "https://raw.githubusercontent.com/5ec1cff/KernelSU/main/kernel/setup.sh" | bash -
-          elif [[ "$TARGET_TYPE" == "ksu" ]]; then
+          elif [[ "${{ env.BRANCH_NAME }}" == "ksu" ]]; then
             curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
-          else
-            echo "--- Target type is '$TARGET_TYPE' (likely LKM or unknown), skipping KernelSU setup ---"
           fi
 
       - name: 补充 ccache 环境变量

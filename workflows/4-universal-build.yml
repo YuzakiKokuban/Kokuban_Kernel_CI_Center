@@ -1,0 +1,97 @@
+# .github/workflows/4-universal-build.yml
+name: 4. Universal Kernel Builder
+on:
+  workflow_dispatch:
+    inputs:
+      project:
+        description: '选择要编译的内核项目'
+        required: true
+        type: choice
+        options: [s23_sm8550, s24_sm8650, s25_sm8750, tabs10_mt6989, tabs9_sm8550, s25e_sm8750, z4_sm8475, z5_sm8550, s24_s5e9945, z3_sm8350, tabs10fe_s5e8855, z6_sm8650]
+      branch:
+        description: '选择要编译的分支'
+        required: true
+        type: choice
+        options: [main, sukisuultra, mksu, ksu]
+        default: 'main'
+      do_release:
+        description: '是否创建 GitHub Release?'
+        required: true
+        type: boolean
+        default: true
+      is_prerelease:
+        description: '如果创建 Release, 是否标记为预发布?'
+        required: true
+        type: boolean
+        default: true
+      apply_samsung_patch:
+        description: '是否禁用三星设备激活检查?(KernelSU专用)'
+        type: boolean
+        default: false
+  repository_dispatch:
+    types: [build-kernel]
+jobs:
+  prepare-inputs:
+    runs-on: ubuntu-latest
+    outputs:
+      run_build: ${{ steps.parse.outputs.run_build }}
+      project_key: ${{ steps.parse.outputs.project_key }}
+      branch_name: ${{ steps.parse.outputs.branch_name }}
+      do_release: ${{ steps.parse.outputs.do_release }}
+      is_prerelease: ${{ steps.parse.outputs.is_prerelease }}
+      apply_samsung_patch: ${{ steps.parse.outputs.apply_samsung_patch }}
+    steps:
+      - name: Checkout Central Repo
+        uses: actions/checkout@v4
+
+      - name: Parse Trigger Event & Check Build Flag
+        id: parse
+        run: |
+          # 默认允许构建
+          echo "run_build=true" >> $GITHUB_OUTPUT
+
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "Manual trigger detected. Build will run."
+            echo "project_key=${{ github.event.inputs.project }}" >> $GITHUB_OUTPUT
+            echo "branch_name=${{ github.event.inputs.branch }}" >> $GITHUB_OUTPUT
+            echo "do_release=${{ github.event.inputs.do_release }}" >> $GITHUB_OUTPUT
+            echo "is_prerelease=${{ github.event.inputs.is_prerelease }}" >> $GITHUB_OUTPUT
+            # [已修复] 3. 从 inputs 中正确设置输出值
+            echo "apply_samsung_patch=${{ github.event.inputs.apply_samsung_patch }}" >> $GITHUB_OUTPUT
+          else
+            echo "Push-triggered event detected. Checking build flag..."
+            PROJECT_KEY="${{ github.event.client_payload.project }}"
+            
+            # 从 configs/projects.json 读取开关状态
+            PUSH_BUILD_ENABLED=$(jq -r --arg PKEY "$PROJECT_KEY" '.[$PKEY].push_build_enabled // "false"' configs/projects.json)
+
+            if [[ "$PUSH_BUILD_ENABLED" != "true" ]]; then
+              echo "::warning::Push builds are disabled for project '$PROJECT_KEY'. Skipping."
+              # 如果开关关闭，则设置 run_build 为 false
+              echo "run_build=false" >> $GITHUB_OUTPUT
+            else
+              echo "Push builds are enabled for project '$PROJECT_KEY'. Proceeding."
+            fi
+            
+            # 无论是否跳过，都输出参数以供日志查看
+            echo "project_key=$PROJECT_KEY" >> $GITHUB_OUTPUT
+            echo "branch_name=${{ github.event.client_payload.branch }}" >> $GITHUB_OUTPUT
+            echo "do_release=true" >> $GITHUB_OUTPUT
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+            # [已修复] 4. 自动触发时, 补丁默认为 false
+            echo "apply_samsung_patch=false" >> $GITHUB_OUTPUT
+          fi
+
+  # 此任务调用可复用的构建工作流
+  call-reusable-build:
+    needs: prepare-inputs
+    if: needs.prepare-inputs.outputs.run_build == 'true'
+    uses: ./.github/workflows/reusable-build-job.yml
+    with:
+      project_key: ${{ needs.prepare-inputs.outputs.project_key }}
+      branch_name: ${{ needs.prepare-inputs.outputs.branch_name }}
+      do_release: ${{ needs.prepare-inputs.outputs.do_release }}
+      is_prerelease: ${{ needs.prepare-inputs.outputs.is_prerelease }}
+      apply_samsung_patch: ${{ needs.prepare-inputs.outputs.apply_samsung_patch == 'true' }}
+    secrets:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}

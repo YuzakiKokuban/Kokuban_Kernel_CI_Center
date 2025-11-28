@@ -15,12 +15,20 @@ VERSION_METHOD="${PROJECT_VERSION_METHOD:-param}"
 EXTRA_HOST_ENV="${PROJECT_EXTRA_HOST_ENV:-false}"
 DISABLE_SECURITY_JSON="${PROJECT_DISABLE_SECURITY:-[]}"
 
+# [新增] 读取 KernelSU 覆盖参数
+KSU_OVERRIDE="${KSU_OVERRIDE:-}"
+
+# --- 决定构建变体 (Build Variant) ---
+# 如果有 KSU_OVERRIDE，则使用它；否则使用 BRANCH_NAME
+BUILD_VARIANT="${KSU_OVERRIDE:-$BRANCH_NAME}"
+echo "--- Build Variant determined as: $BUILD_VARIANT (Branch: $BRANCH_NAME) ---"
+
 # --- 决定是否运行 patch_linux ---
 DO_PATCH_LINUX=false
 
-# --- 根据分支名生成版本后缀 ---
-case "$BRANCH_NAME" in
-  main)
+# --- 根据构建变体生成版本后缀 ---
+case "$BUILD_VARIANT" in
+  main|lkm) # 增加了 lkm 的显式处理
     VERSION_SUFFIX="LKM"
     ;;
   ksu)
@@ -33,24 +41,24 @@ case "$BRANCH_NAME" in
     VERSION_SUFFIX="SukiSUU"
     ;;
   *)
-    VERSION_SUFFIX="$BRANCH_NAME" # 如果有其他分支，则直接使用分支名
+    VERSION_SUFFIX="$BUILD_VARIANT" # 如果有其他情况，则直接使用名称
     ;;
 esac
 
 # --- 脚本开始 ---
 cd "$(dirname "$0")"
 
-# --- [CUSTOM PATCH] 根据分支名和 CI 输入修补 KERNEL_SU_RC ---
+# --- [CUSTOM PATCH] 根据变体和 CI 输入修补 KERNEL_SU_RC ---
 
-# [已修复] 1. 脚本现在读取 APPLY_SAMSUNG_PATCH 变量 (由 reusable-build-job.yml 设置)
 APPLY_SAMSUNG_PATCH="${APPLY_SAMSUNG_PATCH:-false}"
 
 if [ "$APPLY_SAMSUNG_PATCH" != "true" ]; then
   echo "--- CI 选项未开启, 跳过 Samsung Activation 补丁 ---"
 else
-  case "$BRANCH_NAME" in
+  # [修改] 使用 BUILD_VARIANT 而不是 BRANCH_NAME 进行判断
+  case "$BUILD_VARIANT" in
     ksu|mksu|sukisuultra)
-      echo "--- [PATCH ENABLED] 正在为 $BRANCH_NAME 分支修补 ksud.c ---"
+      echo "--- [PATCH ENABLED] 正在为 $BUILD_VARIANT 变体修补 ksud.c ---"
       
       # build.sh 位于 scripts/ 目录, 源码根目录是 ../
       KSU_FILE_PATH="../KernelSU/kernel/ksud.c"
@@ -58,7 +66,7 @@ else
       if [ -f "$KSU_FILE_PATH" ]; then
         echo "找到 ksud.c 于: $KSU_FILE_PATH"
         
-        # [已修复] 2. 确保 sed 搜索模式是正确的 C 字符串
+        # 确保 sed 搜索模式是正确的 C 字符串
         sed -i '/"    start logd\n"/{a\
 "\\n"\
 "    # Disable Samsung Activation (CI Patch)\\n"\
@@ -72,7 +80,7 @@ else
       fi
       ;;
     *)
-      echo "--- 分支 $BRANCH_NAME (LKM) 不是 KSU 分支, 跳过 Samsung 补丁 ---"
+      echo "--- 变体 $BUILD_VARIANT 不是 KSU 分支, 跳过 Samsung 补丁 ---"
       ;;
   esac
 fi
@@ -100,14 +108,14 @@ if [ "$EXTRA_HOST_ENV" == "true" ]; then
 fi
 
 # --- 核心编译参数 ---
-# 【关键修复】从 PROJECT_KEY (例如 "S24fe_s5e9945") 中提取 SOC 名称 ("s5e9945")
+# 从 PROJECT_KEY (例如 "S24fe_s5e9945") 中提取 SOC 名称 ("s5e9945")
 TARGET_SOC_NAME=$(echo "$PROJECT_KEY" | cut -d'_' -f2)
 echo "--- 自动检测到 TARGET_SOC 为: ${TARGET_SOC_NAME} ---"
 
 # 将 TARGET_SOC=${TARGET_SOC_NAME} 添加到 MAKE_ARGS 中
 MAKE_ARGS="O=out ARCH=arm64 CC=clang LLVM=1 LLVM_IAS=1 TARGET_SOC=${TARGET_SOC_NAME}"
 
-# 【条件修复】仅为 Z4 项目明确指定 SUBARCH 和 CROSS_COMPILE
+# 仅为 Z4 项目明确指定 SUBARCH 和 CROSS_COMPILE
 if [[ "$ZIP_NAME_PREFIX" == "Z4_Kernel" ]]; then
   echo "--- Z4 project detected. Applying SUBARCH and CROSS_COMPILE flags. ---"
   MAKE_ARGS+=" SUBARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-"
@@ -133,7 +141,7 @@ for flag in $(echo "$DISABLE_SECURITY_JSON" | jq -r '.[]'); do
 done
 ./scripts/config --file out/.config $DISABLE_FLAGS
 
-# 3. 【逻辑修复】正确配置 LTO
+# 3. 正确配置 LTO
 if [ "$LTO" = "thin" ]; then
   echo "--- Enabling ThinLTO ---"
   ./scripts/config --file out/.config -e LTO_CLANG_THIN -d LTO_CLANG_FULL
@@ -192,7 +200,7 @@ if ! command -v gh &> /dev/null; then echo "错误: 未找到 'gh' 命令。"; e
 if [ -z "$GH_TOKEN" ]; then echo "错误: 环境变量 'GH_TOKEN' 未设置。"; exit 1; fi
 TAG="release-${VERSION_SUFFIX}-$(date +%Y%m%d-%H%M%S)"
 RELEASE_TITLE="新内核构建 - ${kernel_release} (${VERSION_SUFFIX} | $(date +'%Y-%m-%d %R'))"
-RELEASE_NOTES="由通用构建流程在 $(date) 自动发布。"
+RELEASE_NOTES="由自定义构建流程 (Branch: $BRANCH_NAME, KSU: $BUILD_VARIANT) 在 $(date) 自动发布。"
 PRERELEASE_FLAG=""
 if [ "$IS_PRERELEASE" == "true" ]; then PRERELEASE_FLAG="--prerelease"; RELEASE_TITLE="[预发布] ${RELEASE_TITLE}"; fi
 UPLOAD_FILE_PATH=$(realpath "out/${final_name}.zip")
