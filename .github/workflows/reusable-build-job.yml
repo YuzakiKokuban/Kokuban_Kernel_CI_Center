@@ -19,7 +19,6 @@ on:
         required: false
         type: boolean
         default: false
-      # [新增] 接收覆盖参数
       ksu_override:
         required: false
         type: string
@@ -115,7 +114,6 @@ jobs:
       - name: 根据分支设置 KernelSU
         working-directory: ./kernel_source
         run: |
-          # [修改] 优先使用 override 参数，如果为空则回退到 branch_name (兼容旧逻辑)
           TARGET_TYPE="${KSU_OVERRIDE:-${{ env.BRANCH_NAME }}}"
           echo "Target KSU Type determined as: $TARGET_TYPE"
 
