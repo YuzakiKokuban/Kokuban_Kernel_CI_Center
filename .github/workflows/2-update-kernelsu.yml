@@ -33,12 +33,12 @@ jobs:
           declare -A KSU_REPOS
           KSU_REPOS["ksu"]="https://github.com/tiann/KernelSU.git"
           KSU_REPOS["mksu"]="https://github.com/5ec1cff/KernelSU.git"
-          KSU_REPOS["sukisuultra"]="https://github.com/SukiSU-Ultra/SukiSU-Ultra.git"
+          KSU_REPOS["sukisuultra"]="https://github.com/ReSukiSU/ReSukiSU.git"
 
           declare -A KSU_BRANCHES
           KSU_BRANCHES["ksu"]="main"
           KSU_BRANCHES["mksu"]="main"
-          KSU_BRANCHES["sukisuultra"]="susfs-main"
+          KSU_BRANCHES["sukisuultra"]="builtin"
 
           UPSTREAM_REPO_URL="${KSU_REPOS[$KSU_TYPE]}"
           UPSTREAM_BRANCH="${KSU_BRANCHES[$KSU_TYPE]}"
