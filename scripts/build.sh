@@ -36,7 +36,7 @@ case "$BUILD_VARIANT" in
     VERSION_SUFFIX="MKSU"
     ;;
   sukisuultra)
-    VERSION_SUFFIX="SukiSUU"
+    VERSION_SUFFIX="ReSuki"
     ;;
   *)
     VERSION_SUFFIX="$BUILD_VARIANT" # 如果有其他情况，则直接使用名称
