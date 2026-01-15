@@ -36,7 +36,7 @@
   "s24_sm8650": {
     "repo": "YuzakiKokuban/android_kernel_samsung_sm8650",
     "defconfig": "pineapple_gki_defconfig",
-    "localversion_base": "-android14-Kokuban-Elysia-CYI7",
+    "localversion_base": "-android14-Kokuban-Elysia-CYL1",
     "lto": "",
     "supported_ksu": [
       "sukisuultra",
