@@ -41,7 +41,7 @@ jobs:
       # [新增] 将覆盖参数传入环境变量
       KSU_OVERRIDE: ${{ inputs.ksu_override }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: 安装依赖项
         run: |
@@ -72,7 +72,7 @@ jobs:
           echo "PROJECT_DISABLE_SECURITY=$(echo $CONFIG_JSON | jq -c '.disable_security // []')" >> $GITHUB_ENV
 
       - name: Checkout 内核源码仓库
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with: {repository: "${{ env.PROJECT_REPO }}", ref: "${{ env.BRANCH_NAME }}", path: kernel_source, submodules: 'recursive'}
       
       - name: 下载并解压工具链
@@ -94,7 +94,7 @@ jobs:
           find ./toolchain -type f -path "*/bin/*" -exec chmod +x {} \;
       
       - name: Checkout AnyKernel3 仓库
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ env.PROJECT_ANYKERNEL_REPO_SLUG }}
           ref: ${{ env.PROJECT_ANYKERNEL_BRANCH }}

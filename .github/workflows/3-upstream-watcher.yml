@@ -12,7 +12,7 @@ jobs:
       update_matrix: ${{ steps.discover.outputs.matrix }}
     steps:
       - name: Checkout Central Repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Install jq
         run: sudo apt-get install -y jq
       - name: Discover what needs to be updated
@@ -88,7 +88,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Central Repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           token: ${{ secrets.ADMIN_TOKEN }}
       - name: Download updated tracker file

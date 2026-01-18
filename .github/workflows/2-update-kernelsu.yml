@@ -21,7 +21,7 @@ jobs:
       latest_commit_short: ${{ steps.get_info.outputs.latest_commit_short }}
     steps:
       - name: Checkout Central Repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Install jq
         run: sudo apt-get install -y jq
       - name: Get Upstream Commit and Project Info
