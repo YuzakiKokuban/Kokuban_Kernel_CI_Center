@@ -92,7 +92,7 @@ jobs:
         with:
           token: ${{ secrets.ADMIN_TOKEN }}
       - name: Download updated tracker file
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: upstream-commits
           path: configs # Download and overwrite the file in the configs directory
