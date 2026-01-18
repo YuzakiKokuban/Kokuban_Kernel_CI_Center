@@ -60,7 +60,7 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
           
       - name: Upload updated tracker file
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: steps.discover.outputs.matrix != '[]'
         with:
           name: upstream-commits
