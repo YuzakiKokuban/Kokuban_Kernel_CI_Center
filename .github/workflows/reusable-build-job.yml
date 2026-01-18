@@ -102,7 +102,7 @@ jobs:
           fetch-depth: 1
 
       - name: 设置 ccache 环境并恢复缓存
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ env.CCACHE_DIR }}
           # key 使用 run_id 保证每次运行都唯一, 从而确保任务结束后总是会保存新缓存
