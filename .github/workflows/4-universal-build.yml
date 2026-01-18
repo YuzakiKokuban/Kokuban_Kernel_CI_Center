@@ -42,7 +42,7 @@ jobs:
       apply_samsung_patch: ${{ steps.parse.outputs.apply_samsung_patch }}
     steps:
       - name: Checkout Central Repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Parse Trigger Event & Check Build Flag
         id: parse
