@@ -33,6 +33,32 @@ else
     fi
 fi
 
+if [ -n "$PROJECT_TOOLCHAIN_URLS" ]; then
+    mkdir -p toolchain_download
+    cd toolchain_download
+    
+    URLS=$(echo "$PROJECT_TOOLCHAIN_URLS" | python3 -c "import sys, json; print(' '.join(json.load(sys.stdin)))")
+    
+    for url in $URLS; do
+        wget "$url"
+    done
+    
+    if ls *.tar.gz.00 1> /dev/null 2>&1; then
+        cat *.tar.gz.* | tar -zxf - -C ..
+    elif ls *.tar.gz 1> /dev/null 2>&1; then
+        for tarball in *.tar.gz; do
+            tar -zxf "$tarball" -C ..
+        done
+    fi
+    
+    cd ..
+    rm -rf toolchain_download
+fi
+
+if [[ "$PROJECT_EXTRA_HOST_ENV" == "true" ]]; then
+    export LD_LIBRARY_PATH="$PWD/$PROJECT_TOOLCHAIN_PREFIX/build-tools/linux-x86/lib64:$LD_LIBRARY_PATH"
+fi
+
 export PATH="$PWD/$PROJECT_TOOLCHAIN_PREFIX/bin:$PATH"
 
 if [ -n "$PROJECT_TOOLCHAIN_EXPORTS" ]; then
@@ -48,6 +74,13 @@ export ARCH=arm64
 export CLANG_TRIPLE=aarch64-linux-gnu-
 export CROSS_COMPILE=aarch64-linux-gnu-
 export CROSS_COMPILE_COMPAT=arm-linux-gnueabi-
+
+if command -v ccache >/dev/null; then
+    export CC="ccache clang"
+    export CXX="ccache clang++"
+    export CCACHE_DIR="$PWD/.ccache"
+    ccache -M 5G
+fi
 
 if [[ "$PROJECT_LTO" == "thin" ]]; then
     export LTO=thin

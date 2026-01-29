@@ -108,11 +108,26 @@ jobs:
           submodules: recursive
           token: ${{ secrets.GH_TOKEN }}
 
+      - name: Setup CCache
+        uses: actions/cache@v4
+        with:
+          path: kernel_source/.ccache
+          key: ccache-${{ env.PROJECT }}-${{ env.VARIANT }}-${{ github.run_id }}
+          restore-keys: |
+            ccache-${{ env.PROJECT }}-${{ env.VARIANT }}-
+            ccache-${{ env.PROJECT }}-
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ccache libncurses5-dev wget tar
+
       - name: Build
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           PROJECT_KEY: ${{ env.PROJECT }}
           BRANCH_NAME: ${{ env.VARIANT }} 
+          DO_RELEASE: ${{ env.DO_RELEASE }}
         run: |
           cp scripts/build.sh kernel_source/
           cd kernel_source

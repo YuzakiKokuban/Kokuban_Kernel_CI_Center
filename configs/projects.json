@@ -9,8 +9,16 @@
       "DEVICE_NAME_CN": "三星 Galaxy Z5 系列",
       "DEVICE_NAME_EN": "Samsung Galaxy Z5 Series"
     },
+    "toolchain_urls": [
+      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8550_S23/releases/download/toolchain/toolchain_part_aa.tar.gz",
+      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8550_S23/releases/download/toolchain/toolchain_part_ab.tar.gz",
+      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8550_S23/releases/download/toolchain/toolchain_part_ac.tar.gz"
+    ],
     "toolchain_path_prefix": "prebuilts",
-    "toolchain_path_exports": ["build-tools/linux-x86/bin", "clang/host/linux-x86/clang-r450784e/bin"],
+    "toolchain_path_exports": [
+      "build-tools/linux-x86/bin", 
+      "clang/host/linux-x86/clang-r450784e/bin"
+    ],
     "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
     "anykernel_branch": "kalama_z",
     "zip_name_prefix": "Z5_Kernel",
@@ -23,13 +31,23 @@
     "supported_ksu": ["resukisu", "mksu", "ksu"],
     "version_method": "file",
     "extra_host_env": true,
-    "disable_security": ["PROCA", "PROCA_GKI_10", "PROCA_S_OS", "GAF", "GAF_V6", "FIVE_CERT_USER"],
+    "disable_security": ["PROCA", "PROCA_GKI_10", "PROCA_S_OS", "GAF", "GAF_V6", "FIVE_CERT_USER", "FIVE_DEFAULT_HASH"],
     "readme_placeholders": {
       "DEVICE_NAME_CN": "三星 Galaxy S25 系列",
       "DEVICE_NAME_EN": "Samsung Galaxy S25 Series"
     },
+    "toolchain_urls": [
+      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8750/releases/download/toolchain/toolchainS25.tar.gz.00",
+      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8750/releases/download/toolchain/toolchainS25.tar.gz.01"
+    ],
     "toolchain_path_prefix": "kernel_platform/prebuilts",
-    "toolchain_path_exports": ["build-tools/linux-x86/bin", "clang/host/linux-x86/clang-r510928/bin", "kernel-build-tools/linux-x86/bin"],
+    "toolchain_path_exports": [
+      "build-tools/linux-x86/bin",
+      "build-tools/path/linux-x86",
+      "clang/host/linux-x86/clang-r510928/bin",
+      "clang-tools/linux-x86/bin",
+      "kernel-build-tools/linux-x86/bin"
+    ],
     "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
     "anykernel_branch": "sun",
     "zip_name_prefix": "S25_Kernel",
@@ -45,8 +63,17 @@
       "DEVICE_NAME_CN": "三星 Galaxy S23 系列",
       "DEVICE_NAME_EN": "Samsung Galaxy S23 Series"
     },
+    "toolchain_urls": [
+      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8550_S23/releases/download/toolchain/toolchain_part_aa.tar.gz",
+      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8550_S23/releases/download/toolchain/toolchain_part_ab.tar.gz",
+      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8550_S23/releases/download/toolchain/toolchain_part_ac.tar.gz"
+    ],
     "toolchain_path_prefix": "prebuilts",
-    "toolchain_path_exports": ["build-tools/linux-x86/bin", "clang/host/linux-x86/clang-r450784e/bin"],
+    "toolchain_path_exports": [
+      "build-tools/linux-x86/bin", 
+      "build-tools/path/linux-x86",
+      "clang/host/linux-x86/clang-r450784e/bin"
+    ],
     "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
     "anykernel_branch": "kalama",
     "zip_name_prefix": "S23_kernel",
@@ -61,8 +88,18 @@
       "DEVICE_NAME_CN": "三星 Galaxy S24 Snapdragon 系列",
       "DEVICE_NAME_EN": "Samsung Galaxy S24 Snapdragon Series"
     },
+    "toolchain_urls": [
+      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8650/releases/download/toolchain/toolchainS24.tar.gz.00",
+      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8650/releases/download/toolchain/toolchainS24.tar.gz.01"
+    ],
     "toolchain_path_prefix": "prebuilts",
-    "toolchain_path_exports": ["build-tools/linux-x86/bin", "clang/host/linux-x86/clang-r487747c/bin", "kernel-build-tools/linux-x86/bin"],
+    "toolchain_path_exports": [
+      "build-tools/linux-x86/bin",
+      "build-tools/path/linux-x86",
+      "clang/host/linux-x86/clang-r487747c/bin",
+      "clang-tools/linux-x86/bin",
+      "kernel-build-tools/linux-x86/bin"
+    ],
     "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
     "anykernel_branch": "pineapple",
     "zip_name_prefix": "S24_Snapdragon_kernel",
@@ -77,9 +114,17 @@
       "DEVICE_NAME_CN": "三星 Galaxy Tab S10 系列",
       "DEVICE_NAME_EN": "Samsung Galaxy Tab S10 Series"
     },
-    "disable_security": ["PROCA", "PROCA_GKI_10", "PROCA_S_OS", "GAF", "GAF_V6"],
+    "disable_security": ["PROCA", "PROCA_GKI_10", "PROCA_S_OS", "GAF", "GAF_V6", "FIVE_CERT_USER", "FIVE_DEFAULT_HASH"],
+    "toolchain_urls": [
+      "https://github.com/YuzakiKokuban/android_kernel_samsung_mt6989_TabS10/releases/download/toolchain/toolchainS10.tar.gz.001",
+      "https://github.com/YuzakiKokuban/android_kernel_samsung_mt6989_TabS10/releases/download/toolchain/toolchainS10.tar.gz.002"
+    ],
     "toolchain_path_prefix": "prebuilts",
-    "toolchain_path_exports": ["build-tools/linux-x86/bin", "clang/host/linux-x86/clang-r487747c/bin"],
+    "toolchain_path_exports": [
+      "build-tools/linux-x86/bin", 
+      "build-tools/path/linux-x86",
+      "clang/host/linux-x86/clang-r487747c/bin"
+    ],
     "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
     "anykernel_branch": "mt6989",
     "zip_name_prefix": "TabS10_kernel",
