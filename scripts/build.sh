@@ -105,12 +105,26 @@ fi
 
 make "${MAKE_ARGS[@]}" $PROJECT_DEFCONFIG
 
+declare -a DISABLE_CONFIGS=(
+    "UH" 
+    "RKP" 
+    "KDP" 
+    "SECURITY_DEFEX" 
+    "INTEGRITY" 
+    "FIVE" 
+    "TRIM_UNUSED_KSYMS"
+)
+
 if [ -n "$PROJECT_DISABLE_SECURITY" ]; then
-    DISABLE_LIST=$(echo "$PROJECT_DISABLE_SECURITY" | python3 -c "import sys, json; print(' '.join(json.load(sys.stdin)))")
-    for config in $DISABLE_LIST; do
-        scripts/config --file out/.config --disable "$config"
+    JSON_LIST=$(echo "$PROJECT_DISABLE_SECURITY" | python3 -c "import sys, json; print(' '.join(json.load(sys.stdin)))")
+    for config in $JSON_LIST; do
+        DISABLE_CONFIGS+=("$config")
     done
 fi
+
+for config in "${DISABLE_CONFIGS[@]}"; do
+    scripts/config --file out/.config --disable "$config"
+done
 
 if [[ "$PROJECT_LTO" == "thin" ]]; then
     scripts/config --file out/.config -e LTO_CLANG_THIN -d LTO_CLANG_FULL
