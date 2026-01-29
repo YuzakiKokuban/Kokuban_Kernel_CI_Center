@@ -21,12 +21,9 @@ case "$BUILD_VARIANT" in
     ;;
 esac
 
-echo "--- Building Variant: $BUILD_VARIANT (Suffix: $VERSION_SUFFIX) ---"
-
 if [ -f "../KernelSU/kernel/setup.sh" ]; then
     echo "KernelSU already setup."
 else
-    echo "--- Setting up KernelSU for $BUILD_VARIANT ---"
     if [[ "$BUILD_VARIANT" == "resukisu" ]]; then
         curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash -s builtin
     elif [[ "$BUILD_VARIANT" == "mksu" ]]; then
@@ -34,11 +31,6 @@ else
     elif [[ "$BUILD_VARIANT" == "ksu" ]]; then
         curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
     fi
-fi
-
-if [ -n "$PROJECT_TOOLCHAIN_URLS" ]; then
-    # Custom toolchain download logic if needed
-    echo "Toolchain URLs provided but skipped in simplified script."
 fi
 
 export PATH="$PWD/$PROJECT_TOOLCHAIN_PREFIX/bin:$PATH"
@@ -72,7 +64,6 @@ fi
 
 make O=out -j$(nproc --all)
 
-echo "--- Packaging ---"
 git clone "$PROJECT_AK3_REPO" -b "$PROJECT_AK3_BRANCH" AnyKernel3
 cp out/arch/arm64/boot/Image AnyKernel3/
 cd AnyKernel3

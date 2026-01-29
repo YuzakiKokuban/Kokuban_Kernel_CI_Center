@@ -1,0 +1,32 @@
+name: Release All Branches
+on:
+  workflow_dispatch:
+    inputs:
+      project:
+        description: 'Select Project'
+        required: true
+        type: choice
+        options: [z5_sm8550, s25_sm8750, s23_sm8550, s24_sm8650, tabs10_mt6989]
+
+jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate Matrix
+        id: set-matrix
+        run: python3 scripts/ci_core.py matrix --project ${{ inputs.project }}
+
+  build:
+    needs: matrix
+    strategy:
+      matrix: ${{ fromJson(needs.matrix.outputs.matrix) }}
+      fail-fast: false
+    uses: ./.github/workflows/build_kernel.yml 
+    with:
+      project: ${{ inputs.project }}
+      branch: ${{ matrix.branch }}
+      do_release: true
+    secrets: inherit

@@ -1,6 +1,20 @@
 name: Setup Kernel Repos
 on:
   workflow_dispatch:
+    inputs:
+      commit_message:
+        description: 'Commit Message'
+        required: true
+        default: '[skip ci] ci: Sync central CI files'
+      readme_language:
+        description: 'README Language'
+        required: true
+        type: choice
+        options:
+          - both
+          - zh-CN
+          - en-US
+        default: 'both'
 
 jobs:
   setup:
@@ -16,5 +30,9 @@ jobs:
       - name: Initialize Repositories
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          WEBHOOK_SECRET: ${{ secrets.PUSH_SERVER_WEBHOOK_SECRET }}
         run: |
-          python3 scripts/ci_core.py setup --token "${{ secrets.GH_TOKEN }}"
+          python3 scripts/ci_core.py setup \
+            --token "${{ secrets.GH_TOKEN }}" \
+            --commit_message "${{ inputs.commit_message }}" \
+            --readme_language "${{ inputs.readme_language }}"
