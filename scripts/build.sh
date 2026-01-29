@@ -40,11 +40,13 @@ if [ -n "$PROJECT_TOOLCHAIN_URLS" ]; then
     URLS=$(echo "$PROJECT_TOOLCHAIN_URLS" | python3 -c "import sys, json; print(' '.join(json.load(sys.stdin)))")
     
     for url in $URLS; do
-        wget "$url"
+        wget -q "$url"
     done
     
-    if ls *.tar.gz.00 1> /dev/null 2>&1; then
+    if ls *.tar.gz.[0-9]* 1> /dev/null 2>&1; then
         cat *.tar.gz.* | tar -zxf - -C ..
+    elif ls *part_aa* 1> /dev/null 2>&1 || ls *_aa.tar.gz 1> /dev/null 2>&1 || ls *.tar.gz.aa 1> /dev/null 2>&1; then
+        cat *.tar.gz | tar -zxf - -C ..
     elif ls *.tar.gz 1> /dev/null 2>&1; then
         for tarball in *.tar.gz; do
             tar -zxf "$tarball" -C ..
@@ -55,11 +57,7 @@ if [ -n "$PROJECT_TOOLCHAIN_URLS" ]; then
     rm -rf toolchain_download
 fi
 
-if [[ "$PROJECT_EXTRA_HOST_ENV" == "true" ]]; then
-    export LD_LIBRARY_PATH="$PWD/$PROJECT_TOOLCHAIN_PREFIX/build-tools/linux-x86/lib64:$LD_LIBRARY_PATH"
-fi
-
-export PATH="$PWD/$PROJECT_TOOLCHAIN_PREFIX/bin:$PATH"
+TOOLCHAIN_BASE_PATH="$PWD/$PROJECT_TOOLCHAIN_PREFIX"
 
 if [ -n "$PROJECT_TOOLCHAIN_EXPORTS" ]; then
     EXPORTS=$(echo "$PROJECT_TOOLCHAIN_EXPORTS" | python3 -c "import sys, json; print(' '.join(json.load(sys.stdin)))")
@@ -70,23 +68,35 @@ if [ -n "$PROJECT_TOOLCHAIN_EXPORTS" ]; then
     done
 fi
 
+if [[ "$PROJECT_EXTRA_HOST_ENV" == "true" ]]; then
+    LLD_COMPILER_RT="-fuse-ld=lld --rtlib=compiler-rt"
+    sysroot_flags+="--sysroot=$TOOLCHAIN_BASE_PATH/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8/sysroot "
+    cflags+="-I$TOOLCHAIN_BASE_PATH/kernel-build-tools/linux-x86/include "
+    ldflags+="-L $TOOLCHAIN_BASE_PATH/kernel-build-tools/linux-x86/lib64 "
+    ldflags+=${LLD_COMPILER_RT}
+    export LD_LIBRARY_PATH="$TOOLCHAIN_BASE_PATH/kernel-build-tools/linux-x86/lib64:$LD_LIBRARY_PATH"
+    export HOSTCFLAGS="$sysroot_flags $cflags"
+    export HOSTLDFLAGS="$sysroot_flags $ldflags"
+fi
+
 export ARCH=arm64
 export CLANG_TRIPLE=aarch64-linux-gnu-
 export CROSS_COMPILE=aarch64-linux-gnu-
 export CROSS_COMPILE_COMPAT=arm-linux-gnueabi-
+
+TARGET_SOC_NAME=$(echo "$PROJECT_KEY" | cut -d'_' -f2)
 
 if command -v ccache >/dev/null; then
     export CC="ccache clang"
     export CXX="ccache clang++"
     export CCACHE_DIR="$PWD/.ccache"
     ccache -M 5G
+    MAKE_ARGS="O=out ARCH=arm64 CC='ccache clang' LLVM=1 LLVM_IAS=1 TARGET_SOC=${TARGET_SOC_NAME}"
+else
+    MAKE_ARGS="O=out ARCH=arm64 CC=clang LLVM=1 LLVM_IAS=1 TARGET_SOC=${TARGET_SOC_NAME}"
 fi
 
-if [[ "$PROJECT_LTO" == "thin" ]]; then
-    export LTO=thin
-fi
-
-make O=out $PROJECT_DEFCONFIG
+make ${MAKE_ARGS} $PROJECT_DEFCONFIG
 
 if [ -n "$PROJECT_DISABLE_SECURITY" ]; then
     DISABLE_LIST=$(echo "$PROJECT_DISABLE_SECURITY" | python3 -c "import sys, json; print(' '.join(json.load(sys.stdin)))")
@@ -95,7 +105,24 @@ if [ -n "$PROJECT_DISABLE_SECURITY" ]; then
     done
 fi
 
-make O=out -j$(nproc --all)
+if [[ "$PROJECT_LTO" == "thin" ]]; then
+    scripts/config --file out/.config -e LTO_CLANG_THIN -d LTO_CLANG_FULL
+elif [[ "$PROJECT_LTO" == "full" ]]; then
+    scripts/config --file out/.config -e LTO_CLANG_FULL -d LTO_CLANG_THIN
+fi
+
+FINAL_LOCALVERSION="${PROJECT_LOCALVERSION_BASE}-${VERSION_SUFFIX}"
+
+if [ "$PROJECT_VERSION_METHOD" == "file" ]; then
+    echo "${FINAL_LOCALVERSION}-g$(git rev-parse --short HEAD)" > ./localversion
+    MAKE_ARGS_BUILD="${MAKE_ARGS}"
+else
+    MAKE_ARGS_BUILD="${MAKE_ARGS} LOCALVERSION=${FINAL_LOCALVERSION}"
+fi
+
+make -j$(nproc) ${MAKE_ARGS_BUILD}
+
+if [ "$PROJECT_VERSION_METHOD" == "file" ]; then echo -n > ./localversion; fi
 
 git clone "$PROJECT_AK3_REPO" -b "$PROJECT_AK3_BRANCH" AnyKernel3
 cp out/arch/arm64/boot/Image AnyKernel3/
