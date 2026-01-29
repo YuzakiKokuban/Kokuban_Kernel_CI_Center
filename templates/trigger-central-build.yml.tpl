@@ -3,7 +3,7 @@
 name: Trigger Central Build
 on:
   push:
-    branches: [ main, sukisuultra, mksu, ksu ]
+    branches: [ main, resukisu, mksu, ksu ]
 jobs:
   trigger:
     runs-on: ubuntu-latest

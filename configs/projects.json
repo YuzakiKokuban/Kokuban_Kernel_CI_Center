@@ -1,506 +1,68 @@
 {
-  "s23_sm8550": {
-    "repo": "YuzakiKokuban/android_kernel_samsung_sm8550_S23",
+  "z5_sm8550": {
+    "repo": "YuzakiKokuban/android_kernel_samsung_sm8550_Z5",
     "defconfig": "kalama_gki_defconfig",
-    "localversion_base": "-android13-Kokuban-Firefly-EYI7",
+    "localversion_base": "-android13-Kokuban-Mei-FYK3",
     "lto": "thin",
-    "supported_ksu": [
-      "sukisuultra",
-      "mksu",
-      "ksu"
-    ],
-    "readme_placeholders": {
-      "DEVICE_NAME_CN": "三星 Galaxy S23 系列",
-      "DEVICE_NAME_EN": "Samsung Galaxy S23 Series"
-    },
-    "toolchain_urls": [
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8550_S23/releases/download/toolchain/toolchain_part_aa.tar.gz",
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8550_S23/releases/download/toolchain/toolchain_part_ab.tar.gz",
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8550_S23/releases/download/toolchain/toolchain_part_ac.tar.gz"
-    ],
+    "supported_ksu": ["resukisu", "mksu", "ksu"],
     "toolchain_path_prefix": "prebuilts",
-    "toolchain_path_exports": [
-      "build-tools/linux-x86/bin",
-      "build-tools/path/linux-x86",
-      "clang/host/linux-x86/clang-r450784e/bin"
-    ],
+    "toolchain_path_exports": ["build-tools/linux-x86/bin", "clang/host/linux-x86/clang-r450784e/bin"],
     "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
-    "anykernel_branch": "kalama",
-    "zip_name_prefix": "S23_kernel",
-    "push_build_enabled": true,
-    "push_server": {
-      "enabled": true,
-      "webhook_url": "http://74.176.37.71:8080/webhook"
-    }
-  },
-  "s24_sm8650": {
-    "repo": "YuzakiKokuban/android_kernel_samsung_sm8650",
-    "defconfig": "pineapple_gki_defconfig",
-    "localversion_base": "-android14-Kokuban-Elysia-CYL1",
-    "lto": "",
-    "supported_ksu": [
-      "sukisuultra",
-      "mksu",
-      "ksu"
-    ],
-    "readme_placeholders": {
-      "DEVICE_NAME_CN": "三星 Galaxy S24 Snapdragon 系列",
-      "DEVICE_NAME_EN": "Samsung Galaxy S24 Snapdragon Series"
-    },
-    "toolchain_urls": [
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8650/releases/download/toolchain/toolchainS24.tar.gz.00",
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8650/releases/download/toolchain/toolchainS24.tar.gz.01"
-    ],
-    "toolchain_path_prefix": "prebuilts",
-    "toolchain_path_exports": [
-      "build-tools/linux-x86/bin",
-      "build-tools/path/linux-x86",
-      "clang/host/linux-x86/clang-r487747c/bin",
-      "clang-tools/linux-x86/bin",
-      "kernel-build-tools/linux-x86/bin"
-    ],
-    "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
-    "anykernel_branch": "pineapple",
-    "zip_name_prefix": "S24_Snapdragon_kernel",
-    "push_build_enabled": true,
-    "push_server": {
-      "enabled": true,
-      "webhook_url": "http://74.176.37.71:8080/webhook"
-    }
+    "anykernel_branch": "kalama_z",
+    "zip_name_prefix": "Z5_Kernel",
+    "push_server": { "enabled": false }
   },
   "s25_sm8750": {
     "repo": "YuzakiKokuban/android_kernel_samsung_sm8750",
     "defconfig": "sun_gki_defconfig",
     "localversion_base": "-android15-Kokuban-Herta-BYIF",
-    "lto": "",
-    "supported_ksu": [
-      "sukisuultra",
-      "mksu",
-      "ksu"
-    ],
-    "readme_placeholders": {
-      "DEVICE_NAME_CN": "三星 Galaxy S25 系列",
-      "DEVICE_NAME_EN": "Samsung Galaxy S25 Series"
-    },
+    "supported_ksu": ["resukisu", "mksu", "ksu"],
     "version_method": "file",
     "extra_host_env": true,
-    "disable_security": [
-      "PROCA",
-      "PROCA_GKI_10",
-      "PROCA_S_OS",
-      "PROCA_CERTIFICATES_XATTR",
-      "PROCA_CERT_ENG",
-      "PROCA_CERT_USER",
-      "GAF",
-      "GAF_V6",
-      "FIVE_CERT_USER",
-      "FIVE_DEFAULT_HASH"
-    ],
-    "toolchain_urls": [
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8750/releases/download/toolchain/toolchainS25.tar.gz.00",
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8750/releases/download/toolchain/toolchainS25.tar.gz.01"
-    ],
+    "disable_security": ["PROCA", "PROCA_GKI_10", "PROCA_S_OS", "GAF", "GAF_V6", "FIVE_CERT_USER"],
     "toolchain_path_prefix": "kernel_platform/prebuilts",
-    "toolchain_path_exports": [
-      "build-tools/linux-x86/bin",
-      "build-tools/path/linux-x86",
-      "clang/host/linux-x86/clang-r510928/bin",
-      "clang-tools/linux-x86/bin",
-      "kernel-build-tools/linux-x86/bin"
-    ],
+    "toolchain_path_exports": ["build-tools/linux-x86/bin", "clang/host/linux-x86/clang-r510928/bin", "kernel-build-tools/linux-x86/bin"],
     "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
     "anykernel_branch": "sun",
-    "zip_name_prefix": "S25_kernel",
-    "push_build_enabled": true,
-    "push_server": {
-      "enabled": true,
-      "webhook_url": "http://74.176.37.71:8080/webhook"
-    }
+    "zip_name_prefix": "S25_Kernel",
+    "push_server": { "enabled": true, "webhook_url": "http://74.176.37.71:8080/webhook" }
+  },
+  "s23_sm8550": {
+    "repo": "YuzakiKokuban/android_kernel_samsung_sm8550_S23",
+    "defconfig": "kalama_gki_defconfig",
+    "localversion_base": "-android13-Kokuban-Firefly-EYI7",
+    "lto": "thin",
+    "supported_ksu": ["resukisu", "mksu", "ksu"],
+    "toolchain_path_prefix": "prebuilts",
+    "toolchain_path_exports": ["build-tools/linux-x86/bin", "clang/host/linux-x86/clang-r450784e/bin"],
+    "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
+    "anykernel_branch": "kalama",
+    "zip_name_prefix": "S23_kernel",
+    "push_server": { "enabled": true, "webhook_url": "http://74.176.37.71:8080/webhook" }
+  },
+  "s24_sm8650": {
+    "repo": "YuzakiKokuban/android_kernel_samsung_sm8650",
+    "defconfig": "pineapple_gki_defconfig",
+    "localversion_base": "-android14-Kokuban-Elysia-CYL1",
+    "supported_ksu": ["resukisu", "mksu", "ksu"],
+    "toolchain_path_prefix": "prebuilts",
+    "toolchain_path_exports": ["build-tools/linux-x86/bin", "clang/host/linux-x86/clang-r487747c/bin", "kernel-build-tools/linux-x86/bin"],
+    "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
+    "anykernel_branch": "pineapple",
+    "zip_name_prefix": "S24_Snapdragon_kernel",
+    "push_server": { "enabled": true, "webhook_url": "http://74.176.37.71:8080/webhook" }
   },
   "tabs10_mt6989": {
     "repo": "YuzakiKokuban/android_kernel_samsung_mt6989_TabS10",
     "defconfig": "mt6989_defconfig",
     "localversion_base": "-android14-Kokuban-Exusiai-CYI6",
-    "lto": "",
-    "supported_ksu": [
-      "sukisuultra",
-      "mksu",
-      "ksu"
-    ],
-    "readme_placeholders": {
-      "DEVICE_NAME_CN": "三星 Galaxy Tab S10 系列",
-      "DEVICE_NAME_EN": "Samsung Galaxy Tab S10 Series"
-    },
-    "disable_security": [
-      "PROCA",
-      "PROCA_GKI_10",
-      "PROCA_S_OS",
-      "PROCA_CERTIFICATES_XATTR",
-      "PROCA_CERT_ENG",
-      "PROCA_CERT_USER",
-      "GAF",
-      "GAF_V6",
-      "FIVE_CERT_USER",
-      "FIVE_DEFAULT_HASH"
-    ],
-    "toolchain_urls": [
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_mt6989_TabS10/releases/download/toolchain/toolchainS10.tar.gz.001",
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_mt6989_TabS10/releases/download/toolchain/toolchainS10.tar.gz.002"
-    ],
+    "supported_ksu": ["resukisu", "mksu", "ksu"],
+    "disable_security": ["PROCA", "PROCA_GKI_10", "PROCA_S_OS", "GAF", "GAF_V6"],
     "toolchain_path_prefix": "prebuilts",
-    "toolchain_path_exports": [
-      "build-tools/linux-x86/bin",
-      "build-tools/path/linux-x86",
-      "clang/host/linux-x86/clang-r487747c/bin"
-    ],
+    "toolchain_path_exports": ["build-tools/linux-x86/bin", "clang/host/linux-x86/clang-r487747c/bin"],
     "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
     "anykernel_branch": "mt6989",
     "zip_name_prefix": "TabS10_kernel",
-    "push_build_enabled": true,
-    "push_server": {
-      "enabled": true,
-      "webhook_url": "http://74.176.37.71:8080/webhook"
-    }
-  },
-  "tabs9_sm8550": {
-    "repo": "YuzakiKokuban/android_kernel_samsung_sm8550_TabS9",
-    "defconfig": "kalama_gki_defconfig",
-    "localversion_base": "-android13-Kokuban-Hutao-CYD9",
-    "lto": "thin",
-    "supported_ksu": [
-      "sukisuultra",
-      "mksu",
-      "ksu"
-    ],
-    "readme_placeholders": {
-      "DEVICE_NAME_CN": "三星 Galaxy Tab S9 系列",
-      "DEVICE_NAME_EN": "Samsung Galaxy Tab S9 Series"
-    },
-    "toolchain_urls": [
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8550_S23/releases/download/toolchain/toolchain_part_aa.tar.gz",
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8550_S23/releases/download/toolchain/toolchain_part_ab.tar.gz",
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8550_S23/releases/download/toolchain/toolchain_part_ac.tar.gz"
-    ],
-    "toolchain_path_prefix": "prebuilts",
-    "toolchain_path_exports": [
-      "build-tools/linux-x86/bin",
-      "build-tools/path/linux-x86",
-      "clang/host/linux-x86/clang-r450784e/bin"
-    ],
-    "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
-    "anykernel_branch": "kalama_tab",
-    "zip_name_prefix": "TabS9_Kernel",
-    "version_method": "param",
-    "extra_host_env": false,
-    "disable_security": [],
-    "push_build_enabled": false,
-    "push_server": {
-      "enabled": true,
-      "webhook_url": "http://74.176.37.71:8080/webhook"
-    }
-  },
-  "s25e_sm8750": {
-    "repo": "YuzakiKokuban/android_kernel_samsung_sm8750_edge",
-    "defconfig": "sun_gki_defconfig",
-    "localversion_base": "-android15-Kokuban-Mon3tr-AYE5",
-    "lto": "",
-    "supported_ksu": [
-      "sukisuultra",
-      "mksu",
-      "ksu"
-    ],
-    "readme_placeholders": {
-      "DEVICE_NAME_CN": "三星 Galaxy S25 Edge",
-      "DEVICE_NAME_EN": "Samsung Galaxy S25 Edge"
-    },
-    "toolchain_urls": [
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8750/releases/download/toolchain/toolchainS25.tar.gz.00",
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8750/releases/download/toolchain/toolchainS25.tar.gz.01"
-    ],
-    "toolchain_path_prefix": "kernel_platform/prebuilts",
-    "toolchain_path_exports": [
-      "build-tools/linux-x86/bin",
-      "build-tools/path/linux-x86",
-      "clang/host/linux-x86/clang-r510928/bin",
-      "clang-tools/linux-x86/bin",
-      "kernel-build-tools/linux-x86/bin"
-    ],
-    "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
-    "anykernel_branch": "sun_edge",
-    "zip_name_prefix": "S25_Edge_Kernel",
-    "version_method": "file",
-    "extra_host_env": true,
-    "disable_security": [
-      "PROCA",
-      "PROCA_GKI_10",
-      "PROCA_S_OS",
-      "PROCA_CERTIFICATES_XATTR",
-      "PROCA_CERT_ENG",
-      "PROCA_CERT_USER",
-      "GAF",
-      "GAF_V6",
-      "FIVE_CERT_USER",
-      "FIVE_DEFAULT_HASH"
-    ],
-    "push_build_enabled": false,
-    "push_server": {
-      "enabled": true,
-      "webhook_url": "http://74.176.37.71:8080/webhook"
-    }
-  },
-  "z4_sm8475": {
-    "repo": "YuzakiKokuban/android_kernel_samsung_sm8475",
-    "defconfig": "taro_gki_defconfig",
-    "localversion_base": "-android12-Kokuban-Bronya-HYGB",
-    "lto": "thin",
-    "supported_ksu": [
-      "sukisuultra",
-      "mksu",
-      "ksu"
-    ],
-    "toolchain_urls": [
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8475/releases/download/toolchain/toolchain.tar.gz"
-    ],
-    "toolchain_path_prefix": "prebuilts",
-    "toolchain_path_exports": [
-      "build-tools/linux-x86/bin",
-      "build-tools/path/linux-x86",
-      "clang/host/linux-x86/clang-r416183b/bin",
-      "gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8/bin"
-    ],
-    "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
-    "anykernel_branch": "taro",
-    "zip_name_prefix": "Z4_Kernel",
-    "version_method": "param",
-    "extra_host_env": false,
-    "disable_security": [],
-    "readme_placeholders": {
-      "DEVICE_NAME_CN": "三星 Galaxy Z4 系列",
-      "DEVICE_NAME_EN": "Samsung Galaxy Z4 Series"
-    },
-    "push_build_enabled": false,
-    "push_server": {
-      "enabled": true,
-      "webhook_url": "http://74.176.37.71:8080/webhook"
-    }
-  },
-  "z5_sm8550": {
-    "repo": "YuzakiKokuban/android_kernel_samsung_sm8550_Z5",
-    "defconfig": "kalama_gki_defconfig",
-    "localversion_base": "-android13-Kokuban-Mei-FYIA",
-    "lto": "thin",
-    "supported_ksu": [
-      "sukisuultra",
-      "mksu",
-      "ksu"
-    ],
-    "toolchain_urls": [
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8550_S23/releases/download/toolchain/toolchain_part_aa.tar.gz",
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8550_S23/releases/download/toolchain/toolchain_part_ab.tar.gz",
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8550_S23/releases/download/toolchain/toolchain_part_ac.tar.gz"
-    ],
-    "toolchain_path_prefix": "prebuilts",
-    "toolchain_path_exports": [
-      "build-tools/linux-x86/bin",
-      "build-tools/path/linux-x86",
-      "clang/host/linux-x86/clang-r450784e/bin"
-    ],
-    "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
-    "anykernel_branch": "kalama_z",
-    "zip_name_prefix": "Z5_Kernel",
-    "version_method": "param",
-    "extra_host_env": false,
-    "disable_security": [],
-    "readme_placeholders": {
-      "DEVICE_NAME_CN": "三星 Galaxy Z5 系列",
-      "DEVICE_NAME_EN": "Galaxy Z5 Series"
-    },
-    "push_build_enabled": false,
-    "push_server": {
-      "enabled": true,
-      "webhook_url": "http://74.176.37.71:8080/webhook"
-    }
-  },
-  "s24_s5e9945": {
-    "repo": "YuzakiKokuban/android_kernel_samsung_s5e9945",
-    "defconfig": "s5e9945_gki_defconfig",
-    "localversion_base": "-android14-Kokuban-Haruka-CYI5",
-    "lto": "thin",
-    "supported_ksu": [
-      "sukisuultra",
-      "mksu",
-      "ksu"
-    ],
-    "toolchain_urls": [
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_s5e9945/releases/download/toolchain/toolchain.tar.gz.00",
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_s5e9945/releases/download/toolchain/toolchain.tar.gz.01"
-    ],
-    "toolchain_path_prefix": "prebuilts",
-    "toolchain_path_exports": [
-      "build-tools/linux-x86/bin",
-      "build-tools/path/linux-x86",
-      "clang/host/linux-x86/clang-r487747c/bin",
-      "clang-tools/linux-x86/bin",
-      "kernel-build-tools/linux-x86/bin"
-    ],
-    "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
-    "anykernel_branch": "s5e9945",
-    "zip_name_prefix": "S24_Exynos_Kernel",
-    "version_method": "param",
-    "extra_host_env": false,
-    "disable_security": [
-      "PROCA",
-      "PROCA_GKI_10",
-      "PROCA_S_OS",
-      "PROCA_CERTIFICATES_XATTR",
-      "PROCA_CERT_ENG",
-      "PROCA_CERT_USER",
-      "GAF",
-      "GAF_V6",
-      "FIVE_CERT_USER",
-      "FIVE_DEFAULT_HASH"
-    ],
-    "readme_placeholders": {
-      "DEVICE_NAME_CN": "三星 Galaxy S24 Exynos 系列",
-      "DEVICE_NAME_EN": "Samsung Galaxy S24 Exynos Series"
-    },
-    "push_build_enabled": false,
-    "push_server": {
-      "enabled": true,
-      "webhook_url": "http://74.176.37.71:8080/webhook"
-    }
-  },
-  "z3_sm8350": {
-    "repo": "YuzakiKokuban/android_kernel_samsung_sm8350_Z3",
-    "defconfig": "q2q_defconfig",
-    "localversion_base": "-Kokuban-Wisadel-JYD9",
-    "lto": "thin",
-    "supported_ksu": [
-      "sukisuultra"
-    ],
-    "toolchain_urls": [
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8475/releases/download/toolchain/toolchain.tar.gz"
-    ],
-    "toolchain_path_prefix": "prebuilts",
-    "toolchain_path_exports": [
-      "clang/host/linux-x86/clang-r416183b/bin",
-      "gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8/bin",
-      "build-tools/linux-x86/bin",
-      "build-tools/path/linux-x86"
-    ],
-    "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
-    "anykernel_branch": "Lahaina",
-    "zip_name_prefix": "Z3_Kernel",
-    "version_method": "param",
-    "extra_host_env": false,
-    "disable_security": [
-      "PROCA",
-      "PROCA_GKI_10",
-      "PROCA_S_OS",
-      "PROCA_CERTIFICATES_XATTR",
-      "PROCA_CERT_ENG",
-      "PROCA_CERT_USER",
-      "GAF",
-      "GAF_V6",
-      "FIVE_CERT_USER",
-      "FIVE_DEFAULT_HASH"
-    ],
-    "readme_placeholders": {
-      "DEVICE_NAME_CN": "三星Galaxy Z3 系列",
-      "DEVICE_NAME_EN": "Samsung Galaxy Z3 Series"
-    },
-    "push_build_enabled": false,
-    "push_server": {
-      "enabled": true,
-      "webhook_url": "http://74.176.37.71:8080/webhook"
-    }
-  },
-  "tabs10fe_s5e8855": {
-    "repo": "YuzakiKokuban/android_kernel_samsung_s5e8855",
-    "defconfig": "s5e8855_gki_defconfig",
-    "localversion_base": "-android15-Kokuban-Rappa-AYG5",
-    "lto": "",
-    "supported_ksu": [
-      "sukisuultra",
-      "mksu",
-      "ksu"
-    ],
-    "toolchain_urls": [
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_s5e8855/releases/download/toolchain/toolchain.tar.gz.aa",
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_s5e8855/releases/download/toolchain/toolchain.tar.gz.ab"
-    ],
-    "toolchain_path_prefix": "prebuilts",
-    "toolchain_path_exports": [
-      "build-tools/linux-x86/bin",
-      "build-tools/path/linux-x86",
-      "clang/host/linux-x86/clang-r510928/bin",
-      "clang-tools/linux-x86/bin",
-      "kernel-build-tools/linux-x86/bin"
-    ],
-    "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
-    "anykernel_branch": "s5e8855",
-    "zip_name_prefix": "TabS10FE_Kernel",
-    "version_method": "param",
-    "extra_host_env": false,
-    "disable_security": [
-      "PROCA",
-      "PROCA_GKI_10",
-      "PROCA_S_OS",
-      "PROCA_CERTIFICATES_XATTR",
-      "PROCA_CERT_ENG",
-      "PROCA_CERT_USER",
-      "GAF",
-      "GAF_V6",
-      "FIVE_CERT_USER",
-      "FIVE_DEFAULT_HASH"
-    ],
-    "readme_placeholders": {
-      "DEVICE_NAME_CN": "三星 Galaxy Tab S10 FE 系列",
-      "DEVICE_NAME_EN": "Samsung Galaxy Tab S10 FE Series"
-    },
-    "push_build_enabled": false,
-    "push_server": {
-      "enabled": true,
-      "webhook_url": "http://74.176.37.71:8080/webhook"
-    }
-  },
-  "z6_sm8650": {
-    "repo": "YuzakiKokuban/android_kernel_samsung_sm8650_Z6",
-    "defconfig": "pineapple_gki_defconfig",
-    "localversion_base": "-android14-Kokuban-Cyrene-CYI7",
-    "lto": "",
-    "supported_ksu": [
-      "sukisuultra",
-      "mksu",
-      "ksu"
-    ],
-    "toolchain_urls": [
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8650/releases/download/toolchain/toolchainS24.tar.gz.00",
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8650/releases/download/toolchain/toolchainS24.tar.gz.01"
-    ],
-    "toolchain_path_prefix": "prebuilts",
-    "toolchain_path_exports": [
-      "build-tools/linux-x86/bin",
-      "build-tools/path/linux-x86",
-      "clang/host/linux-x86/clang-r487747c/bin",
-      "clang-tools/linux-x86/bin",
-      "kernel-build-tools/linux-x86/bin"
-    ],
-    "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
-    "anykernel_branch": "pineapple_z",
-    "zip_name_prefix": "Z6_Kernel",
-    "version_method": "param",
-    "extra_host_env": false,
-    "disable_security": [],
-    "readme_placeholders": {
-      "DEVICE_NAME_CN": "三星 Galaxy Z6 系列",
-      "DEVICE_NAME_EN": "Samsung Galaxy Z6 Series"
-    },
-    "push_build_enabled": false,
-    "push_server": {
-      "enabled": true,
-      "webhook_url": "http://74.176.37.71:8080/webhook"
-    }
+    "push_server": { "enabled": true, "webhook_url": "http://74.176.37.71:8080/webhook" }
   }
 }
-

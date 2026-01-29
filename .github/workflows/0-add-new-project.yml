@@ -1,146 +1,55 @@
-# .github/workflows/0-add-new-project.yml
-name: 0. Add New Kernel Project
+name: Add New Project
 on:
   workflow_dispatch:
     inputs:
       project_key:
-        description: '项目唯一标识 (例如 s26_sm8850)'
+        description: 'Project Key'
         required: true
-      device_names:
-        description: '设备中英文名 (用英文逗号分隔): 三星 Galaxy S25 系列,Samsung Galaxy S25 Series'
+      repo_path:
+        description: 'GitHub Repo (User/Repo)'
         required: true
-      core_config:
-        description: '核心配置 (4项, 用英文逗号分隔): 1.仓库路径,2.Defconfig,3.版本基础字符串,4.刷机包前缀'
+      defconfig:
+        description: 'Defconfig Name'
         required: true
-      build_config:
-        description: '编译选项 (3项, 用英文逗号分隔): 1.LTO(thin/full/留空),2.版本号方法(param/file),3.额外HOST环境(true/false)'
+      localversion:
+        description: 'Localversion Base'
         required: true
-      anykernel_config:
-        description: 'AnyKernel3 配置 (2项, 用英文逗号分隔): 1.仓库URL,2.分支名'
+      ak3_branch:
+        description: 'AnyKernel3 Branch'
+        default: 'master'
         required: true
-      toolchain_urls:
-        description: '工具链下载地址 (多个URL用英文逗号分隔)'
+      zip_name:
+        description: 'Zip Name Prefix'
+        default: 'Kernel'
         required: true
-      toolchain_path_prefix:
-        description: '工具链解压后的 prebuilts 相对路径 (例如 prebuilts)'
-        required: true
-      toolchain_path_exports:
-        description: '需要添加到 PATH 的工具链子目录 (多个路径用英文逗号分隔)'
-        required: true
-      disable_security:
-        description: '(可选) 需要禁用的三星安全特性 (多个特性用英文逗号分隔)'
-        required: false
-      webhook_url:
-        description: '(可选) 推送服务器的 Webhook URL。如果留空，则不启用推送。'
-        required: false
 
 jobs:
   add-project:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          token: ${{ secrets.ADMIN_TOKEN }}
-
-      - name: Install yq and jq
-        run: |
-          sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq
-          sudo chmod +x /usr/bin/yq
-          sudo apt-get install -y jq
-
-      - name: Update Project Files
-        env:
-          INPUT_PROJECT_KEY: ${{ github.event.inputs.project_key }}
-          INPUT_DEVICE_NAMES: ${{ github.event.inputs.device_names }}
-          INPUT_CORE_CONFIG: ${{ github.event.inputs.core_config }}
-          INPUT_BUILD_CONFIG: ${{ github.event.inputs.build_config }}
-          INPUT_AK3_CONFIG: ${{ github.event.inputs.anykernel_config }}
-          INPUT_TOOLCHAIN_URLS: ${{ github.event.inputs.toolchain_urls }}
-          INPUT_TOOLCHAIN_PATH_PREFIX: ${{ github.event.inputs.toolchain_path_prefix }}
-          INPUT_TOOLCHAIN_PATH_EXPORTS: ${{ github.event.inputs.toolchain_path_exports }}
-          INPUT_DISABLE_SECURITY: ${{ github.event.inputs.disable_security }}
-          INPUT_WEBHOOK_URL: ${{ github.event.inputs.webhook_url }}
-        run: |
-          # --- Parse Comma-Separated Inputs ---
-          DEVICE_NAME_CN=$(echo "$INPUT_DEVICE_NAMES" | cut -d',' -f1 | xargs)
-          DEVICE_NAME_EN=$(echo "$INPUT_DEVICE_NAMES" | cut -d',' -f2 | xargs)
-          REPO=$(echo "$INPUT_CORE_CONFIG" | cut -d',' -f1 | xargs)
-          DEFCONFIG=$(echo "$INPUT_CORE_CONFIG" | cut -d',' -f2 | xargs)
-          LOCALVERSION_BASE=$(echo "$INPUT_CORE_CONFIG" | cut -d',' -f3 | xargs)
-          ZIP_NAME_PREFIX=$(echo "$INPUT_CORE_CONFIG" | cut -d',' -f4 | xargs)
-          LTO=$(echo "$INPUT_BUILD_CONFIG" | cut -d',' -f1 | xargs)
-          VERSION_METHOD=$(echo "$INPUT_BUILD_CONFIG" | cut -d',' -f2 | xargs)
-          EXTRA_HOST_ENV=$(echo "$INPUT_BUILD_CONFIG" | cut -d',' -f3 | xargs)
-          ANYKERNEL_REPO=$(echo "$INPUT_AK3_CONFIG" | cut -d',' -f1 | xargs)
-          ANYKERNEL_BRANCH=$(echo "$INPUT_AK3_CONFIG" | cut -d',' -f2 | xargs)
-
-          # --- Convert comma-separated strings to JSON arrays ---
-          TOOLCHAIN_URLS_JSON=$(echo "$INPUT_TOOLCHAIN_URLS" | tr ',' '\n' | jq -R . | jq -s .)
-          TOOLCHAIN_PATH_EXPORTS_JSON=$(echo "$INPUT_TOOLCHAIN_PATH_EXPORTS" | tr ',' '\n' | jq -R . | jq -s .)
-          if [ -n "$INPUT_DISABLE_SECURITY" ]; then
-            DISABLE_SECURITY_JSON=$(echo "$INPUT_DISABLE_SECURITY" | tr ',' '\n' | jq -R . | jq -s .)
-          else
-            DISABLE_SECURITY_JSON="[]"
-          fi
-
-          # --- Build conditional JSON objects ---
-          if [ -n "$INPUT_WEBHOOK_URL" ]; then
-            PUSH_SERVER_JSON=$(jq -n --argjson enabled true --arg url "$INPUT_WEBHOOK_URL" '{push_server: {enabled: $enabled, webhook_url: $url}}')
-          else
-            PUSH_SERVER_JSON="{}"
-          fi
+          python-version: '3.10'
           
-          README_PLACEHOLDERS_JSON=$(jq -n --arg cn "$DEVICE_NAME_CN" --arg en "$DEVICE_NAME_EN" '{readme_placeholders: {DEVICE_NAME_CN: $cn, DEVICE_NAME_EN: $en}}')
-
-          # --- Build the main project object ---
-          BASE_PROJECT_JSON=$(jq -n \
-            --arg repo "$REPO" --arg defconfig "$DEFCONFIG" --arg localversion_base "$LOCALVERSION_BASE" --arg lto "$LTO" \
-            --argjson supported_ksu '["sukisuultra", "mksu", "ksu"]' \
-            --argjson toolchain_urls "$TOOLCHAIN_URLS_JSON" --arg toolchain_path_prefix "$INPUT_TOOLCHAIN_PATH_PREFIX" \
-            --argjson toolchain_path_exports "$TOOLCHAIN_PATH_EXPORTS_JSON" --arg anykernel_repo "$ANYKERNEL_REPO" \
-            --arg anykernel_branch "$ANYKERNEL_BRANCH" --arg zip_name_prefix "$ZIP_NAME_PREFIX" \
-            --arg version_method "$VERSION_METHOD" --argjson extra_host_env $EXTRA_HOST_ENV \
-            --argjson disable_security "$DISABLE_SECURITY_JSON" \
-            '{ repo: $repo, defconfig: $defconfig, localversion_base: $localversion_base, lto: $lto, supported_ksu: $supported_ksu, toolchain_urls: $toolchain_urls, toolchain_path_prefix: $toolchain_path_prefix, toolchain_path_exports: $toolchain_path_exports, anykernel_repo: $anykernel_repo, anykernel_branch: $anykernel_branch, zip_name_prefix: $zip_name_prefix, version_method: $version_method, extra_host_env: $extra_host_env, disable_security: $disable_security }')
-          
-          # --- Merge all objects to create the final project entry ---
-          FINAL_PROJECT_JSON=$(jq -s '.[0] * .[1] * .[2]' <(echo "$BASE_PROJECT_JSON") <(echo "$README_PLACEHOLDERS_JSON") <(echo "$PUSH_SERVER_JSON"))
-
-          # --- Update all relevant files ---
-          jq --arg key "$INPUT_PROJECT_KEY" --argjson value "$FINAL_PROJECT_JSON" '. + {($key): $value}' configs/projects.json > tmp.json && mv tmp.json configs/projects.json
-          echo "✅ Updated configs/projects.json"
-          yq e '.on.workflow_dispatch.inputs.project.options += ["'"$INPUT_PROJECT_KEY"'"]' -i .github/workflows/2-update-kernelsu.yml
-          echo "✅ Updated .github/workflows/2-update-kernelsu.yml"
-          yq e '.on.workflow_dispatch.inputs.project.options += ["'"$INPUT_PROJECT_KEY"'"]' -i .github/workflows/4-universal-build.yml
-          echo "✅ Updated .github/workflows/4-universal-build.yml"
-          yq e '.on.workflow_dispatch.inputs.project.options += ["'"$INPUT_PROJECT_KEY"'"]' -i .github/workflows/6-release-all-branches.yml
-          echo "✅ Updated .github/workflows/6-release-all-branches.yml"
-
-      - name: Commit and Push Changes
+      - name: Add to Configuration
         run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
-          git add configs/projects.json .github/workflows/2-update-kernelsu.yml .github/workflows/4-universal-build.yml .github/workflows/6-release-all-branches.yml
-          if [[ -n $(git status --porcelain) ]]; then
-            git commit -m "feat: Add new project '${{ github.event.inputs.project_key }}' via automated workflow"
-            git push
-            echo "🚀 Changes have been committed and pushed."
-          else
-            echo "No changes to commit."
-          fi
-          
-      - name: Display Next Steps
+          python3 scripts/ci_core.py add \
+            --key "${{ inputs.project_key }}" \
+            --repo "${{ inputs.repo_path }}" \
+            --defconfig "${{ inputs.defconfig }}" \
+            --localversion "${{ inputs.localversion }}" \
+            --ak3_branch "${{ inputs.ak3_branch }}" \
+            --zip_name "${{ inputs.zip_name }}"
+            
+      - name: Commit and Push
         run: |
-          REPO_URL=$(echo "${{ github.event.inputs.core_config }}" | cut -d',' -f1 | xargs)
-          echo "========================================================================"
-          echo "🎉 新项目 '${{ github.event.inputs.project_key }}' 已成功添加到 CI 中心！"
-          echo ""
-          echo "下一步操作:"
-          echo "1. 访问新的内核仓库: https://github.com/$REPO_URL"
-          echo "   在 Settings -> Secrets and variables -> Actions 中添加名为 'CI_TOKEN' 的 Secret，"
-          echo "   其值为你的 Personal Access Token。"
-          echo ""
-          echo "2. 返回本仓库 (Kokuban_Kernel_CI_Center) 的 Actions 页面，"
-          echo "   运行 '1. Setup Kernel Repositories' 工作流，为新仓库一键配置好触发器和 Webhook。"
-          echo "========================================================================"
+          git config --global user.name "Kokuban-Bot"
+          git config --global user.email "bot@kokuban.dev"
+          git add configs/projects.json
+          git commit -m "feat: add new project ${{ inputs.project_key }}"
+          git push

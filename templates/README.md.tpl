@@ -18,7 +18,7 @@
 
 * **性能优化**: 针对性的性能调度优化，带来更流畅的日常使用和游戏体验。
 
-* **KernelSU 集成**: 内置多种 KernelSU 版本（包括官方版、MKSU、SukiSU-Ultra），开箱即用。
+* **KernelSU 集成**: 内置多种 KernelSU 版本（包括官方版、MKSU、ReSukiSU），开箱即用。
 
 * **版本信息**: `__LOCALVERSION_BASE__`
 
@@ -40,9 +40,9 @@
 
   * 内置由 `5ec1cff` 修改的 KernelSU，特性是支持 Magic Mount，可以更方便地挂载模块。
 
-* **SukiSUU (SukiSU-Ultra)**
+* **ReSuki (ReSukiSU)**
 
-  * 内置功能强大的 SukiSU-Ultra，支持 SUSFS 和 KPM 模块，为高级玩家提供更多可玩性。
+  * 内置功能强大的 ReSukiSU，支持 SUSFS 和 KPM 模块，为高级玩家提供更多可玩性。
 
 ## ⚙️ 安装指南
 
@@ -82,7 +82,7 @@ KernelSU-Next 不是 KernelSU 官方开发的，也不是官方认可的改进�
 
 [岁月史书](https://web.archive.org/web/20250211155215/https://github.com/rifsxd/KernelSU-Next/issues/145)
 
-如果你想要类似功能的话，拜托用 **SukiSU** 好不好嘛～
+如果你想要类似功能的话，拜托用 **ReSukiSU** 好不好嘛～
 它更稳定，也更值得信赖！
 
 ---
@@ -115,7 +115,7 @@ This is a high-performance custom kernel for the **__DEVICE_NAME_EN__**, built u
 
 * **Performance-Tuned**: Targeted performance and scheduling optimizations for a smoother daily usage and gaming experience.
 
-* **KernelSU Integrated**: Comes with multiple KernelSU variants (Official, MKSU, SukiSU-Ultra) built-in for an out-of-the-box experience.
+* **KernelSU Integrated**: Comes with multiple KernelSU variants (Official, MKSU, ReSukiSU) built-in for an out-of-the-box experience.
 
 * **Version Info**: `__LOCALVERSION_BASE__`
 
@@ -137,9 +137,9 @@ This is a high-performance custom kernel for the **__DEVICE_NAME_EN__**, built u
 
   * Features KernelSU modified by `5ec1cff`, which notably supports Magic Mount for easier module management.
 
-* **SukiSUU (SukiSU-Ultra)**
+* **ReSuki (ReSukiSU)**
 
-  * Integrated with the powerful SukiSU-Ultra, supporting SUSFS and KPM modules, offering advanced features for power users.
+  * Integrated with the powerful ReSukiSU, supporting SUSFS and KPM modules, offering advanced features for power users.
 
 ## ⚙️ Installation Guide
 
@@ -179,7 +179,7 @@ Also, its developer has done some really confusing and questionable things...
 
 [Some Records](https://web.archive.org/web/20250211155215/https://github.com/rifsxd/KernelSU-Next/issues/145)
 
-If you need similar functionality, please use **SukiSU**, okay?
+If you need similar functionality, please use **ReSukiSU**, okay?
 It's much more stable and trustworthy!
 
 ---
