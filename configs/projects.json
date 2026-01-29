@@ -2,9 +2,13 @@
   "z5_sm8550": {
     "repo": "YuzakiKokuban/android_kernel_samsung_sm8550_Z5",
     "defconfig": "kalama_gki_defconfig",
-    "localversion_base": "-android13-Kokuban-Mei-FYK3",
+    "localversion_base": "-android13-Kokuban-Mei-FYIA",
     "lto": "thin",
     "supported_ksu": ["resukisu", "mksu", "ksu"],
+    "readme_placeholders": {
+      "DEVICE_NAME_CN": "三星 Galaxy Z5 系列",
+      "DEVICE_NAME_EN": "Samsung Galaxy Z5 Series"
+    },
     "toolchain_path_prefix": "prebuilts",
     "toolchain_path_exports": ["build-tools/linux-x86/bin", "clang/host/linux-x86/clang-r450784e/bin"],
     "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
@@ -20,6 +24,10 @@
     "version_method": "file",
     "extra_host_env": true,
     "disable_security": ["PROCA", "PROCA_GKI_10", "PROCA_S_OS", "GAF", "GAF_V6", "FIVE_CERT_USER"],
+    "readme_placeholders": {
+      "DEVICE_NAME_CN": "三星 Galaxy S25 系列",
+      "DEVICE_NAME_EN": "Samsung Galaxy S25 Series"
+    },
     "toolchain_path_prefix": "kernel_platform/prebuilts",
     "toolchain_path_exports": ["build-tools/linux-x86/bin", "clang/host/linux-x86/clang-r510928/bin", "kernel-build-tools/linux-x86/bin"],
     "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
@@ -33,6 +41,10 @@
     "localversion_base": "-android13-Kokuban-Firefly-EYI7",
     "lto": "thin",
     "supported_ksu": ["resukisu", "mksu", "ksu"],
+    "readme_placeholders": {
+      "DEVICE_NAME_CN": "三星 Galaxy S23 系列",
+      "DEVICE_NAME_EN": "Samsung Galaxy S23 Series"
+    },
     "toolchain_path_prefix": "prebuilts",
     "toolchain_path_exports": ["build-tools/linux-x86/bin", "clang/host/linux-x86/clang-r450784e/bin"],
     "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
@@ -45,6 +57,10 @@
     "defconfig": "pineapple_gki_defconfig",
     "localversion_base": "-android14-Kokuban-Elysia-CYL1",
     "supported_ksu": ["resukisu", "mksu", "ksu"],
+    "readme_placeholders": {
+      "DEVICE_NAME_CN": "三星 Galaxy S24 Snapdragon 系列",
+      "DEVICE_NAME_EN": "Samsung Galaxy S24 Snapdragon Series"
+    },
     "toolchain_path_prefix": "prebuilts",
     "toolchain_path_exports": ["build-tools/linux-x86/bin", "clang/host/linux-x86/clang-r487747c/bin", "kernel-build-tools/linux-x86/bin"],
     "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
@@ -57,6 +73,10 @@
     "defconfig": "mt6989_defconfig",
     "localversion_base": "-android14-Kokuban-Exusiai-CYI6",
     "supported_ksu": ["resukisu", "mksu", "ksu"],
+    "readme_placeholders": {
+      "DEVICE_NAME_CN": "三星 Galaxy Tab S10 系列",
+      "DEVICE_NAME_EN": "Samsung Galaxy Tab S10 Series"
+    },
     "disable_security": ["PROCA", "PROCA_GKI_10", "PROCA_S_OS", "GAF", "GAF_V6"],
     "toolchain_path_prefix": "prebuilts",
     "toolchain_path_exports": ["build-tools/linux-x86/bin", "clang/host/linux-x86/clang-r487747c/bin"],

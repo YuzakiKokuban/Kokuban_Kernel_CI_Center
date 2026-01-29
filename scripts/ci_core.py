@@ -5,10 +5,33 @@ import sys
 import subprocess
 import shutil
 import re
+import urllib.request
 
 CONFIG_PATH = "configs/projects.json"
+UPSTREAM_PATH = "configs/upstream_commits.json"
 TEMPLATES_DIR = "templates"
 WORKSPACE_DIR = "kernel_workspace"
+
+KSU_CONFIG = {
+    "ksu": {
+        "repo": "https://github.com/tiann/KernelSU.git",
+        "branch": "main",
+        "setup_url": "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh",
+        "setup_args": ["main"]
+    },
+    "mksu": {
+        "repo": "https://github.com/5ec1cff/KernelSU.git",
+        "branch": "main",
+        "setup_url": "https://raw.githubusercontent.com/5ec1cff/KernelSU/main/kernel/setup.sh",
+        "setup_args": ["main"]
+    },
+    "resukisu": {
+        "repo": "https://github.com/ReSukiSU/ReSukiSU.git",
+        "branch": "main",
+        "setup_url": "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh",
+        "setup_args": ["builtin"] 
+    }
+}
 
 def run_cmd(cmd, cwd=None, check=True):
     try:
@@ -23,27 +46,35 @@ def run_cmd(cmd, cwd=None, check=True):
         return result.stdout.strip()
     except subprocess.CalledProcessError as e:
         if check:
+            print(f"Command failed: {e.cmd}")
+            print(f"Stderr: {e.stderr}")
             raise e
         return None
 
-def load_config():
-    if not os.path.exists(CONFIG_PATH):
+def load_json(path):
+    if not os.path.exists(path):
         return {}
-    with open(CONFIG_PATH, 'r') as f:
+    with open(path, 'r') as f:
         return json.load(f)
 
-def save_config(data):
-    with open(CONFIG_PATH, 'w') as f:
+def save_json(path, data):
+    with open(path, 'w') as f:
         json.dump(data, f, indent=2)
         f.write('\n')
 
+def get_remote_head(repo_url, branch):
+    cmd = ["git", "ls-remote", repo_url, branch]
+    output = run_cmd(cmd)
+    if output:
+        return output.split()[0]
+    return None
+
 def get_project_env(project_key):
-    data = load_config()
+    data = load_json(CONFIG_PATH)
     if project_key not in data:
         sys.exit(1)
     
     proj = data[project_key]
-    
     supported_ksu = [k.replace("sukisuultra", "resukisu") for k in proj.get("supported_ksu", [])]
     
     envs = {
@@ -74,7 +105,7 @@ def get_project_env(project_key):
             print(f"{k}={v}")
 
 def generate_release_matrix(project_key, gh_token):
-    data = load_config()
+    data = load_json(CONFIG_PATH)
     if project_key not in data:
         return
     
@@ -91,7 +122,7 @@ def generate_release_matrix(project_key, gh_token):
         print(json.dumps(matrix))
 
 def add_project(args):
-    data = load_config()
+    data = load_json(CONFIG_PATH)
     
     new_proj = {
         "repo": args.repo,
@@ -101,6 +132,10 @@ def add_project(args):
         "anykernel_branch": args.ak3_branch,
         "zip_name_prefix": args.zip_name,
         "supported_ksu": ["resukisu", "mksu", "ksu"],
+        "readme_placeholders": {
+            "DEVICE_NAME_CN": args.device_cn,
+            "DEVICE_NAME_EN": args.device_en
+        },
         "push_server": {"enabled": False}
     }
     
@@ -108,11 +143,10 @@ def add_project(args):
         new_proj["toolchain_path_prefix"] = args.toolchain_prefix
         
     data[args.key] = new_proj
-    save_config(data)
+    save_json(CONFIG_PATH, data)
 
 def process_readme(template_content, proj_config, repo_url, lang):
     content = template_content
-    
     placeholders = proj_config.get("readme_placeholders", {})
     cn_name = placeholders.get("DEVICE_NAME_CN", "未知设备")
     en_name = placeholders.get("DEVICE_NAME_EN", "Unknown Device")
@@ -134,11 +168,10 @@ def process_readme(template_content, proj_config, repo_url, lang):
         content = re.sub(r'.*?', '', content, flags=re.DOTALL)
         
     content = re.sub(r'', '', content)
-    
     return re.sub(r'\n{3,}', '\n\n', content).strip()
 
 def setup_repos(args):
-    data = load_config()
+    data = load_json(CONFIG_PATH)
     token = args.token
     commit_msg = args.commit_message
     readme_lang = args.readme_language
@@ -148,7 +181,6 @@ def setup_repos(args):
         
     with open(os.path.join(TEMPLATES_DIR, "README.md.tpl"), "r") as f:
         readme_tpl = f.read()
-    
     with open(os.path.join(TEMPLATES_DIR, "trigger-central-build.yml.tpl"), "r") as f:
         trigger_tpl = f.read()
 
@@ -157,23 +189,18 @@ def setup_repos(args):
 
     for key, proj in data.items():
         repo_url = proj.get("repo")
-        if not repo_url:
-            continue
+        if not repo_url: continue
             
         target_dir = os.path.join(WORKSPACE_DIR, key)
         auth_url = f"https://{token}@github.com/{repo_url}.git" if token else f"https://github.com/{repo_url}.git"
         
         if os.path.exists(target_dir):
             shutil.rmtree(target_dir)
-        
         run_cmd(["git", "clone", auth_url, target_dir])
         
         readme_content = process_readme(readme_tpl, proj, repo_url, readme_lang)
-        
         target_branches = ["main", "ksu", "mksu", "resukisu"]
-        
-        remote_branches_raw = run_cmd(["git", "branch", "-r"], cwd=target_dir)
-        remote_branches = [b.strip().replace("origin/", "") for b in remote_branches_raw.splitlines() if "HEAD" not in b]
+        remote_branches = [b.strip().replace("origin/", "") for b in run_cmd(["git", "branch", "-r"], cwd=target_dir).splitlines()]
         
         for branch in target_branches:
             cwd = target_dir
@@ -195,22 +222,18 @@ def setup_repos(args):
             
             github_dir = os.path.join(cwd, ".github")
             workflows_dir = os.path.join(github_dir, "workflows")
-            
-            if not os.path.exists(github_dir):
-                os.makedirs(github_dir)
+            if not os.path.exists(github_dir): os.makedirs(github_dir)
             
             src_funding = os.path.join(".github", "FUNDING.yml")
             if os.path.exists(src_funding):
                 shutil.copy(src_funding, os.path.join(github_dir, "FUNDING.yml"))
             
-            if os.path.exists(workflows_dir):
-                shutil.rmtree(workflows_dir)
+            if os.path.exists(workflows_dir): shutil.rmtree(workflows_dir)
             os.makedirs(workflows_dir)
             
             for old_file in ["build.sh", "build_kernel.sh", "update.sh", "update-kernelsu.yml"]:
                 old_path = os.path.join(cwd, old_file)
-                if os.path.exists(old_path):
-                    os.remove(old_path)
+                if os.path.exists(old_path): os.remove(old_path)
             
             trigger_content = trigger_tpl.replace("__PROJECT_KEY__", key)
             repo_owner = repo_url.split('/')[0] if '/' in repo_url else "YuzakiKokuban"
@@ -224,38 +247,120 @@ def setup_repos(args):
                 shutil.copy(src_gitignore, os.path.join(cwd, ".gitignore"))
                 
             run_cmd(["git", "add", "."], cwd=cwd)
-            status = run_cmd(["git", "status", "--porcelain"], cwd=cwd)
-            if status:
+            if run_cmd(["git", "status", "--porcelain"], cwd=cwd):
                 run_cmd(["git", "commit", "-m", f"{commit_msg} (branch: {branch})"], cwd=cwd)
                 run_cmd(["git", "push", "origin", branch], cwd=cwd)
 
         if args.token:
             run_cmd(["gh", "api", "--method", "PATCH", f"repos/{repo_url}", "-f", "has_sponsorships=true", "--silent"], check=False)
-            
             push_server = proj.get("push_server", {})
             if push_server.get("enabled"):
                 webhook_url = push_server.get("webhook_url")
                 webhook_secret = os.environ.get("WEBHOOK_SECRET", "")
-                
                 if webhook_url:
                     hooks_json = run_cmd(["gh", "api", f"repos/{repo_url}/hooks", "--jq", f".[] | select(.config.url == \"{webhook_url}\") | .id"], check=False)
-                    
-                    hook_config = [
-                        "config[url]=" + webhook_url,
-                        "config[content_type]=json",
-                        "events[]=release",
-                        "active=true"
-                    ]
-                    if webhook_secret:
-                        hook_config.append(f"config[secret]={webhook_secret}")
-                        
-                    cmd_base = ["gh", "api", "--method"]
+                    hook_config = ["config[url]="+webhook_url, "config[content_type]=json", "events[]=release", "active=true"]
+                    if webhook_secret: hook_config.append(f"config[secret]={webhook_secret}")
                     
                     if hooks_json:
-                        hook_id = hooks_json.strip()
-                        run_cmd(cmd_base + ["PATCH", f"repos/{repo_url}/hooks/{hook_id}"] + [f"-f{c}" for c in hook_config], check=False)
+                        run_cmd(["gh", "api", "--method", "PATCH", f"repos/{repo_url}/hooks/{hooks_json.strip()}"] + [f"-f{c}" for c in hook_config], check=False)
                     else:
-                        run_cmd(cmd_base + ["POST", f"repos/{repo_url}/hooks", "-f", "name=web"] + [f"-f{c}" for c in hook_config], check=False)
+                        run_cmd(["gh", "api", "--method", "POST", f"repos/{repo_url}/hooks", "-f", "name=web"] + [f"-f{c}" for c in hook_config], check=False)
+
+def watch_upstream(args):
+    track_data = load_json(UPSTREAM_PATH)
+    projects_data = load_json(CONFIG_PATH)
+    update_matrix = []
+    
+    track_data.pop("sukisuultra", None)
+    
+    for variant, config in KSU_CONFIG.items():
+        print(f"Checking upstream for {variant}...")
+        latest_hash = get_remote_head(config["repo"], config["branch"])
+        
+        if not latest_hash:
+            print(f"Failed to get remote head for {variant}")
+            continue
+            
+        stored_hash = track_data.get(variant, "")
+        
+        if latest_hash != stored_hash:
+            print(f"New update found for {variant}: {stored_hash} -> {latest_hash}")
+            track_data[variant] = latest_hash
+            
+            for p_key, p_data in projects_data.items():
+                supported = [x.replace("sukisuultra", "resukisu") for x in p_data.get("supported_ksu", [])]
+                if variant in supported:
+                    update_matrix.append({
+                        "project": p_key,
+                        "variant": variant,
+                        "commit_id": latest_hash[:7]
+                    })
+    
+    save_json(UPSTREAM_PATH, track_data)
+    
+    if "GITHUB_OUTPUT" in os.environ:
+        with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+            f.write(f"matrix={json.dumps(update_matrix)}\n")
+            f.write(f"found_updates={'true' if update_matrix else 'false'}\n")
+
+def perform_update(args):
+    token = args.token
+    project_key = args.project
+    variant = args.variant
+    commit_id = args.commit_id
+    
+    variant = variant.replace("sukisuultra", "resukisu")
+    
+    data = load_json(CONFIG_PATH)
+    if project_key not in data:
+        print(f"Project {project_key} not found")
+        sys.exit(1)
+        
+    repo_url = data[project_key]["repo"]
+    target_dir = "temp_kernel"
+    
+    if os.path.exists(target_dir):
+        shutil.rmtree(target_dir)
+        
+    auth_url = f"https://{token}@github.com/{repo_url}.git"
+    print(f"Cloning {project_key} ({variant})...")
+    
+    run_cmd(["git", "clone", "--depth=1", "--branch", variant, auth_url, target_dir])
+    
+    with open(os.path.join(target_dir, "KERNELSU_VERSION.txt"), "w") as f:
+        f.write(commit_id)
+        
+    src_gitignore = os.path.join("configs", "universal.gitignore")
+    if os.path.exists(src_gitignore):
+        shutil.copy(src_gitignore, os.path.join(target_dir, ".gitignore"))
+        
+    ksu_cfg = KSU_CONFIG.get(variant)
+    if ksu_cfg:
+        setup_script_path = os.path.join(target_dir, "setup.sh")
+        print(f"Downloading setup script from {ksu_cfg['setup_url']}")
+        
+        with urllib.request.urlopen(ksu_cfg['setup_url']) as response, open(setup_script_path, 'wb') as out_file:
+            shutil.copyfileobj(response, out_file)
+            
+        print("Running setup script...")
+        cmd = ["bash", "setup.sh"] + ksu_cfg["setup_args"]
+        run_cmd(cmd, cwd=target_dir)
+        os.remove(setup_script_path)
+        
+    run_cmd(["git", "config", "user.name", "Kokuban-Bot"], cwd=target_dir)
+    run_cmd(["git", "config", "user.email", "bot@kokuban.dev"], cwd=target_dir)
+    
+    run_cmd(["git", "add", "."], cwd=target_dir)
+    if run_cmd(["git", "status", "--porcelain"], cwd=target_dir):
+        msg = f"ci: update {variant} to {commit_id}"
+        run_cmd(["git", "commit", "-m", msg], cwd=target_dir)
+        run_cmd(["git", "push"], cwd=target_dir)
+        print(f"Pushed update for {project_key}")
+    else:
+        print("No changes to push")
+        
+    shutil.rmtree(target_dir)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -273,6 +378,8 @@ if __name__ == "__main__":
     p_add.add_argument("--repo", required=True)
     p_add.add_argument("--defconfig", required=True)
     p_add.add_argument("--localversion", required=True)
+    p_add.add_argument("--device_cn", default="未知设备")
+    p_add.add_argument("--device_en", default="Unknown Device")
     p_add.add_argument("--ak3_repo", default="https://github.com/YuzakiKokuban/AnyKernel3.git")
     p_add.add_argument("--ak3_branch", default="master")
     p_add.add_argument("--zip_name", default="Kernel")
@@ -282,6 +389,14 @@ if __name__ == "__main__":
     p_setup.add_argument("--token")
     p_setup.add_argument("--commit_message", default="[skip ci] ci: Sync central CI files")
     p_setup.add_argument("--readme_language", default="both", choices=["both", "zh-CN", "en-US"])
+
+    p_watch = subparsers.add_parser("watch")
+    
+    p_update = subparsers.add_parser("update")
+    p_update.add_argument("--token", required=True)
+    p_update.add_argument("--project", required=True)
+    p_update.add_argument("--variant", required=True)
+    p_update.add_argument("--commit_id", required=True)
 
     args = parser.parse_args()
     
@@ -293,3 +408,7 @@ if __name__ == "__main__":
         add_project(args)
     elif args.command == "setup":
         setup_repos(args)
+    elif args.command == "watch":
+        watch_upstream(args)
+    elif args.command == "update":
+        perform_update(args)

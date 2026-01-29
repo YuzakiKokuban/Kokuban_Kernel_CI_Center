@@ -14,6 +14,14 @@ on:
       localversion:
         description: 'Localversion Base'
         required: true
+      device_name_cn:
+        description: 'Device Name (CN)'
+        required: true
+        default: '未知设备'
+      device_name_en:
+        description: 'Device Name (EN)'
+        required: true
+        default: 'Unknown Device'
       ak3_branch:
         description: 'AnyKernel3 Branch'
         default: 'master'
@@ -29,10 +37,10 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
       
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
           
@@ -43,6 +51,8 @@ jobs:
             --repo "${{ inputs.repo_path }}" \
             --defconfig "${{ inputs.defconfig }}" \
             --localversion "${{ inputs.localversion }}" \
+            --device_cn "${{ inputs.device_name_cn }}" \
+            --device_en "${{ inputs.device_name_en }}" \
             --ak3_branch "${{ inputs.ak3_branch }}" \
             --zip_name "${{ inputs.zip_name }}"
             

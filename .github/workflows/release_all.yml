@@ -8,6 +8,9 @@ on:
         type: choice
         options: [z5_sm8550, s25_sm8750, s23_sm8550, s24_sm8650, tabs10_mt6989]
 
+permissions:
+  contents: write
+
 jobs:
   matrix:
     runs-on: ubuntu-latest

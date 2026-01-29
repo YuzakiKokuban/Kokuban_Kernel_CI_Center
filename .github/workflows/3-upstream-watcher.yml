@@ -1,114 +1,58 @@
-# .github/workflows/3-upstream-watcher.yml
-name: 3. Watch Upstream KernelSU (Matrix Powered)
+name: 3. Watch Upstream KernelSU
 on:
   schedule:
     - cron: '0 0 */3 * *'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
-  discover-updates:
+  check:
     runs-on: ubuntu-latest
     outputs:
-      update_matrix: ${{ steps.discover.outputs.matrix }}
+      matrix: ${{ steps.watcher.outputs.matrix }}
+      found_updates: ${{ steps.watcher.outputs.found_updates }}
     steps:
-      - name: Checkout Central Repo
-        uses: actions/checkout@v6
-      - name: Install jq
-        run: sudo apt-get install -y jq
-      - name: Discover what needs to be updated
-        id: discover
-        run: |
-          UPDATE_MATRIX='[]'
-          
-          declare -A KSU_UPSTREAMS
-          KSU_UPSTREAMS=( ["ksu"]="https://github.com/tiann/KernelSU.git" ["mksu"]="https://github.com/5ec1cff/KernelSU.git" ["sukisuultra"]="https://github.com/SukiSU-Ultra/SukiSU-Ultra.git" )
-          declare -A KSU_BRANCHES
-          KSU_BRANCHES=( ["ksu"]="main" ["mksu"]="main" ["sukisuultra"]="main" )
-
-          for ksu_type in "${!KSU_UPSTREAMS[@]}"; do
-            echo "--- Checking: $ksu_type ---"
-            UPSTREAM_REPO_URL="${KSU_UPSTREAMS[$ksu_type]}"
-            UPSTREAM_BRANCH="${KSU_BRANCHES[$ksu_type]}"
-            
-            LATEST_COMMIT=$(git ls-remote "$UPSTREAM_REPO_URL" "$UPSTREAM_BRANCH" | cut -f1)
-            LAST_KNOWN_COMMIT=$(jq -r --arg KTYPE "$ksu_type" '.[$KTYPE]' configs/upstream_commits.json)
-
-            if [ "$LATEST_COMMIT" != "$LAST_KNOWN_COMMIT" ]; then
-              echo "New version found for $ksu_type: ${LATEST_COMMIT:0:7}"
-              
-              PROJECTS_JSON=$(jq -c --arg KTYPE "$ksu_type" '[. as $all | keys[] | select($all[.].supported_ksu and ($all[.].supported_ksu | index($KTYPE) != null)) | {key: ., repo: $all[.].repo}]' configs/projects.json)
-              
-              if [ "$PROJECTS_JSON" != "[]" ]; then
-                LATEST_COMMIT_SHORT=${LATEST_COMMIT:0:7}
-                COMMIT_MESSAGE="ci: auto-update $ksu_type to $LATEST_COMMIT_SHORT"
-                
-                UPDATE_OBJECT=$(jq -n --arg kt "$ksu_type" --argjson pj "$PROJECTS_JSON" --arg lcs "$LATEST_COMMIT_SHORT" --arg cm "$COMMIT_MESSAGE" \
-                  '{ksu_type: $kt, projects_json: $pj, latest_commit_short: $lcs, commit_message: $cm}')
-                
-                UPDATE_MATRIX=$(echo "$UPDATE_MATRIX" | jq --argjson obj "$UPDATE_OBJECT" '. + [$obj]')
-                
-                # Update the tracker file in the workspace for later commit
-                jq --arg KTYPE "$ksu_type" --arg LCOMMIT "$LATEST_COMMIT" '.[$KTYPE] = $LCOMMIT' configs/upstream_commits.json > tmp.json && mv tmp.json configs/upstream_commits.json
-              fi
-            fi
-          done
-          
-          # 修正：使用更健壮的多行输出语法
-          FINAL_MATRIX=$(echo "$UPDATE_MATRIX" | jq -c .)
-          echo "matrix<<EOF" >> $GITHUB_OUTPUT
-          echo "$FINAL_MATRIX" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-          
-      - name: Upload updated tracker file
-        uses: actions/upload-artifact@v6
-        if: steps.discover.outputs.matrix != '[]'
+      - uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          name: upstream-commits
-          path: configs/upstream_commits.json
+          python-version: '3.10'
+          
+      - name: Check Upstream
+        id: watcher
+        run: python3 scripts/ci_core.py watch
+        
+      - name: Commit Updated Tracker
+        if: steps.watcher.outputs.found_updates == 'true'
+        run: |
+          git config --global user.name "Kokuban-Watcher"
+          git config --global user.email "watcher@kokuban.dev"
+          git add configs/upstream_commits.json
+          git commit -m "ci: update upstream records"
+          git push
 
   update-projects:
-    needs: discover-updates
-    if: needs.discover-updates.outputs.update_matrix != '[]'
+    needs: check
+    if: needs.check.outputs.found_updates == 'true'
     strategy:
       fail-fast: false
       matrix:
-        config: ${{ fromJson(needs.discover-updates.outputs.update_matrix) }}
-    uses: ./.github/workflows/reusable-update-kernel-source.yml
-    with:
-      projects_json: ${{ toJson(matrix.config.projects_json) }}
-      ksu_type: ${{ matrix.config.ksu_type }}
-      latest_commit_short: ${{ matrix.config.latest_commit_short }}
-      commit_message: ${{ matrix.config.commit_message }}
-    secrets:
-      ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
-
-  commit-tracker-file:
-    needs: [discover-updates, update-projects]
-    if: success() && needs.discover-updates.outputs.update_matrix != '[]'
+        include: ${{ fromJson(needs.check.outputs.matrix) }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Central Repo
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          token: ${{ secrets.ADMIN_TOKEN }}
-      - name: Download updated tracker file
-        uses: actions/download-artifact@v7
-        with:
-          name: upstream-commits
-          path: configs # Download and overwrite the file in the configs directory
-      - name: Commit and Push Upstream Commit File
-        run: |
-          # The file is already in the correct location (configs/upstream_commits.json).
-          # No move is needed.
-          git config --global user.name "GitHub Actions Watcher"
-          git config --global user.email "actions@github.com"
-          git add configs/upstream_commits.json
+          python-version: '3.10'
           
-          # Check if the file has actually changed before committing
-          if [[ -n $(git status --porcelain) ]]; then
-            echo "Committing updated upstream_commits.json..."
-            git commit -m "ci: update upstream commit records"
-            git push
-          else
-            echo "No changes to upstream_commits.json to commit."
-          fi
+      - name: Perform Update
+        run: |
+          python3 scripts/ci_core.py update \
+            --token "${{ secrets.GH_TOKEN }}" \
+            --project "${{ matrix.project }}" \
+            --variant "${{ matrix.variant }}" \
+            --commit_id "${{ matrix.commit_id }}"
