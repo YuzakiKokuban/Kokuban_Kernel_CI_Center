@@ -6,6 +6,16 @@ import subprocess
 import shutil
 import re
 import urllib.request
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(asctime)s] %(levelname)s: %(message)s',
+    datefmt='%H:%M:%S',
+    stream=sys.stdout
+)
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(line_buffering=True)
 
 CONFIG_PATH = "configs/projects.json"
 UPSTREAM_PATH = "configs/upstream_commits.json"
@@ -33,45 +43,62 @@ KSU_CONFIG = {
     }
 }
 
-def run_cmd(cmd, cwd=None, check=True):
+def run_cmd(cmd, cwd=None, check=True, capture=False):
+    cmd_str = " ".join(cmd)
+    if not capture:
+        logging.info(f"Exec: {cmd_str}")
+    else:
+        logging.debug(f"Exec(Capture): {cmd_str}")
+
     try:
-        result = subprocess.run(
-            cmd, 
-            cwd=cwd, 
-            check=check, 
-            stdout=subprocess.PIPE, 
-            stderr=subprocess.PIPE, 
-            text=True
-        )
-        return result.stdout.strip()
+        if capture:
+            result = subprocess.run(
+                cmd, 
+                cwd=cwd, 
+                check=check, 
+                stdout=subprocess.PIPE, 
+                stderr=subprocess.PIPE, 
+                text=True
+            )
+            return result.stdout.strip()
+        else:
+            subprocess.run(cmd, cwd=cwd, check=check)
+            return None
+            
     except subprocess.CalledProcessError as e:
         if check:
-            print(f"Command failed: {e.cmd}")
-            print(f"Stderr: {e.stderr}")
+            logging.error(f"Command failed: {cmd_str}")
+            if capture:
+                logging.error(f"Stderr: {e.stderr}")
             raise e
         return None
 
 def load_json(path):
     if not os.path.exists(path):
+        logging.warning(f"Config file not found: {path}")
         return {}
     with open(path, 'r') as f:
         return json.load(f)
 
 def save_json(path, data):
+    logging.info(f"Saving config to {path}...")
     with open(path, 'w') as f:
         json.dump(data, f, indent=2)
         f.write('\n')
 
 def get_remote_head(repo_url, branch):
+    logging.info(f"Checking remote head for {repo_url} ({branch})...")
     cmd = ["git", "ls-remote", repo_url, branch]
-    output = run_cmd(cmd)
+    output = run_cmd(cmd, capture=True)
     if output:
         return output.split()[0]
     return None
 
 def get_project_env(project_key):
+    logging.info(f"Parsing environment for project: {project_key}")
     data = load_json(CONFIG_PATH)
     if project_key not in data:
+        logging.error(f"Project {project_key} not found.")
         sys.exit(1)
     
     proj = data[project_key]
@@ -105,8 +132,10 @@ def get_project_env(project_key):
             print(f"{k}={v}")
 
 def generate_release_matrix(project_key, gh_token):
+    logging.info(f"Generating matrix for {project_key}")
     data = load_json(CONFIG_PATH)
     if project_key not in data:
+        logging.error(f"Project not found")
         return
     
     raw_supported = data[project_key].get("supported_ksu", [])
@@ -114,6 +143,7 @@ def generate_release_matrix(project_key, gh_token):
     branches = ["main"] + supported
     
     matrix = {"include": [{"branch": b} for b in branches]}
+    logging.info(f"Matrix: {json.dumps(matrix)}")
     
     if "GITHUB_OUTPUT" in os.environ:
         with open(os.environ["GITHUB_OUTPUT"], "a") as f:
@@ -122,6 +152,7 @@ def generate_release_matrix(project_key, gh_token):
         print(json.dumps(matrix))
 
 def add_project(args):
+    logging.info(f"Adding new project: {args.key}")
     data = load_json(CONFIG_PATH)
     
     new_proj = {
@@ -144,6 +175,7 @@ def add_project(args):
         
     data[args.key] = new_proj
     save_json(CONFIG_PATH, data)
+    logging.info("Project added successfully.")
 
 def process_readme(template_content, proj_config, repo_url, lang):
     content = template_content
@@ -171,6 +203,7 @@ def process_readme(template_content, proj_config, repo_url, lang):
     return re.sub(r'\n{3,}', '\n\n', content).strip()
 
 def setup_repos(args):
+    logging.info("Starting batch repository setup...")
     data = load_json(CONFIG_PATH)
     token = args.token
     commit_msg = args.commit_message
@@ -191,22 +224,30 @@ def setup_repos(args):
         repo_url = proj.get("repo")
         if not repo_url: continue
             
+        logging.info(f"Processing project: {key} -> {repo_url}")
         target_dir = os.path.join(WORKSPACE_DIR, key)
         auth_url = f"https://{token}@github.com/{repo_url}.git" if token else f"https://github.com/{repo_url}.git"
         
         if os.path.exists(target_dir):
             shutil.rmtree(target_dir)
+        
+        logging.info(f"Cloning {key}...")
         run_cmd(["git", "clone", auth_url, target_dir])
         
         readme_content = process_readme(readme_tpl, proj, repo_url, readme_lang)
         target_branches = ["main", "ksu", "mksu", "resukisu"]
-        remote_branches = [b.strip().replace("origin/", "") for b in run_cmd(["git", "branch", "-r"], cwd=target_dir).splitlines()]
+        
+        logging.info("Fetching remote branches...")
+        remote_branches_raw = run_cmd(["git", "branch", "-r"], cwd=target_dir, capture=True)
+        remote_branches = [b.strip().replace("origin/", "") for b in remote_branches_raw.splitlines()]
         
         for branch in target_branches:
             cwd = target_dir
             branch_exists = branch in remote_branches
+            logging.info(f"  Configuring branch: {branch}")
             
             if branch == "resukisu" and not branch_exists and "sukisuultra" in remote_branches:
+                logging.info("  ! Migrating branch 'sukisuultra' to 'resukisu'")
                 run_cmd(["git", "checkout", "sukisuultra"], cwd=cwd)
                 run_cmd(["git", "branch", "-m", "resukisu"], cwd=cwd)
                 run_cmd(["git", "push", "origin", "-u", "resukisu"], cwd=cwd)
@@ -215,6 +256,7 @@ def setup_repos(args):
             elif branch_exists:
                 run_cmd(["git", "checkout", branch], cwd=cwd)
             else:
+                logging.info(f"  x Branch {branch} not found, skipping.")
                 continue
 
             with open(os.path.join(cwd, "README.md"), "w") as f:
@@ -247,18 +289,44 @@ def setup_repos(args):
                 shutil.copy(src_gitignore, os.path.join(cwd, ".gitignore"))
                 
             run_cmd(["git", "add", "."], cwd=cwd)
-            if run_cmd(["git", "status", "--porcelain"], cwd=cwd):
+            status = run_cmd(["git", "status", "--porcelain"], cwd=cwd, capture=True)
+            if status:
+                logging.info(f"  Commit and push changes to {branch}...")
                 run_cmd(["git", "commit", "-m", f"{commit_msg} (branch: {branch})"], cwd=cwd)
                 run_cmd(["git", "push", "origin", branch], cwd=cwd)
+            else:
+                logging.info(f"  No changes for {branch}")
 
         if args.token:
+            logging.info("  Configuring GitHub settings...")
+            
+            logging.info("  > Setting CI_TOKEN secret...")
+            try:
+                p = subprocess.Popen(
+                    ["gh", "secret", "set", "CI_TOKEN"], 
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    cwd=target_dir,
+                    text=True
+                )
+                stdout, stderr = p.communicate(input=token)
+                
+                if p.returncode != 0:
+                    logging.error(f"  x Failed to set secret: {stderr.strip()}")
+                else:
+                    logging.info("  v CI_TOKEN set successfully.")
+            except Exception as e:
+                logging.error(f"  x Error setting secret: {e}")
+
             run_cmd(["gh", "api", "--method", "PATCH", f"repos/{repo_url}", "-f", "has_sponsorships=true", "--silent"], check=False)
+            
             push_server = proj.get("push_server", {})
             if push_server.get("enabled"):
                 webhook_url = push_server.get("webhook_url")
                 webhook_secret = os.environ.get("WEBHOOK_SECRET", "")
                 if webhook_url:
-                    hooks_json = run_cmd(["gh", "api", f"repos/{repo_url}/hooks", "--jq", f".[] | select(.config.url == \"{webhook_url}\") | .id"], check=False)
+                    hooks_json = run_cmd(["gh", "api", f"repos/{repo_url}/hooks", "--jq", f".[] | select(.config.url == \"{webhook_url}\") | .id"], check=False, capture=True)
                     hook_config = ["config[url]="+webhook_url, "config[content_type]=json", "events[]=release", "active=true"]
                     if webhook_secret: hook_config.append(f"config[secret]={webhook_secret}")
                     
@@ -268,6 +336,7 @@ def setup_repos(args):
                         run_cmd(["gh", "api", "--method", "POST", f"repos/{repo_url}/hooks", "-f", "name=web"] + [f"-f{c}" for c in hook_config], check=False)
 
 def watch_upstream(args):
+    logging.info("Checking for KernelSU upstream updates...")
     track_data = load_json(UPSTREAM_PATH)
     projects_data = load_json(CONFIG_PATH)
     update_matrix = []
@@ -275,17 +344,17 @@ def watch_upstream(args):
     track_data.pop("sukisuultra", None)
     
     for variant, config in KSU_CONFIG.items():
-        print(f"Checking upstream for {variant}...")
         latest_hash = get_remote_head(config["repo"], config["branch"])
         
         if not latest_hash:
-            print(f"Failed to get remote head for {variant}")
+            logging.error(f"Failed to get remote head for {variant}")
             continue
             
         stored_hash = track_data.get(variant, "")
+        logging.info(f"Variant {variant}: Local={stored_hash[:7]}, Remote={latest_hash[:7]}")
         
         if latest_hash != stored_hash:
-            print(f"New update found for {variant}: {stored_hash} -> {latest_hash}")
+            logging.info(f">>> New update found for {variant}!")
             track_data[variant] = latest_hash
             
             for p_key, p_data in projects_data.items():
@@ -311,10 +380,11 @@ def perform_update(args):
     commit_id = args.commit_id
     
     variant = variant.replace("sukisuultra", "resukisu")
+    logging.info(f"Performing update: Project={project_key}, Variant={variant}, Commit={commit_id}")
     
     data = load_json(CONFIG_PATH)
     if project_key not in data:
-        print(f"Project {project_key} not found")
+        logging.error(f"Project {project_key} not found")
         sys.exit(1)
         
     repo_url = data[project_key]["repo"]
@@ -324,10 +394,11 @@ def perform_update(args):
         shutil.rmtree(target_dir)
         
     auth_url = f"https://{token}@github.com/{repo_url}.git"
-    print(f"Cloning {project_key} ({variant})...")
+    logging.info(f"Cloning repo...")
     
     run_cmd(["git", "clone", "--depth=1", "--branch", variant, auth_url, target_dir])
     
+    logging.info("Updating version file...")
     with open(os.path.join(target_dir, "KERNELSU_VERSION.txt"), "w") as f:
         f.write(commit_id)
         
@@ -338,12 +409,16 @@ def perform_update(args):
     ksu_cfg = KSU_CONFIG.get(variant)
     if ksu_cfg:
         setup_script_path = os.path.join(target_dir, "setup.sh")
-        print(f"Downloading setup script from {ksu_cfg['setup_url']}")
+        logging.info(f"Downloading setup script from {ksu_cfg['setup_url']}")
         
-        with urllib.request.urlopen(ksu_cfg['setup_url']) as response, open(setup_script_path, 'wb') as out_file:
-            shutil.copyfileobj(response, out_file)
+        try:
+            with urllib.request.urlopen(ksu_cfg['setup_url']) as response, open(setup_script_path, 'wb') as out_file:
+                shutil.copyfileobj(response, out_file)
+        except Exception as e:
+            logging.error(f"Failed to download setup script: {e}")
+            sys.exit(1)
             
-        print("Running setup script...")
+        logging.info("Running setup script (streamed output)...")
         cmd = ["bash", "setup.sh"] + ksu_cfg["setup_args"]
         run_cmd(cmd, cwd=target_dir)
         os.remove(setup_script_path)
@@ -352,13 +427,14 @@ def perform_update(args):
     run_cmd(["git", "config", "user.email", "bot@kokuban.dev"], cwd=target_dir)
     
     run_cmd(["git", "add", "."], cwd=target_dir)
-    if run_cmd(["git", "status", "--porcelain"], cwd=target_dir):
+    if run_cmd(["git", "status", "--porcelain"], cwd=target_dir, capture=True):
         msg = f"ci: update {variant} to {commit_id}"
         run_cmd(["git", "commit", "-m", msg], cwd=target_dir)
+        logging.info("Pushing changes...")
         run_cmd(["git", "push"], cwd=target_dir)
-        print(f"Pushed update for {project_key}")
+        logging.info(f"Update completed for {project_key}")
     else:
-        print("No changes to push")
+        logging.info("No changes to push")
         
     shutil.rmtree(target_dir)
 

@@ -85,6 +85,7 @@ export CROSS_COMPILE=aarch64-linux-gnu-
 export CROSS_COMPILE_COMPAT=arm-linux-gnueabi-
 
 TARGET_SOC_NAME=$(echo "$PROJECT_KEY" | cut -d'_' -f2)
+
 declare -a MAKE_ARGS
 MAKE_ARGS+=(O=out)
 MAKE_ARGS+=(ARCH=arm64)
@@ -100,21 +101,6 @@ if command -v ccache >/dev/null; then
     MAKE_ARGS+=("CC=ccache clang")
 else
     MAKE_ARGS+=(CC=clang)
-fi
-
-if [[ "$PROJECT_ZIP_NAME" == "Z4_Kernel" ]]; then
-  MAKE_ARGS+=(SUBARCH=arm64)
-  MAKE_ARGS+=(CROSS_COMPILE=aarch64-linux-gnu-)
-fi
-
-if [[ "$PROJECT_ZIP_NAME" == "Z3_Kernel" ]]; then
-  KERNEL_LLVM_BIN=$TOOLCHAIN_BASE_PATH/clang/host/linux-x86/clang-r416183b/bin
-  CLANG_TRIPLE=aarch64-linux-gnu-
-  MAKE_ARGS+=(SUBARCH=arm64)
-  MAKE_ARGS+=(CROSS_COMPILE=aarch64-linux-gnu-)
-  MAKE_ARGS+=(REAL_CC=$KERNEL_LLVM_BIN)
-  MAKE_ARGS+=(CLANG_TRIPLE=$CLANG_TRIPLE)
-  MAKE_ARGS+=(CONFIG_SECTION_MISMATCH_WARN_ONLY=y)
 fi
 
 make "${MAKE_ARGS[@]}" $PROJECT_DEFCONFIG
@@ -133,6 +119,7 @@ elif [[ "$PROJECT_LTO" == "full" ]]; then
 fi
 
 FINAL_LOCALVERSION="${PROJECT_LOCALVERSION_BASE}-${VERSION_SUFFIX}"
+
 declare -a MAKE_ARGS_BUILD
 MAKE_ARGS_BUILD=("${MAKE_ARGS[@]}")
 
