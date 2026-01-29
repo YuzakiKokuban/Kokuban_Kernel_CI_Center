@@ -44,12 +44,12 @@ if [ -n "$PROJECT_TOOLCHAIN_URLS" ]; then
     done
     
     if ls *.tar.gz.[0-9]* 1> /dev/null 2>&1; then
-        cat *.tar.gz.* | tar -zxf - -C ..
+        cat *.tar.gz.* | tar -zxf - --warning=no-unknown-keyword -C ..
     elif ls *part_aa* 1> /dev/null 2>&1 || ls *_aa.tar.gz 1> /dev/null 2>&1 || ls *.tar.gz.aa 1> /dev/null 2>&1; then
-        cat *.tar.gz | tar -zxf - -C ..
+        cat *.tar.gz | tar -zxf - --warning=no-unknown-keyword -C ..
     elif ls *.tar.gz 1> /dev/null 2>&1; then
         for tarball in *.tar.gz; do
-            tar -zxf "$tarball" -C ..
+            tar -zxf "$tarball" --warning=no-unknown-keyword -C ..
         done
     fi
     
@@ -85,18 +85,39 @@ export CROSS_COMPILE=aarch64-linux-gnu-
 export CROSS_COMPILE_COMPAT=arm-linux-gnueabi-
 
 TARGET_SOC_NAME=$(echo "$PROJECT_KEY" | cut -d'_' -f2)
+declare -a MAKE_ARGS
+MAKE_ARGS+=(O=out)
+MAKE_ARGS+=(ARCH=arm64)
+MAKE_ARGS+=(LLVM=1)
+MAKE_ARGS+=(LLVM_IAS=1)
+MAKE_ARGS+=(TARGET_SOC=${TARGET_SOC_NAME})
 
 if command -v ccache >/dev/null; then
     export CC="ccache clang"
     export CXX="ccache clang++"
     export CCACHE_DIR="$PWD/.ccache"
     ccache -M 5G
-    MAKE_ARGS="O=out ARCH=arm64 CC='ccache clang' LLVM=1 LLVM_IAS=1 TARGET_SOC=${TARGET_SOC_NAME}"
+    MAKE_ARGS+=("CC=ccache clang")
 else
-    MAKE_ARGS="O=out ARCH=arm64 CC=clang LLVM=1 LLVM_IAS=1 TARGET_SOC=${TARGET_SOC_NAME}"
+    MAKE_ARGS+=(CC=clang)
 fi
 
-make ${MAKE_ARGS} $PROJECT_DEFCONFIG
+if [[ "$PROJECT_ZIP_NAME" == "Z4_Kernel" ]]; then
+  MAKE_ARGS+=(SUBARCH=arm64)
+  MAKE_ARGS+=(CROSS_COMPILE=aarch64-linux-gnu-)
+fi
+
+if [[ "$PROJECT_ZIP_NAME" == "Z3_Kernel" ]]; then
+  KERNEL_LLVM_BIN=$TOOLCHAIN_BASE_PATH/clang/host/linux-x86/clang-r416183b/bin
+  CLANG_TRIPLE=aarch64-linux-gnu-
+  MAKE_ARGS+=(SUBARCH=arm64)
+  MAKE_ARGS+=(CROSS_COMPILE=aarch64-linux-gnu-)
+  MAKE_ARGS+=(REAL_CC=$KERNEL_LLVM_BIN)
+  MAKE_ARGS+=(CLANG_TRIPLE=$CLANG_TRIPLE)
+  MAKE_ARGS+=(CONFIG_SECTION_MISMATCH_WARN_ONLY=y)
+fi
+
+make "${MAKE_ARGS[@]}" $PROJECT_DEFCONFIG
 
 if [ -n "$PROJECT_DISABLE_SECURITY" ]; then
     DISABLE_LIST=$(echo "$PROJECT_DISABLE_SECURITY" | python3 -c "import sys, json; print(' '.join(json.load(sys.stdin)))")
@@ -112,15 +133,16 @@ elif [[ "$PROJECT_LTO" == "full" ]]; then
 fi
 
 FINAL_LOCALVERSION="${PROJECT_LOCALVERSION_BASE}-${VERSION_SUFFIX}"
+declare -a MAKE_ARGS_BUILD
+MAKE_ARGS_BUILD=("${MAKE_ARGS[@]}")
 
 if [ "$PROJECT_VERSION_METHOD" == "file" ]; then
     echo "${FINAL_LOCALVERSION}-g$(git rev-parse --short HEAD)" > ./localversion
-    MAKE_ARGS_BUILD="${MAKE_ARGS}"
 else
-    MAKE_ARGS_BUILD="${MAKE_ARGS} LOCALVERSION=${FINAL_LOCALVERSION}"
+    MAKE_ARGS_BUILD+=("LOCALVERSION=${FINAL_LOCALVERSION}")
 fi
 
-make -j$(nproc) ${MAKE_ARGS_BUILD}
+make -j$(nproc) "${MAKE_ARGS_BUILD[@]}"
 
 if [ "$PROJECT_VERSION_METHOD" == "file" ]; then echo -n > ./localversion; fi
 
