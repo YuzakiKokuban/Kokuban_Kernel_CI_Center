@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -e
 
+HOST_PYTHON=$(which python3)
+
 if [ -f "build_vars.sh" ]; then
     source build_vars.sh
 fi
@@ -27,7 +29,7 @@ if [ -n "$PROJECT_TOOLCHAIN_URLS" ]; then
     mkdir -p toolchain_download
     cd toolchain_download
     
-    URLS=$(echo "$PROJECT_TOOLCHAIN_URLS" | python3 -c "import sys, json; print(' '.join(json.load(sys.stdin)))")
+    URLS=$(echo "$PROJECT_TOOLCHAIN_URLS" | "$HOST_PYTHON" -c "import sys, json; print(' '.join(json.load(sys.stdin)))")
     
     for url in $URLS; do
         wget -q "$url"
@@ -50,7 +52,7 @@ fi
 TOOLCHAIN_BASE_PATH="$PWD/$PROJECT_TOOLCHAIN_PREFIX"
 
 if [ -n "$PROJECT_TOOLCHAIN_EXPORTS" ]; then
-    EXPORTS=$(echo "$PROJECT_TOOLCHAIN_EXPORTS" | python3 -c "import sys, json; print(' '.join(json.load(sys.stdin)))")
+    EXPORTS=$(echo "$PROJECT_TOOLCHAIN_EXPORTS" | "$HOST_PYTHON" -c "import sys, json; print(' '.join(json.load(sys.stdin)))")
     for path in $EXPORTS; do
         if [ -d "$PWD/$PROJECT_TOOLCHAIN_PREFIX/$path" ]; then
             export PATH="$PWD/$PROJECT_TOOLCHAIN_PREFIX/$path:$PATH"
@@ -106,7 +108,7 @@ declare -a DISABLE_CONFIGS=(
 )
 
 if [ -n "$PROJECT_DISABLE_SECURITY" ]; then
-    JSON_LIST=$(echo "$PROJECT_DISABLE_SECURITY" | python3 -c "import sys, json; print(' '.join(json.load(sys.stdin)))")
+    JSON_LIST=$(echo "$PROJECT_DISABLE_SECURITY" | "$HOST_PYTHON" -c "import sys, json; print(' '.join(json.load(sys.stdin)))")
     for config in $JSON_LIST; do
         DISABLE_CONFIGS+=("$config")
     done
@@ -149,10 +151,11 @@ if [[ "$DO_RELEASE" == "true" ]]; then
             "$FINAL_ZIP_NAME" \
             --title "$RELEASE_TITLE" \
             --notes "Automated build for $BRANCH_NAME"
+        
         if [ -f "../scripts/requirements.txt" ]; then
-            python3 -m pip install -r ../scripts/requirements.txt --quiet
+            "$HOST_PYTHON" -m pip install -r ../scripts/requirements.txt
         fi
-        python3 ../scripts/ci_core.py notify --tag "$RELEASE_TAG"
+        "$HOST_PYTHON" ../scripts/ci_core.py notify --tag "$RELEASE_TAG"
     else
         exit 1
     fi
