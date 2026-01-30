@@ -139,13 +139,13 @@ git clone "$PROJECT_AK3_REPO" -b "$PROJECT_AK3_BRANCH" AnyKernel3
 cp out/arch/arm64/boot/Image AnyKernel3/
 cd AnyKernel3
 
-zip -r9 "../$FINAL_ZIP_NAME" . -x ".git*" -x ".github*" -x "README.md" -x "LICENSE" -x "*.gitignore"
+zip -r9 "../$FINAL_ZIP_NAME" . -x ".git*" -x ".github*" -x "README.md" -x "LICENSE" -x "*.gitignore" \
+    -x "patch_linux" -x "tools/boot.img.lz4" -x "tools/libmagiskboot.so"
 cd ..
 
 if [[ "$DO_RELEASE" == "true" ]]; then
     gh release create "$RELEASE_TAG" \
         "$FINAL_ZIP_NAME" \
         --title "$RELEASE_TITLE" \
-        --notes "Automated build for $BRANCH_NAME" \
-        --verify-tag || true
+        --notes "Automated build for $BRANCH_NAME" || true
 fi

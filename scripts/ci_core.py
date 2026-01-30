@@ -137,7 +137,7 @@ def generate_build_meta(project_key, branch_name):
     }
 
     variant_suffix = suffix_map.get(branch_name, branch_name.upper())
-    date_str = datetime.now().strftime("%Y%m%d")
+    date_str = datetime.now().strftime("%Y%m%d-%H%M")
 
     final_localversion = f"{localversion_base}-{variant_suffix}"
 
