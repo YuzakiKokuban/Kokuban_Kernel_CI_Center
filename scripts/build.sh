@@ -149,6 +149,8 @@ if [[ "$DO_RELEASE" == "true" ]]; then
             "$FINAL_ZIP_NAME" \
             --title "$RELEASE_TITLE" \
             --notes "Automated build for $BRANCH_NAME"
+        pip install requests > /dev/null 2>&1
+        python3 ../scripts/ci_core.py notify --tag "$RELEASE_TAG"
     else
         exit 1
     fi

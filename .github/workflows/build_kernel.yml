@@ -128,12 +128,13 @@ jobs:
       - name: Build
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           PROJECT_KEY: ${{ env.PROJECT }}
           BRANCH_NAME: ${{ env.VARIANT }}
           DO_RELEASE: ${{ env.DO_RELEASE }}
         run: |
           cp scripts/build.sh kernel_source/
-          if [ -f "build_vars.sh" ]; then cp build_vars.sh kernel_source/; fi
+          # 确保 ci_core.py 在上一级目录可被引用
           cd kernel_source
           chmod +x build.sh
           ./build.sh

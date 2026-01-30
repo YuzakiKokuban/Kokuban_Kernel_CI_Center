@@ -465,7 +465,7 @@ def send_telegram_notify(args):
         logging.info("No destination found.")
         return
 
-    out = run_cmd(["gh", "release", "view", tag_name, "--json", "assets,body,name,url,author"], capture=True)
+    out = run_cmd(["gh", "release", "view", tag_name, "--repo", repo_url, "--json", "assets,body,name,url,author"], capture=True)
     release_info = json.loads(out)
     author_name = release_info.get("author", {}).get("login", "YuzakiKokuban")
 
@@ -503,7 +503,7 @@ def send_telegram_notify(args):
             continue
 
         logging.info(f"Downloading {asset['name']}...")
-        run_cmd(["gh", "release", "download", tag_name, "-p", asset["name"]])
+        run_cmd(["gh", "release", "download", tag_name, "--repo", repo_url, "-p", asset["name"]])
         
         try:
             for dest in destinations:
