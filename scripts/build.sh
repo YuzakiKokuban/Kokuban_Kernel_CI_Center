@@ -1,34 +1,31 @@
 #!/usr/bin/env bash
 set -e
 
-BUILD_VARIANT="${BRANCH_NAME}"
+# Try to load env vars from file if they were generated in a previous step in the same runner
+if [ -f "build_vars.sh" ]; then
+    echo "Sourcing build_vars.sh..."
+    source build_vars.sh
+fi
 
-case "$BUILD_VARIANT" in
-  main|lkm)
-    VERSION_SUFFIX="LKM"
-    ;;
-  ksu)
-    VERSION_SUFFIX="KSU"
-    ;;
-  mksu)
-    VERSION_SUFFIX="MKSU"
-    ;;
-  resukisu|sukisuultra)
-    VERSION_SUFFIX="ReSuki"
-    ;;
-  *)
-    VERSION_SUFFIX="$BUILD_VARIANT"
-    ;;
-esac
+# Safety check for critical release variables
+if [[ "$DO_RELEASE" == "true" ]]; then
+    if [ -z "$RELEASE_TAG" ] || [ -z "$FINAL_ZIP_NAME" ]; then
+        echo "Error: Release is requested but RELEASE_TAG or FINAL_ZIP_NAME is empty."
+        echo "RELEASE_TAG: $RELEASE_TAG"
+        echo "FINAL_ZIP_NAME: $FINAL_ZIP_NAME"
+        echo "Ensure 'ci_core.py meta' was run successfully."
+        exit 1
+    fi
+fi
 
 if [ -f "../KernelSU/kernel/setup.sh" ]; then
     echo "KernelSU already setup."
 else
-    if [[ "$BUILD_VARIANT" == "resukisu" ]]; then
+    if [[ "$BRANCH_NAME" == "resukisu" ]]; then
         curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash -s builtin
-    elif [[ "$BUILD_VARIANT" == "mksu" ]]; then
+    elif [[ "$BRANCH_NAME" == "mksu" ]]; then
         curl -LSs "https://raw.githubusercontent.com/5ec1cff/KernelSU/main/kernel/setup.sh" | bash -
-    elif [[ "$BUILD_VARIANT" == "ksu" ]]; then
+    elif [[ "$BRANCH_NAME" == "ksu" ]]; then
         curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
     fi
 fi
@@ -132,8 +129,6 @@ elif [[ "$PROJECT_LTO" == "full" ]]; then
     scripts/config --file out/.config -e LTO_CLANG_FULL -d LTO_CLANG_THIN
 fi
 
-FINAL_LOCALVERSION="${PROJECT_LOCALVERSION_BASE}-${VERSION_SUFFIX}"
-
 declare -a MAKE_ARGS_BUILD
 MAKE_ARGS_BUILD=("${MAKE_ARGS[@]}")
 
@@ -150,12 +145,15 @@ if [ "$PROJECT_VERSION_METHOD" == "file" ]; then echo -n > ./localversion; fi
 git clone "$PROJECT_AK3_REPO" -b "$PROJECT_AK3_BRANCH" AnyKernel3
 cp out/arch/arm64/boot/Image AnyKernel3/
 cd AnyKernel3
-zip -r9 "../$PROJECT_ZIP_NAME-$VERSION_SUFFIX.zip" *
+
+# Zip with exclusion for git/github junk
+zip -r9 "../$FINAL_ZIP_NAME" . -x ".git*" -x ".github*" -x "README.md" -x "LICENSE" -x "*.gitignore"
 cd ..
 
 if [[ "$DO_RELEASE" == "true" ]]; then
-    gh release create "${PROJECT_ZIP_NAME}-${VERSION_SUFFIX}-$(date +%Y%m%d)" \
-        "$PROJECT_ZIP_NAME-$VERSION_SUFFIX.zip" \
-        --title "$PROJECT_ZIP_NAME $VERSION_SUFFIX Build" \
-        --notes "Automated build for $BUILD_VARIANT" || true
+    gh release create "$RELEASE_TAG" \
+        "$FINAL_ZIP_NAME" \
+        --title "$RELEASE_TITLE" \
+        --notes "Automated build for $BRANCH_NAME" \
+        --verify-tag || true
 fi

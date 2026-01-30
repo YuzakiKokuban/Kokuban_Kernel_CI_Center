@@ -20,6 +20,7 @@ CONFIG_PATH = "configs/projects.json"
 UPSTREAM_PATH = "configs/upstream_commits.json"
 TEMPLATES_DIR = "templates"
 WORKSPACE_DIR = "kernel_workspace"
+ENV_FILE = "build_vars.sh"
 
 KSU_CONFIG = {
     "ksu": {
@@ -84,7 +85,9 @@ def set_github_env(key, value):
         with open(os.environ["GITHUB_ENV"], "a") as f:
             f.write(f"{key}={value}\n")
     else:
-        print(f"EXPORT {key}={value}")
+        pass
+    with open(ENV_FILE, "a") as f:
+        f.write(f"export {key}='{value}'\n")
 
 def get_project_env(project_key):
     data = load_json(CONFIG_PATH)
@@ -451,10 +454,9 @@ def send_telegram_notify(args):
 
     destinations = []
     
-    default_chat = global_config.get("default_chat_id")
-    if default_chat:
-        destinations.append({"chat_id": default_chat})
-
+    broadcast_channel = global_config.get("broadcast_channel")
+    if broadcast_channel:
+        destinations.append({"chat_id": broadcast_channel})
     if "ReSuki" in tag_name:
         rs_chat = global_config.get("resukisu_chat_id")
         rs_topic = global_config.get("resukisu_topic_id")
