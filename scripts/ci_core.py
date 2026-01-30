@@ -16,11 +16,13 @@ logging.basicConfig(
     stream=sys.stdout
 )
 
-CONFIG_PATH = "configs/projects.json"
-UPSTREAM_PATH = "configs/upstream_commits.json"
-TEMPLATES_DIR = "templates"
-WORKSPACE_DIR = "kernel_workspace"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
+CONFIG_PATH = os.path.join(PROJECT_ROOT, "configs/projects.json")
+UPSTREAM_PATH = os.path.join(PROJECT_ROOT, "configs/upstream_commits.json")
+TEMPLATES_DIR = os.path.join(PROJECT_ROOT, "templates")
 ENV_FILE = "build_vars.sh"
+WORKSPACE_DIR = "kernel_workspace"
 
 KSU_CONFIG = {
     "ksu": {
@@ -71,6 +73,7 @@ def run_cmd(cmd, cwd=None, check=True, capture=False):
 
 def load_json(path):
     if not os.path.exists(path):
+        logging.warning(f"JSON file not found: {path}")
         return {}
     with open(path, 'r') as f:
         return json.load(f)
@@ -434,6 +437,9 @@ def send_telegram_notify(args):
 
     tag_name = args.tag
     projects_data = load_json(CONFIG_PATH)
+
+    logging.info(f"Loaded projects from {CONFIG_PATH}")
+    
     global_config = projects_data.get("_globals", {})
 
     target_project = None
