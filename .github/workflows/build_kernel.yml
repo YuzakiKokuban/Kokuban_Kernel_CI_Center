@@ -6,7 +6,7 @@ on:
         description: 'Select Project'
         required: true
         type: choice
-        options: 
+        options:
           - z5_sm8550
           - s25_sm8750
           - s23_sm8550
@@ -53,10 +53,10 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
@@ -99,8 +99,11 @@ jobs:
             echo "VARIANT=${{ env.VARIANT_INPUT }}" >> $GITHUB_ENV
           fi
 
+      - name: Generate Meta Info
+        run: python3 scripts/ci_core.py meta --project ${{ env.PROJECT }} --branch ${{ env.VARIANT }}
+
       - name: Checkout Kernel Source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           repository: ${{ env.PROJECT_REPO }}
           ref: ${{ env.BRANCH_TARGET }}
@@ -109,7 +112,7 @@ jobs:
           token: ${{ secrets.GH_TOKEN }}
 
       - name: Setup CCache
-        uses: actions/cache@v5
+        uses: actions/cache@v4
         with:
           path: kernel_source/.ccache
           key: ccache-${{ env.PROJECT }}-${{ env.VARIANT }}-${{ github.run_id }}
@@ -126,10 +129,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           PROJECT_KEY: ${{ env.PROJECT }}
-          BRANCH_NAME: ${{ env.VARIANT }} 
+          BRANCH_NAME: ${{ env.VARIANT }}
           DO_RELEASE: ${{ env.DO_RELEASE }}
         run: |
           cp scripts/build.sh kernel_source/
+          if [ -f "build_vars.sh" ]; then cp build_vars.sh kernel_source/; fi
           cd kernel_source
           chmod +x build.sh
           ./build.sh

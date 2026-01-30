@@ -1,25 +1,18 @@
 #!/usr/bin/env bash
 set -e
 
-# Try to load env vars from file if they were generated in a previous step in the same runner
 if [ -f "build_vars.sh" ]; then
-    echo "Sourcing build_vars.sh..."
     source build_vars.sh
 fi
 
-# Safety check for critical release variables
 if [[ "$DO_RELEASE" == "true" ]]; then
     if [ -z "$RELEASE_TAG" ] || [ -z "$FINAL_ZIP_NAME" ]; then
-        echo "Error: Release is requested but RELEASE_TAG or FINAL_ZIP_NAME is empty."
-        echo "RELEASE_TAG: $RELEASE_TAG"
-        echo "FINAL_ZIP_NAME: $FINAL_ZIP_NAME"
-        echo "Ensure 'ci_core.py meta' was run successfully."
         exit 1
     fi
 fi
 
 if [ -f "../KernelSU/kernel/setup.sh" ]; then
-    echo "KernelSU already setup."
+    :
 else
     if [[ "$BRANCH_NAME" == "resukisu" ]]; then
         curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash -s builtin
@@ -67,9 +60,9 @@ fi
 
 if [[ "$PROJECT_EXTRA_HOST_ENV" == "true" ]]; then
     LLD_COMPILER_RT="-fuse-ld=lld --rtlib=compiler-rt"
-    sysroot_flags+="--sysroot=$TOOLCHAIN_BASE_PATH/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8/sysroot "
-    cflags+="-I$TOOLCHAIN_BASE_PATH/kernel-build-tools/linux-x86/include "
-    ldflags+="-L $TOOLCHAIN_BASE_PATH/kernel-build-tools/linux-x86/lib64 "
+    sysroot_flags="--sysroot=$TOOLCHAIN_BASE_PATH/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8/sysroot "
+    cflags="-I$TOOLCHAIN_BASE_PATH/kernel-build-tools/linux-x86/include "
+    ldflags="-L $TOOLCHAIN_BASE_PATH/kernel-build-tools/linux-x86/lib64 "
     ldflags+=${LLD_COMPILER_RT}
     export LD_LIBRARY_PATH="$TOOLCHAIN_BASE_PATH/kernel-build-tools/linux-x86/lib64:$LD_LIBRARY_PATH"
     export HOSTCFLAGS="$sysroot_flags $cflags"
@@ -146,7 +139,6 @@ git clone "$PROJECT_AK3_REPO" -b "$PROJECT_AK3_BRANCH" AnyKernel3
 cp out/arch/arm64/boot/Image AnyKernel3/
 cd AnyKernel3
 
-# Zip with exclusion for git/github junk
 zip -r9 "../$FINAL_ZIP_NAME" . -x ".git*" -x ".github*" -x "README.md" -x "LICENSE" -x "*.gitignore"
 cd ..
 
