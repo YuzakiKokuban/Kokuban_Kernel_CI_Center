@@ -7,6 +7,7 @@ import shutil
 import re
 import urllib.request
 import logging
+from datetime import datetime
 
 logging.basicConfig(
     level=logging.INFO,
@@ -14,8 +15,6 @@ logging.basicConfig(
     datefmt='%H:%M:%S',
     stream=sys.stdout
 )
-if hasattr(sys.stdout, 'reconfigure'):
-    sys.stdout.reconfigure(line_buffering=True)
 
 CONFIG_PATH = "configs/projects.json"
 UPSTREAM_PATH = "configs/upstream_commits.json"
@@ -39,7 +38,7 @@ KSU_CONFIG = {
         "repo": "https://github.com/ReSukiSU/ReSukiSU.git",
         "branch": "main",
         "setup_url": "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh",
-        "setup_args": ["builtin"] 
+        "setup_args": ["builtin"]
     }
 }
 
@@ -47,24 +46,20 @@ def run_cmd(cmd, cwd=None, check=True, capture=False):
     cmd_str = " ".join(cmd)
     if not capture:
         logging.info(f"Exec: {cmd_str}")
-    else:
-        logging.debug(f"Exec(Capture): {cmd_str}")
-
     try:
         if capture:
             result = subprocess.run(
-                cmd, 
-                cwd=cwd, 
-                check=check, 
-                stdout=subprocess.PIPE, 
-                stderr=subprocess.PIPE, 
+                cmd,
+                cwd=cwd,
+                check=check,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 text=True
             )
             return result.stdout.strip()
         else:
             subprocess.run(cmd, cwd=cwd, check=check)
             return None
-            
     except subprocess.CalledProcessError as e:
         if check:
             logging.error(f"Command failed: {cmd_str}")
@@ -75,76 +70,99 @@ def run_cmd(cmd, cwd=None, check=True, capture=False):
 
 def load_json(path):
     if not os.path.exists(path):
-        logging.warning(f"Config file not found: {path}")
         return {}
     with open(path, 'r') as f:
         return json.load(f)
 
 def save_json(path, data):
-    logging.info(f"Saving config to {path}...")
     with open(path, 'w') as f:
         json.dump(data, f, indent=2)
         f.write('\n')
 
-def get_remote_head(repo_url, branch):
-    logging.info(f"Checking remote head for {repo_url} ({branch})...")
-    cmd = ["git", "ls-remote", repo_url, branch]
-    output = run_cmd(cmd, capture=True)
-    if output:
-        return output.split()[0]
-    return None
+def set_github_env(key, value):
+    if "GITHUB_ENV" in os.environ:
+        with open(os.environ["GITHUB_ENV"], "a") as f:
+            f.write(f"{key}={value}\n")
+    else:
+        print(f"EXPORT {key}={value}")
 
 def get_project_env(project_key):
-    logging.info(f"Parsing environment for project: {project_key}")
     data = load_json(CONFIG_PATH)
     if project_key not in data:
-        logging.error(f"Project {project_key} not found.")
         sys.exit(1)
-    
+
     proj = data[project_key]
-    supported_ksu = [k.replace("sukisuultra", "resukisu") for k in proj.get("supported_ksu", [])]
-    
+
     envs = {
         "PROJECT_REPO": proj.get("repo"),
         "PROJECT_DEFCONFIG": proj.get("defconfig"),
         "PROJECT_LOCALVERSION_BASE": proj.get("localversion_base"),
         "PROJECT_LTO": proj.get("lto", ""),
         "PROJECT_TOOLCHAIN_PREFIX": proj.get("toolchain_path_prefix", ""),
-        "PROJECT_ZIP_NAME": proj.get("zip_name_prefix", "Kernel"),
+        "PROJECT_ZIP_NAME_PREFIX": proj.get("zip_name_prefix", "Kernel"),
         "PROJECT_AK3_REPO": proj.get("anykernel_repo"),
         "PROJECT_AK3_BRANCH": proj.get("anykernel_branch"),
         "PROJECT_VERSION_METHOD": proj.get("version_method", "param"),
         "PROJECT_EXTRA_HOST_ENV": str(proj.get("extra_host_env", False)).lower(),
     }
-    
+
     envs["PROJECT_TOOLCHAIN_EXPORTS"] = json.dumps(proj.get("toolchain_path_exports", []))
     envs["PROJECT_DISABLE_SECURITY"] = json.dumps(proj.get("disable_security", []))
-    
+
     if "toolchain_urls" in proj:
         envs["PROJECT_TOOLCHAIN_URLS"] = json.dumps(proj["toolchain_urls"])
-    
-    if "GITHUB_ENV" in os.environ:
-        with open(os.environ["GITHUB_ENV"], "a") as f:
-            for k, v in envs.items():
-                f.write(f"{k}={v}\n")
-    else:
-        for k, v in envs.items():
-            print(f"{k}={v}")
 
-def generate_release_matrix(project_key, gh_token):
-    logging.info(f"Generating matrix for {project_key}")
+    for k, v in envs.items():
+        set_github_env(k, v)
+
+def generate_build_meta(project_key, branch_name):
     data = load_json(CONFIG_PATH)
     if project_key not in data:
-        logging.error(f"Project not found")
+        sys.exit(1)
+
+    proj = data[project_key]
+    zip_prefix = proj.get("zip_name_prefix", "Kernel")
+    localversion_base = proj.get("localversion_base", "")
+
+    suffix_map = {
+        "main": "LKM",
+        "lkm": "LKM",
+        "ksu": "KSU",
+        "mksu": "MKSU",
+        "resukisu": "ReSuki",
+        "sukisuultra": "ReSuki"
+    }
+
+    variant_suffix = suffix_map.get(branch_name, branch_name.upper())
+    date_str = datetime.now().strftime("%Y%m%d")
+
+    final_localversion = f"{localversion_base}-{variant_suffix}"
+
+    release_tag = f"{zip_prefix}-{variant_suffix}-{date_str}"
+
+    final_zip_name = f"{zip_prefix}-{variant_suffix}-{date_str}.zip"
+
+    release_title = f"{zip_prefix} {variant_suffix} Build ({date_str})"
+
+    set_github_env("BUILD_VARIANT_SUFFIX", variant_suffix)
+    set_github_env("FINAL_LOCALVERSION", final_localversion)
+    set_github_env("RELEASE_TAG", release_tag)
+    set_github_env("FINAL_ZIP_NAME", final_zip_name)
+    set_github_env("RELEASE_TITLE", release_title)
+
+    logging.info(f"Meta Generated: Tag={release_tag}, Zip={final_zip_name}")
+
+def generate_release_matrix(project_key, gh_token):
+    data = load_json(CONFIG_PATH)
+    if project_key not in data:
         return
-    
+
     raw_supported = data[project_key].get("supported_ksu", [])
     supported = [x if x != 'sukisuultra' else 'resukisu' for x in raw_supported]
     branches = ["main"] + supported
-    
+
     matrix = {"include": [{"branch": b} for b in branches]}
-    logging.info(f"Matrix: {json.dumps(matrix)}")
-    
+
     if "GITHUB_OUTPUT" in os.environ:
         with open(os.environ["GITHUB_OUTPUT"], "a") as f:
             f.write(f"matrix={json.dumps(matrix)}\n")
@@ -154,7 +172,7 @@ def generate_release_matrix(project_key, gh_token):
 def add_project(args):
     logging.info(f"Adding new project: {args.key}")
     data = load_json(CONFIG_PATH)
-    
+
     new_proj = {
         "repo": args.repo,
         "defconfig": args.defconfig,
@@ -166,13 +184,12 @@ def add_project(args):
         "readme_placeholders": {
             "DEVICE_NAME_CN": args.device_cn,
             "DEVICE_NAME_EN": args.device_en
-        },
-        "push_server": {"enabled": False}
+        }
     }
-    
+
     if args.toolchain_prefix:
         new_proj["toolchain_path_prefix"] = args.toolchain_prefix
-        
+
     data[args.key] = new_proj
     save_json(CONFIG_PATH, data)
     logging.info("Project added successfully.")
@@ -183,22 +200,22 @@ def process_readme(template_content, proj_config, repo_url, lang):
     cn_name = placeholders.get("DEVICE_NAME_CN", "未知设备")
     en_name = placeholders.get("DEVICE_NAME_EN", "Unknown Device")
     localver = proj_config.get("localversion_base", "")
-    
+
     replacements = {
         "__DEVICE_NAME_CN__": cn_name,
         "__DEVICE_NAME_EN__": en_name,
         "__PROJECT_REPO__": repo_url,
         "__LOCALVERSION_BASE__": localver
     }
-    
+
     for k, v in replacements.items():
         content = content.replace(k, v)
-        
+
     if lang == "zh-CN":
         content = re.sub(r'.*?', '', content, flags=re.DOTALL)
     elif lang == "en-US":
         content = re.sub(r'.*?', '', content, flags=re.DOTALL)
-        
+
     content = re.sub(r'', '', content)
     return re.sub(r'\n{3,}', '\n\n', content).strip()
 
@@ -208,10 +225,10 @@ def setup_repos(args):
     token = args.token
     commit_msg = args.commit_message
     readme_lang = args.readme_language
-    
+
     if not os.path.exists(WORKSPACE_DIR):
         os.makedirs(WORKSPACE_DIR)
-        
+
     with open(os.path.join(TEMPLATES_DIR, "README.md.tpl"), "r") as f:
         readme_tpl = f.read()
     with open(os.path.join(TEMPLATES_DIR, "trigger-central-build.yml.tpl"), "r") as f:
@@ -221,33 +238,31 @@ def setup_repos(args):
     run_cmd(["git", "config", "--global", "user.email", "bot@kokuban.dev"])
 
     for key, proj in data.items():
+        if key.startswith("_"): continue
         repo_url = proj.get("repo")
         if not repo_url: continue
-            
+
         logging.info(f"Processing project: {key} -> {repo_url}")
         target_dir = os.path.join(WORKSPACE_DIR, key)
         auth_url = f"https://{token}@github.com/{repo_url}.git" if token else f"https://github.com/{repo_url}.git"
-        
+
         if os.path.exists(target_dir):
             shutil.rmtree(target_dir)
-        
-        logging.info(f"Cloning {key}...")
+
         run_cmd(["git", "clone", auth_url, target_dir])
-        
+
         readme_content = process_readme(readme_tpl, proj, repo_url, readme_lang)
         target_branches = ["main", "ksu", "mksu", "resukisu"]
-        
-        logging.info("Fetching remote branches...")
+
         remote_branches_raw = run_cmd(["git", "branch", "-r"], cwd=target_dir, capture=True)
         remote_branches = [b.strip().replace("origin/", "") for b in remote_branches_raw.splitlines()]
-        
+
         for branch in target_branches:
             cwd = target_dir
             branch_exists = branch in remote_branches
             logging.info(f"  Configuring branch: {branch}")
-            
+
             if branch == "resukisu" and not branch_exists and "sukisuultra" in remote_branches:
-                logging.info("  ! Migrating branch 'sukisuultra' to 'resukisu'")
                 run_cmd(["git", "checkout", "sukisuultra"], cwd=cwd)
                 run_cmd(["git", "branch", "-m", "resukisu"], cwd=cwd)
                 run_cmd(["git", "push", "origin", "-u", "resukisu"], cwd=cwd)
@@ -256,54 +271,47 @@ def setup_repos(args):
             elif branch_exists:
                 run_cmd(["git", "checkout", branch], cwd=cwd)
             else:
-                logging.info(f"  x Branch {branch} not found, skipping.")
                 continue
 
             with open(os.path.join(cwd, "README.md"), "w") as f:
                 f.write(readme_content)
-            
+
             github_dir = os.path.join(cwd, ".github")
             workflows_dir = os.path.join(github_dir, "workflows")
             if not os.path.exists(github_dir): os.makedirs(github_dir)
-            
+
             src_funding = os.path.join(".github", "FUNDING.yml")
             if os.path.exists(src_funding):
                 shutil.copy(src_funding, os.path.join(github_dir, "FUNDING.yml"))
-            
+
             if os.path.exists(workflows_dir): shutil.rmtree(workflows_dir)
             os.makedirs(workflows_dir)
-            
+
             for old_file in ["build.sh", "build_kernel.sh", "update.sh", "update-kernelsu.yml"]:
                 old_path = os.path.join(cwd, old_file)
                 if os.path.exists(old_path): os.remove(old_path)
-            
+
             trigger_content = trigger_tpl.replace("__PROJECT_KEY__", key)
             repo_owner = repo_url.split('/')[0] if '/' in repo_url else "YuzakiKokuban"
             trigger_content = trigger_content.replace("__REPO_OWNER__", repo_owner)
-            
+
             with open(os.path.join(workflows_dir, "trigger-central-build.yml"), "w") as f:
                 f.write(trigger_content)
-                
+
             src_gitignore = os.path.join("configs", "universal.gitignore")
             if os.path.exists(src_gitignore):
                 shutil.copy(src_gitignore, os.path.join(cwd, ".gitignore"))
-                
+
             run_cmd(["git", "add", "."], cwd=cwd)
             status = run_cmd(["git", "status", "--porcelain"], cwd=cwd, capture=True)
             if status:
-                logging.info(f"  Commit and push changes to {branch}...")
                 run_cmd(["git", "commit", "-m", f"{commit_msg} (branch: {branch})"], cwd=cwd)
                 run_cmd(["git", "push", "origin", branch], cwd=cwd)
-            else:
-                logging.info(f"  No changes for {branch}")
 
         if args.token:
-            logging.info("  Configuring GitHub settings...")
-            
-            logging.info("  > Setting CI_TOKEN secret...")
             try:
                 p = subprocess.Popen(
-                    ["gh", "secret", "set", "CI_TOKEN"], 
+                    ["gh", "secret", "set", "CI_TOKEN"],
                     stdin=subprocess.PIPE,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
@@ -311,53 +319,40 @@ def setup_repos(args):
                     text=True
                 )
                 stdout, stderr = p.communicate(input=token)
-                
-                if p.returncode != 0:
-                    logging.error(f"  x Failed to set secret: {stderr.strip()}")
-                else:
-                    logging.info("  v CI_TOKEN set successfully.")
-            except Exception as e:
-                logging.error(f"  x Error setting secret: {e}")
+            except Exception:
+                pass
 
             run_cmd(["gh", "api", "--method", "PATCH", f"repos/{repo_url}", "-f", "has_sponsorships=true", "--silent"], check=False)
-            
-            push_server = proj.get("push_server", {})
-            if push_server.get("enabled"):
-                webhook_url = push_server.get("webhook_url")
-                webhook_secret = os.environ.get("WEBHOOK_SECRET", "")
-                if webhook_url:
-                    hooks_json = run_cmd(["gh", "api", f"repos/{repo_url}/hooks", "--jq", f".[] | select(.config.url == \"{webhook_url}\") | .id"], check=False, capture=True)
-                    hook_config = ["config[url]="+webhook_url, "config[content_type]=json", "events[]=release", "active=true"]
-                    if webhook_secret: hook_config.append(f"config[secret]={webhook_secret}")
-                    
-                    if hooks_json:
-                        run_cmd(["gh", "api", "--method", "PATCH", f"repos/{repo_url}/hooks/{hooks_json.strip()}"] + [f"-f{c}" for c in hook_config], check=False)
-                    else:
-                        run_cmd(["gh", "api", "--method", "POST", f"repos/{repo_url}/hooks", "-f", "name=web"] + [f"-f{c}" for c in hook_config], check=False)
+
+def get_remote_head(repo_url, branch):
+    logging.info(f"Checking remote head for {repo_url} ({branch})...")
+    cmd = ["git", "ls-remote", repo_url, branch]
+    output = run_cmd(cmd, capture=True)
+    if output:
+        return output.split()[0]
+    return None
 
 def watch_upstream(args):
     logging.info("Checking for KernelSU upstream updates...")
     track_data = load_json(UPSTREAM_PATH)
     projects_data = load_json(CONFIG_PATH)
     update_matrix = []
-    
+
     track_data.pop("sukisuultra", None)
-    
+
     for variant, config in KSU_CONFIG.items():
         latest_hash = get_remote_head(config["repo"], config["branch"])
-        
+
         if not latest_hash:
-            logging.error(f"Failed to get remote head for {variant}")
             continue
-            
+
         stored_hash = track_data.get(variant, "")
-        logging.info(f"Variant {variant}: Local={stored_hash[:7]}, Remote={latest_hash[:7]}")
-        
+
         if latest_hash != stored_hash:
-            logging.info(f">>> New update found for {variant}!")
             track_data[variant] = latest_hash
-            
+
             for p_key, p_data in projects_data.items():
+                if p_key.startswith("_"): continue
                 supported = [x.replace("sukisuultra", "resukisu") for x in p_data.get("supported_ksu", [])]
                 if variant in supported:
                     update_matrix.append({
@@ -365,9 +360,9 @@ def watch_upstream(args):
                         "variant": variant,
                         "commit_id": latest_hash[:7]
                     })
-    
+
     save_json(UPSTREAM_PATH, track_data)
-    
+
     if "GITHUB_OUTPUT" in os.environ:
         with open(os.environ["GITHUB_OUTPUT"], "a") as f:
             f.write(f"matrix={json.dumps(update_matrix)}\n")
@@ -378,73 +373,168 @@ def perform_update(args):
     project_key = args.project
     variant = args.variant
     commit_id = args.commit_id
-    
+
     variant = variant.replace("sukisuultra", "resukisu")
-    logging.info(f"Performing update: Project={project_key}, Variant={variant}, Commit={commit_id}")
-    
+
     data = load_json(CONFIG_PATH)
     if project_key not in data:
-        logging.error(f"Project {project_key} not found")
         sys.exit(1)
-        
+
     repo_url = data[project_key]["repo"]
     target_dir = "temp_kernel"
-    
+
     if os.path.exists(target_dir):
         shutil.rmtree(target_dir)
-        
+
     auth_url = f"https://{token}@github.com/{repo_url}.git"
-    logging.info(f"Cloning repo...")
-    
+
     run_cmd(["git", "clone", "--depth=1", "--branch", variant, auth_url, target_dir])
-    
-    logging.info("Updating version file...")
+
     with open(os.path.join(target_dir, "KERNELSU_VERSION.txt"), "w") as f:
         f.write(commit_id)
-        
+
     src_gitignore = os.path.join("configs", "universal.gitignore")
     if os.path.exists(src_gitignore):
         shutil.copy(src_gitignore, os.path.join(target_dir, ".gitignore"))
-        
+
     ksu_cfg = KSU_CONFIG.get(variant)
     if ksu_cfg:
         setup_script_path = os.path.join(target_dir, "setup.sh")
-        logging.info(f"Downloading setup script from {ksu_cfg['setup_url']}")
-        
+
         try:
             with urllib.request.urlopen(ksu_cfg['setup_url']) as response, open(setup_script_path, 'wb') as out_file:
                 shutil.copyfileobj(response, out_file)
-        except Exception as e:
-            logging.error(f"Failed to download setup script: {e}")
+        except Exception:
             sys.exit(1)
-            
-        logging.info("Running setup script (streamed output)...")
+
         cmd = ["bash", "setup.sh"] + ksu_cfg["setup_args"]
         run_cmd(cmd, cwd=target_dir)
         os.remove(setup_script_path)
-        
+
     run_cmd(["git", "config", "user.name", "Kokuban-Bot"], cwd=target_dir)
     run_cmd(["git", "config", "user.email", "bot@kokuban.dev"], cwd=target_dir)
-    
+
     run_cmd(["git", "add", "."], cwd=target_dir)
     if run_cmd(["git", "status", "--porcelain"], cwd=target_dir, capture=True):
         msg = f"ci: update {variant} to {commit_id}"
         run_cmd(["git", "commit", "-m", msg], cwd=target_dir)
-        logging.info("Pushing changes...")
         run_cmd(["git", "push"], cwd=target_dir)
-        logging.info(f"Update completed for {project_key}")
     else:
-        logging.info("No changes to push")
-        
+        pass
+
     shutil.rmtree(target_dir)
+
+def send_telegram_notify(args):
+    import requests
+
+    token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    if not token:
+        logging.error("Missing TELEGRAM_BOT_TOKEN")
+        sys.exit(1)
+
+    tag_name = args.tag
+    projects_data = load_json(CONFIG_PATH)
+    global_config = projects_data.get("_globals", {})
+
+    target_project = None
+
+    for key, proj in projects_data.items():
+        if key.startswith("_"): continue
+        zip_prefix = proj.get("zip_name_prefix", "Kernel")
+        if tag_name.startswith(zip_prefix):
+            target_project = proj
+            break
+
+    if not target_project:
+        logging.info(f"No project found for tag {tag_name}")
+        return
+
+    destinations = []
+    
+    default_chat = global_config.get("default_chat_id")
+    if default_chat:
+        destinations.append({"chat_id": default_chat})
+
+    if "ReSuki" in tag_name:
+        rs_chat = global_config.get("resukisu_chat_id")
+        rs_topic = global_config.get("resukisu_topic_id")
+        if rs_chat:
+            destinations.append({"chat_id": rs_chat, "message_thread_id": rs_topic})
+
+    if not destinations:
+        logging.info("No destination found.")
+        return
+
+    out = run_cmd(["gh", "release", "view", tag_name, "--json", "assets,body,name,url"], capture=True)
+    release_info = json.loads(out)
+
+    msg = (
+        f"📦 <b>New Build Released!</b>\n\n"
+        f"🏷 <b>Tag</b>: <code>{tag_name}</code>\n"
+        f"📝 <b>Title</b>: {release_info.get('name', 'Update')}\n"
+        f"🔗 <a href='{release_info['url']}'>View on GitHub</a>"
+    )
+
+    for dest in destinations:
+        send_url = f"https://api.telegram.org/bot{token}/sendMessage"
+        payload = {
+            "chat_id": dest["chat_id"],
+            "text": msg,
+            "parse_mode": "HTML",
+            "disable_web_page_preview": True
+        }
+        if "message_thread_id" in dest:
+            payload["message_thread_id"] = dest["message_thread_id"]
+        
+        try:
+            requests.post(send_url, json=payload).raise_for_status()
+        except Exception as e:
+            logging.error(f"Failed to send msg to {dest['chat_id']}: {e}")
+
+    assets = release_info.get("assets", [])
+    if not assets:
+        return
+
+    for asset in assets:
+        if asset["size"] > 50 * 1024 * 1024:
+            logging.warning(f"Skipping {asset['name']} (too large)")
+            continue
+
+        logging.info(f"Downloading {asset['name']}...")
+        run_cmd(["gh", "release", "download", tag_name, "-p", asset["name"]])
+        
+        try:
+            for dest in destinations:
+                logging.info(f"Uploading {asset['name']} to {dest['chat_id']}...")
+                with open(asset["name"], 'rb') as f:
+                    files = {'document': f}
+                    data = {'chat_id': dest['chat_id'], 'caption': f"📄 <code>{asset['name']}</code>", 'parse_mode': 'HTML'}
+                    if "message_thread_id" in dest:
+                        data['message_thread_id'] = dest["message_thread_id"]
+
+                    requests.post(
+                        f"https://api.telegram.org/bot{token}/sendDocument",
+                        data=data,
+                        files=files
+                    )
+                    f.seek(0)
+        finally:
+            if os.path.exists(asset["name"]):
+                os.remove(asset["name"])
+
+    logging.info("Notification sent successfully.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="command")
-    
+
     p_parse = subparsers.add_parser("parse")
     p_parse.add_argument("--project", required=True)
-    
+
+    p_meta = subparsers.add_parser("meta")
+    p_meta.add_argument("--project", required=True)
+    p_meta.add_argument("--branch", required=True)
+
     p_matrix = subparsers.add_parser("matrix")
     p_matrix.add_argument("--project", required=True)
     p_matrix.add_argument("--token")
@@ -467,17 +557,22 @@ if __name__ == "__main__":
     p_setup.add_argument("--readme_language", default="both", choices=["both", "zh-CN", "en-US"])
 
     p_watch = subparsers.add_parser("watch")
-    
+
     p_update = subparsers.add_parser("update")
     p_update.add_argument("--token", required=True)
     p_update.add_argument("--project", required=True)
     p_update.add_argument("--variant", required=True)
     p_update.add_argument("--commit_id", required=True)
 
+    p_notify = subparsers.add_parser("notify")
+    p_notify.add_argument("--tag", required=True)
+
     args = parser.parse_args()
-    
+
     if args.command == "parse":
         get_project_env(args.project)
+    elif args.command == "meta":
+        generate_build_meta(args.project, args.branch)
     elif args.command == "matrix":
         generate_release_matrix(args.project, args.token)
     elif args.command == "add":
@@ -488,3 +583,5 @@ if __name__ == "__main__":
         watch_upstream(args)
     elif args.command == "update":
         perform_update(args)
+    elif args.command == "notify":
+        send_telegram_notify(args)

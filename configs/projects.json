@@ -1,4 +1,9 @@
 {
+  "_globals": {
+    "default_chat_id": "@BLBDSBD",
+    "resukisu_chat_id": "@ReSukiSU",
+    "resukisu_topic_id": 36
+  },
   "z5_sm8550": {
     "repo": "YuzakiKokuban/android_kernel_samsung_sm8550_Z5",
     "defconfig": "kalama_gki_defconfig",
@@ -25,10 +30,7 @@
     ],
     "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
     "anykernel_branch": "kalama_z",
-    "zip_name_prefix": "Z5_Kernel",
-    "push_server": {
-      "enabled": false
-    }
+    "zip_name_prefix": "Z5_Kernel"
   },
   "s25_sm8750": {
     "repo": "YuzakiKokuban/android_kernel_samsung_sm8750",
@@ -68,11 +70,7 @@
     ],
     "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
     "anykernel_branch": "sun",
-    "zip_name_prefix": "S25_Kernel",
-    "push_server": {
-      "enabled": true,
-      "webhook_url": "http://74.176.37.71:8080/webhook"
-    }
+    "zip_name_prefix": "S25_Kernel"
   },
   "s23_sm8550": {
     "repo": "YuzakiKokuban/android_kernel_samsung_sm8550_S23",
@@ -101,11 +99,7 @@
     ],
     "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
     "anykernel_branch": "kalama",
-    "zip_name_prefix": "S23_kernel",
-    "push_server": {
-      "enabled": true,
-      "webhook_url": "http://74.176.37.71:8080/webhook"
-    }
+    "zip_name_prefix": "S23_kernel"
   },
   "s24_sm8650": {
     "repo": "YuzakiKokuban/android_kernel_samsung_sm8650",
@@ -133,11 +127,7 @@
     ],
     "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
     "anykernel_branch": "pineapple",
-    "zip_name_prefix": "S24_Snapdragon_kernel",
-    "push_server": {
-      "enabled": true,
-      "webhook_url": "http://74.176.37.71:8080/webhook"
-    }
+    "zip_name_prefix": "S24_Snapdragon_kernel"
   },
   "tabs10_mt6989": {
     "repo": "YuzakiKokuban/android_kernel_samsung_mt6989_TabS10",
@@ -171,10 +161,6 @@
     ],
     "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
     "anykernel_branch": "mt6989",
-    "zip_name_prefix": "TabS10_kernel",
-    "push_server": {
-      "enabled": true,
-      "webhook_url": "http://74.176.37.71:8080/webhook"
-    }
+    "zip_name_prefix": "TabS10_kernel"
   }
 }
