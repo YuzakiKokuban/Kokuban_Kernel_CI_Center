@@ -53,7 +53,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -100,7 +100,7 @@ jobs:
           fi
 
       - name: Checkout Kernel Source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ env.PROJECT_REPO }}
           ref: ${{ env.BRANCH_TARGET }}
