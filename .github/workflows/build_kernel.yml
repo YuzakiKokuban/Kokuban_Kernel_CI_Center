@@ -124,7 +124,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential git libncurses5-dev bc bison flex libssl-dev p7zip-full lz4 cpio curl libelf-dev dwarves ccache jq lld
-          pip install -r scripts/requirements.txt
+          python3 -m pip install --upgrade pip
+          python3 -m pip install -r scripts/requirements.txt
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Build
         env:
@@ -134,8 +136,8 @@ jobs:
           BRANCH_NAME: ${{ env.VARIANT }}
           DO_RELEASE: ${{ env.DO_RELEASE }}
         run: |
+          python3 -c "import requests; print('Requests is ready')"
           cp scripts/build.sh kernel_source/
-          # 确保 ci_core.py 在上一级目录可被引用
           cd kernel_source
           chmod +x build.sh
           ./build.sh

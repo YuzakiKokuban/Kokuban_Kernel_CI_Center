@@ -150,7 +150,7 @@ if [[ "$DO_RELEASE" == "true" ]]; then
             --title "$RELEASE_TITLE" \
             --notes "Automated build for $BRANCH_NAME"
         if [ -f "../scripts/requirements.txt" ]; then
-            pip install -r ../scripts/requirements.txt --quiet
+            python3 -m pip install -r ../scripts/requirements.txt --quiet
         fi
         python3 ../scripts/ci_core.py notify --tag "$RELEASE_TAG"
     else
