@@ -140,11 +140,8 @@ def generate_build_meta(project_key, branch_name):
     date_str = datetime.now().strftime("%Y%m%d-%H%M")
 
     final_localversion = f"{localversion_base}-{variant_suffix}"
-
     release_tag = f"{zip_prefix}-{variant_suffix}-{date_str}"
-
     final_zip_name = f"{zip_prefix}-{variant_suffix}-{date_str}.zip"
-
     release_title = f"{zip_prefix} {variant_suffix} Build ({date_str})"
 
     set_github_env("BUILD_VARIANT_SUFFIX", variant_suffix)
@@ -440,12 +437,14 @@ def send_telegram_notify(args):
     global_config = projects_data.get("_globals", {})
 
     target_project = None
+    repo_url = "Unknown/Repo"
 
     for key, proj in projects_data.items():
         if key.startswith("_"): continue
         zip_prefix = proj.get("zip_name_prefix", "Kernel")
         if tag_name.startswith(zip_prefix):
             target_project = proj
+            repo_url = proj.get("repo", "Unknown/Repo")
             break
 
     if not target_project:
@@ -453,7 +452,6 @@ def send_telegram_notify(args):
         return
 
     destinations = []
-    
     broadcast_channel = global_config.get("broadcast_channel")
     if broadcast_channel:
         destinations.append({"chat_id": broadcast_channel})
@@ -467,14 +465,16 @@ def send_telegram_notify(args):
         logging.info("No destination found.")
         return
 
-    out = run_cmd(["gh", "release", "view", tag_name, "--json", "assets,body,name,url"], capture=True)
+    out = run_cmd(["gh", "release", "view", tag_name, "--json", "assets,body,name,url,author"], capture=True)
     release_info = json.loads(out)
+    author_name = release_info.get("author", {}).get("login", "YuzakiKokuban")
 
     msg = (
-        f"📦 <b>New Build Released!</b>\n\n"
-        f"🏷 <b>Tag</b>: <code>{tag_name}</code>\n"
-        f"📝 <b>Title</b>: {release_info.get('name', 'Update')}\n"
-        f"🔗 <a href='{release_info['url']}'>View on GitHub</a>"
+        f"兄长大人，快看！<code>{repo_url}</code> 有新的 Release 了哦。\n\n"
+        f"<b>版本 (Version):</b> <code>{tag_name}</code>\n"
+        f"<b>标题 (Title):</b> {release_info.get('name', 'Update')}\n"
+        f"<b>作者 (Author):</b> {author_name}\n\n"
+        f"总之，快去看看吧！ <a href='{release_info['url']}'>点击这里跳转</a>"
     )
 
     for dest in destinations:
@@ -509,15 +509,20 @@ def send_telegram_notify(args):
             for dest in destinations:
                 logging.info(f"Uploading {asset['name']} to {dest['chat_id']}...")
                 with open(asset["name"], 'rb') as f:
-                    files = {'document': f}
-                    data = {'chat_id': dest['chat_id'], 'caption': f"📄 <code>{asset['name']}</code>", 'parse_mode': 'HTML'}
+                    caption = (
+                        f"兄长大人，附件来了。\n"
+                        f"<b>仓库 (Repo):</b> <code>{repo_url}</code>\n"
+                        f"<b>版本 (Version):</b> <code>{tag_name}</code>\n\n"
+                        f"📄 <b>文件 (File):</b> <code>{asset['name']}</code>"
+                    )
+                    data = {'chat_id': dest['chat_id'], 'caption': caption, 'parse_mode': 'HTML'}
                     if "message_thread_id" in dest:
                         data['message_thread_id'] = dest["message_thread_id"]
 
                     requests.post(
                         f"https://api.telegram.org/bot{token}/sendDocument",
                         data=data,
-                        files=files
+                        files={'document': f}
                     )
                     f.seek(0)
         finally:

@@ -144,8 +144,12 @@ zip -r9 "../$FINAL_ZIP_NAME" . -x ".git*" -x ".github*" -x "README.md" -x "LICEN
 cd ..
 
 if [[ "$DO_RELEASE" == "true" ]]; then
-    gh release create "$RELEASE_TAG" \
-        "$FINAL_ZIP_NAME" \
-        --title "$RELEASE_TITLE" \
-        --notes "Automated build for $BRANCH_NAME" || true
+    if [ -f "$FINAL_ZIP_NAME" ]; then
+        gh release create "$RELEASE_TAG" \
+            "$FINAL_ZIP_NAME" \
+            --title "$RELEASE_TITLE" \
+            --notes "Automated build for $BRANCH_NAME"
+    else
+        exit 1
+    fi
 fi
