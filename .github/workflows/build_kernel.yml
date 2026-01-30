@@ -109,7 +109,7 @@ jobs:
           token: ${{ secrets.GH_TOKEN }}
 
       - name: Setup CCache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: kernel_source/.ccache
           key: ccache-${{ env.PROJECT }}-${{ env.VARIANT }}-${{ github.run_id }}
