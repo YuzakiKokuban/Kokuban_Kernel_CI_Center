@@ -8,3 +8,7 @@ updates:
     directory: /push_server
     schedule:
       interval: weekly
+  - package-ecosystem: cargo
+    directory: /ci_core_rs
+    schedule:
+      interval: weekly
