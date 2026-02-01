@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -e
 
-HOST_PYTHON=$(which python3)
+# NOTE: HOST_PYTHON variable is no longer used, we use the compiled rust binary
+CI_CORE_BIN="../ci_core_rs/target/release/kokuban_ci_core"
 
 if [ -f "build_vars.sh" ]; then
     source build_vars.sh
@@ -28,8 +29,7 @@ fi
 if [ -n "$PROJECT_TOOLCHAIN_URLS" ]; then
     mkdir -p toolchain_download
     cd toolchain_download
-    
-    URLS=$(echo "$PROJECT_TOOLCHAIN_URLS" | "$HOST_PYTHON" -c "import sys, json; print(' '.join(json.load(sys.stdin)))")
+    URLS=$(echo "$PROJECT_TOOLCHAIN_URLS" | python3 -c "import sys, json; print(' '.join(json.load(sys.stdin)))")
     
     for url in $URLS; do
         wget -q "$url"
@@ -52,7 +52,7 @@ fi
 TOOLCHAIN_BASE_PATH="$PWD/$PROJECT_TOOLCHAIN_PREFIX"
 
 if [ -n "$PROJECT_TOOLCHAIN_EXPORTS" ]; then
-    EXPORTS=$(echo "$PROJECT_TOOLCHAIN_EXPORTS" | "$HOST_PYTHON" -c "import sys, json; print(' '.join(json.load(sys.stdin)))")
+    EXPORTS=$(echo "$PROJECT_TOOLCHAIN_EXPORTS" | python3 -c "import sys, json; print(' '.join(json.load(sys.stdin)))")
     for path in $EXPORTS; do
         if [ -d "$PWD/$PROJECT_TOOLCHAIN_PREFIX/$path" ]; then
             export PATH="$PWD/$PROJECT_TOOLCHAIN_PREFIX/$path:$PATH"
@@ -108,7 +108,7 @@ declare -a DISABLE_CONFIGS=(
 )
 
 if [ -n "$PROJECT_DISABLE_SECURITY" ]; then
-    JSON_LIST=$(echo "$PROJECT_DISABLE_SECURITY" | "$HOST_PYTHON" -c "import sys, json; print(' '.join(json.load(sys.stdin)))")
+    JSON_LIST=$(echo "$PROJECT_DISABLE_SECURITY" | python3 -c "import sys, json; print(' '.join(json.load(sys.stdin)))")
     for config in $JSON_LIST; do
         DISABLE_CONFIGS+=("$config")
     done
@@ -152,10 +152,7 @@ if [[ "$DO_RELEASE" == "true" ]]; then
             --title "$RELEASE_TITLE" \
             --notes "Automated build for $BRANCH_NAME"
         
-        if [ -f "../scripts/requirements.txt" ]; then
-            "$HOST_PYTHON" -m pip install -r ../scripts/requirements.txt
-        fi
-        "$HOST_PYTHON" ../scripts/ci_core.py notify --tag "$RELEASE_TAG"
+        $CI_CORE_BIN notify --tag "$RELEASE_TAG"
     else
         exit 1
     fi

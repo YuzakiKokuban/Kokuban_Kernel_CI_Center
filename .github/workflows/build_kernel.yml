@@ -55,10 +55,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@nightly
         with:
-          python-version: '3.10'
+          toolchain: nightly
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ci_core_rs
+
+      - name: Build CI Core
+        run: cargo build --release --manifest-path ci_core_rs/Cargo.toml
 
       - name: Normalize Inputs
         id: inputs
@@ -89,7 +97,7 @@ jobs:
           echo "DO_RELEASE=${RELEASE}" >> $GITHUB_ENV
 
       - name: Parse Configuration
-        run: python3 scripts/ci_core.py parse --project ${{ env.PROJECT }}
+        run: ./ci_core_rs/target/release/kokuban_ci_core parse --project ${{ env.PROJECT }}
 
       - name: Determine Variant
         run: |
@@ -100,7 +108,7 @@ jobs:
           fi
 
       - name: Generate Meta Info
-        run: python3 scripts/ci_core.py meta --project ${{ env.PROJECT }} --branch ${{ env.VARIANT }}
+        run: ./ci_core_rs/target/release/kokuban_ci_core meta --project ${{ env.PROJECT }} --branch ${{ env.VARIANT }}
 
       - name: Checkout Kernel Source
         uses: actions/checkout@v4
@@ -124,8 +132,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential git libncurses5-dev bc bison flex libssl-dev p7zip-full lz4 cpio curl libelf-dev dwarves ccache jq lld pahole
-          python3 -m pip install --upgrade pip
-          python3 -m pip install -r scripts/requirements.txt
+          # Removed python pip installation as it is handled by the rust binary now
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Build
@@ -136,7 +143,6 @@ jobs:
           BRANCH_NAME: ${{ env.VARIANT }}
           DO_RELEASE: ${{ env.DO_RELEASE }}
         run: |
-          python3 -c "import requests; print('Requests is ready')"
           cp scripts/build.sh kernel_source/
           cd kernel_source
           chmod +x build.sh

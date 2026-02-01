@@ -16,14 +16,22 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       
-      - name: Setup Python
-        uses: actions/setup-python@v6
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@nightly
         with:
-          python-version: '3.10'
+          toolchain: nightly
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ci_core_rs
+
+      - name: Build CI Core
+        run: cargo build --release --manifest-path ci_core_rs/Cargo.toml
           
       - name: Check Upstream
         id: watcher
-        run: python3 scripts/ci_core.py watch
+        run: ./ci_core_rs/target/release/kokuban_ci_core watch
         
       - name: Commit Updated Tracker
         if: steps.watcher.outputs.found_updates == 'true'
@@ -44,14 +52,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Setup Python
-        uses: actions/setup-python@v6
+      
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@nightly
         with:
-          python-version: '3.10'
+          toolchain: nightly
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ci_core_rs
+
+      - name: Build CI Core
+        run: cargo build --release --manifest-path ci_core_rs/Cargo.toml
           
       - name: Perform Update
         run: |
-          python3 scripts/ci_core.py update \
+          ./ci_core_rs/target/release/kokuban_ci_core update \
             --token "${{ secrets.GH_TOKEN }}" \
             --project "${{ matrix.project }}" \
             --variant "${{ matrix.variant }}" \

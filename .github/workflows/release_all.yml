@@ -18,9 +18,23 @@ jobs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v6
+      
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          toolchain: nightly
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ci_core_rs
+
+      - name: Build CI Core
+        run: cargo build --release --manifest-path ci_core_rs/Cargo.toml
+          
       - name: Generate Matrix
         id: set-matrix
-        run: python3 scripts/ci_core.py matrix --project ${{ inputs.project }}
+        run: ./ci_core_rs/target/release/kokuban_ci_core matrix --project ${{ inputs.project }}
 
   build:
     needs: matrix

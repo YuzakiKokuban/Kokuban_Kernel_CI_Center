@@ -26,33 +26,32 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       
-      - name: Setup Python
-        uses: actions/setup-python@v6
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@nightly
         with:
-          python-version: '3.10'
+          toolchain: nightly
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ci_core_rs
+
+      - name: Build CI Core
+        run: cargo build --release --manifest-path ci_core_rs/Cargo.toml
           
       - name: Determine Commit Hash
         id: hash
         run: |
           if [ "${{ inputs.commit_id }}" == "latest" ]; then
              echo "COMMIT_ID=$(git ls-remote https://github.com/tiann/KernelSU.git main | cut -c1-7)" >> $GITHUB_ENV
-             # Note: For manual dispatch without a specific hash, the script fetches latest inside perform_update logic implicitly 
-             # or we can pass a placeholder. But here we just pass 'latest' as a marker if needed, 
-             # For simplicity, let's pass a dummy string if not provided, relying on manual user input usually.
-             # Actually, ci_core update requires a commit_id to write to version file.
-             # Let's simple check:
-             echo "Using manually provided or resolved hash."
           else
              echo "COMMIT_ID=${{ inputs.commit_id }}" >> $GITHUB_ENV
           fi
 
       - name: Execute Update
-        # Note: If commit_id is 'latest', you might want to fetch it using python helpers, 
-        # but manual update usually implies you know what you want. 
-        # For safety, let's just pass what the user typed.
         run: |
-          python3 scripts/ci_core.py update \
+          ./ci_core_rs/target/release/kokuban_ci_core update \
             --token "${{ secrets.GH_TOKEN }}" \
             --project "${{ inputs.project }}" \
             --variant "${{ inputs.branch }}" \
-            --commit_id "${{ inputs.commit_id }}"
+            --commit_id "${{ env.COMMIT_ID }}"

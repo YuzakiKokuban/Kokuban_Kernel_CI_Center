@@ -39,14 +39,23 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       
-      - name: Setup Python
-        uses: actions/setup-python@v6
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@nightly
         with:
-          python-version: '3.10'
-          
+          toolchain: nightly
+          components: rustfmt, clippy
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ci_core_rs
+
+      - name: Build CI Core
+        run: cargo build --release --manifest-path ci_core_rs/Cargo.toml
+
       - name: Add to Configuration
         run: |
-          python3 scripts/ci_core.py add \
+          ./ci_core_rs/target/release/kokuban_ci_core add \
             --key "${{ inputs.project_key }}" \
             --repo "${{ inputs.repo_path }}" \
             --defconfig "${{ inputs.defconfig }}" \

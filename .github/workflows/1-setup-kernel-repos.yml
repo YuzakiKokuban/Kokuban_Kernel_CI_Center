@@ -22,17 +22,25 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       
-      - name: Setup Python
-        uses: actions/setup-python@v6
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@nightly
         with:
-          python-version: '3.10'
+          toolchain: nightly
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ci_core_rs
+
+      - name: Build CI Core
+        run: cargo build --release --manifest-path ci_core_rs/Cargo.toml
           
       - name: Initialize Repositories
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           WEBHOOK_SECRET: ${{ secrets.PUSH_SERVER_WEBHOOK_SECRET }}
         run: |
-          python3 scripts/ci_core.py setup \
+          ./ci_core_rs/target/release/kokuban_ci_core setup \
             --token "${{ secrets.GH_TOKEN }}" \
             --commit_message "${{ inputs.commit_message }}" \
             --readme_language "${{ inputs.readme_language }}"
