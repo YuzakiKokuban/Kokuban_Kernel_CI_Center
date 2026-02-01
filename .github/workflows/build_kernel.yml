@@ -1,0 +1,143 @@
+name: Build Kernel
+on:
+  workflow_dispatch:
+    inputs:
+      project:
+        description: 'Select Project'
+        required: true
+        type: choice
+        options:
+          - z5_sm8550
+          - s25_sm8750
+          - s23_sm8550
+          - s24_sm8650
+          - tabs10_mt6989
+      branch:
+        description: 'Git Branch/Tag'
+        required: true
+        default: 'main'
+      ksu_variant:
+        description: 'KSU Variant Override'
+        type: choice
+        options:
+          - default
+          - resukisu
+          - mksu
+          - ksu
+          - lkm
+        default: 'default'
+      do_release:
+        description: 'Create Release'
+        type: boolean
+        default: true
+  repository_dispatch:
+    types: [build-kernel]
+  workflow_call:
+    inputs:
+      project:
+        required: true
+        type: string
+      branch:
+        required: true
+        type: string
+      ksu_variant:
+        type: string
+        default: 'default'
+      do_release:
+        type: boolean
+        default: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Normalize Inputs
+        id: inputs
+        run: |
+          PROJECT=""
+          BRANCH=""
+          VARIANT="default"
+          RELEASE="true"
+
+          if [ "${{ github.event_name }}" == "repository_dispatch" ]; then
+            PROJECT="${{ github.event.client_payload.project }}"
+            BRANCH="${{ github.event.client_payload.branch }}"
+          elif [ "${{ github.event_name }}" == "workflow_call" ]; then
+            PROJECT="${{ inputs.project }}"
+            BRANCH="${{ inputs.branch }}"
+            VARIANT="${{ inputs.ksu_variant }}"
+            RELEASE="${{ inputs.do_release }}"
+          else
+            PROJECT="${{ inputs.project }}"
+            BRANCH="${{ inputs.branch }}"
+            VARIANT="${{ inputs.ksu_variant }}"
+            RELEASE="${{ inputs.do_release }}"
+          fi
+
+          echo "PROJECT=${PROJECT}" >> $GITHUB_ENV
+          echo "BRANCH_TARGET=${BRANCH}" >> $GITHUB_ENV
+          echo "VARIANT_INPUT=${VARIANT}" >> $GITHUB_ENV
+          echo "DO_RELEASE=${RELEASE}" >> $GITHUB_ENV
+
+      - name: Parse Configuration
+        run: python3 scripts/ci_core.py parse --project ${{ env.PROJECT }}
+
+      - name: Determine Variant
+        run: |
+          if [ "${{ env.VARIANT_INPUT }}" == "default" ] || [ -z "${{ env.VARIANT_INPUT }}" ]; then
+            echo "VARIANT=${{ env.BRANCH_TARGET }}" >> $GITHUB_ENV
+          else
+            echo "VARIANT=${{ env.VARIANT_INPUT }}" >> $GITHUB_ENV
+          fi
+
+      - name: Generate Meta Info
+        run: python3 scripts/ci_core.py meta --project ${{ env.PROJECT }} --branch ${{ env.VARIANT }}
+
+      - name: Checkout Kernel Source
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.PROJECT_REPO }}
+          ref: ${{ env.BRANCH_TARGET }}
+          path: kernel_source
+          submodules: recursive
+          token: ${{ secrets.GH_TOKEN }}
+
+      - name: Setup CCache
+        uses: actions/cache@v4
+        with:
+          path: kernel_source/.ccache
+          key: ccache-${{ env.PROJECT }}-${{ env.VARIANT }}-${{ github.run_id }}
+          restore-keys: |
+            ccache-${{ env.PROJECT }}-${{ env.VARIANT }}-
+            ccache-${{ env.PROJECT }}-
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential git libncurses5-dev bc bison flex libssl-dev p7zip-full lz4 cpio curl libelf-dev dwarves ccache jq lld pahole
+          python3 -m pip install --upgrade pip
+          python3 -m pip install -r scripts/requirements.txt
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Build
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          PROJECT_KEY: ${{ env.PROJECT }}
+          BRANCH_NAME: ${{ env.VARIANT }}
+          DO_RELEASE: ${{ env.DO_RELEASE }}
+        run: |
+          python3 -c "import requests; print('Requests is ready')"
+          cp scripts/build.sh kernel_source/
+          cd kernel_source
+          chmod +x build.sh
+          ./build.sh
