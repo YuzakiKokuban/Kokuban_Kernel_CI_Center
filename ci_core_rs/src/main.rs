@@ -89,7 +89,7 @@ enum Commands {
         project: String,
         #[arg(long)]
         branch: String,
-        #[arg(long)]
+        #[arg(long, action = clap::ArgAction::Set)]
         do_release: bool,
     },
 }
@@ -230,6 +230,8 @@ fn run_cmd_with_env(
     }
 
     command.envs(envs);
+    command.stdout(Stdio::inherit());
+    command.stderr(Stdio::inherit());
 
     let status = command.status()?;
     if !status.success() {
