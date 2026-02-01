@@ -880,7 +880,15 @@ fn handle_notify(tag_name: String) -> Result<()> {
 
             run_cmd(
                 &[
-                    "gh", "release", "download", &tag_name, "--repo", &repo_url, "-p", name,
+                    "gh",
+                    "release",
+                    "download",
+                    &tag_name,
+                    "--repo",
+                    &repo_url,
+                    "-p",
+                    name,
+                    "--clobber",
                 ],
                 None,
                 false,
