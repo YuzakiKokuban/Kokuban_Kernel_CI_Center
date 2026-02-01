@@ -5,6 +5,8 @@ use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::thread; // 新增
+use std::time::Duration; // 新增
 
 use crate::config::{GlobalConfig, ProjectConfig, ProjectsMap};
 
@@ -155,22 +157,50 @@ pub fn handle_notify(tag_name: String) -> Result<()> {
         return Ok(());
     }
 
-    let output = run_cmd(
-        &[
-            "gh",
-            "release",
-            "view",
-            &tag_name,
-            "--repo",
-            &repo_url,
-            "--json",
-            "assets,body,name,url,author",
-        ],
-        None,
-        true,
-    )?
-    .unwrap();
-    let release_info: serde_json::Value = serde_json::from_str(&output)?;
+    let mut attempt = 0;
+    let max_attempts = 5;
+    let mut release_info_str = String::new();
+
+    while attempt < max_attempts {
+        match run_cmd(
+            &[
+                "gh",
+                "release",
+                "view",
+                &tag_name,
+                "--repo",
+                &repo_url,
+                "--json",
+                "assets,body,name,url,author",
+            ],
+            None,
+            true,
+        ) {
+            Ok(Some(output)) => {
+                release_info_str = output;
+                break;
+            }
+            Ok(None) => break, // Should not happen with capture=true
+            Err(e) => {
+                println!(
+                    "Attempt {}/{} failed to verify release: {}. Retrying in 5s...",
+                    attempt + 1,
+                    max_attempts,
+                    e
+                );
+                attempt += 1;
+                thread::sleep(Duration::from_secs(5));
+            }
+        }
+    }
+
+    if release_info_str.is_empty() {
+        return Err(anyhow!(
+            "Failed to retrieve release info after multiple attempts."
+        ));
+    }
+
+    let release_info: serde_json::Value = serde_json::from_str(&release_info_str)?;
 
     let author = release_info["author"]["login"]
         .as_str()
