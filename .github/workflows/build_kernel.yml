@@ -107,9 +107,6 @@ jobs:
             echo "VARIANT=${{ env.VARIANT_INPUT }}" >> $GITHUB_ENV
           fi
 
-      - name: Generate Meta Info
-        run: ./ci_core_rs/target/release/kokuban_ci_core meta --project ${{ env.PROJECT }} --branch ${{ env.VARIANT }}
-
       - name: Checkout Kernel Source
         uses: actions/checkout@v6
         with:
@@ -132,18 +129,14 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential git libncurses5-dev bc bison flex libssl-dev p7zip-full lz4 cpio curl libelf-dev dwarves ccache jq lld pahole
-          # Removed python pip installation as it is handled by the rust binary now
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-      - name: Build
+      - name: Build and Release
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          PROJECT_KEY: ${{ env.PROJECT }}
-          BRANCH_NAME: ${{ env.VARIANT }}
-          DO_RELEASE: ${{ env.DO_RELEASE }}
         run: |
-          cp scripts/build.sh kernel_source/
-          cd kernel_source
-          chmod +x build.sh
-          ./build.sh
+          ./ci_core_rs/target/release/kokuban_ci_core build \
+            --project ${{ env.PROJECT }} \
+            --branch ${{ env.VARIANT }} \
+            --do-release ${{ env.DO_RELEASE }}
