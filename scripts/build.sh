@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -e
 
-# NOTE: HOST_PYTHON variable is no longer used, we use the compiled rust binary
 CI_CORE_BIN="../ci_core_rs/target/release/kokuban_ci_core"
+
+export CI_CENTRAL_ROOT="$(pwd)/.."
 
 if [ -f "build_vars.sh" ]; then
     source build_vars.sh
@@ -26,12 +27,11 @@ else
     fi
 fi
 
-if [ -n "$PROJECT_TOOLCHAIN_URLS" ]; then
+if [ -n "$PROJECT_TOOLCHAIN_URLS_SS" ]; then
     mkdir -p toolchain_download
     cd toolchain_download
-    URLS=$(echo "$PROJECT_TOOLCHAIN_URLS" | python3 -c "import sys, json; print(' '.join(json.load(sys.stdin)))")
     
-    for url in $URLS; do
+    for url in $PROJECT_TOOLCHAIN_URLS_SS; do
         wget -q "$url"
     done
     
@@ -51,9 +51,8 @@ fi
 
 TOOLCHAIN_BASE_PATH="$PWD/$PROJECT_TOOLCHAIN_PREFIX"
 
-if [ -n "$PROJECT_TOOLCHAIN_EXPORTS" ]; then
-    EXPORTS=$(echo "$PROJECT_TOOLCHAIN_EXPORTS" | python3 -c "import sys, json; print(' '.join(json.load(sys.stdin)))")
-    for path in $EXPORTS; do
+if [ -n "$PROJECT_TOOLCHAIN_EXPORTS_SS" ]; then
+    for path in $PROJECT_TOOLCHAIN_EXPORTS_SS; do
         if [ -d "$PWD/$PROJECT_TOOLCHAIN_PREFIX/$path" ]; then
             export PATH="$PWD/$PROJECT_TOOLCHAIN_PREFIX/$path:$PATH"
         fi
@@ -107,9 +106,8 @@ declare -a DISABLE_CONFIGS=(
     "TRIM_UNUSED_KSYMS"
 )
 
-if [ -n "$PROJECT_DISABLE_SECURITY" ]; then
-    JSON_LIST=$(echo "$PROJECT_DISABLE_SECURITY" | python3 -c "import sys, json; print(' '.join(json.load(sys.stdin)))")
-    for config in $JSON_LIST; do
+if [ -n "$PROJECT_DISABLE_SECURITY_SS" ]; then
+    for config in $PROJECT_DISABLE_SECURITY_SS; do
         DISABLE_CONFIGS+=("$config")
     done
 fi
@@ -152,7 +150,6 @@ if [[ "$DO_RELEASE" == "true" ]]; then
             --title "$RELEASE_TITLE" \
             --notes "Automated build for $BRANCH_NAME"
         
-        export CI_CENTRAL_ROOT="$(pwd)/.."
         $CI_CORE_BIN notify --tag "$RELEASE_TAG"
     else
         exit 1

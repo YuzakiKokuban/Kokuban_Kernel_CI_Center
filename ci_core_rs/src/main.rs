@@ -250,14 +250,23 @@ fn handle_parse(project_key: &str) -> Result<()> {
         &proj.extra_host_env.unwrap_or(false).to_string(),
     )?;
 
-    let exports = serde_json::to_string(&proj.toolchain_path_exports.unwrap_or_default())?;
-    set_github_env("PROJECT_TOOLCHAIN_EXPORTS", &exports)?;
+    let exports_vec = proj.toolchain_path_exports.clone().unwrap_or_default();
+    set_github_env(
+        "PROJECT_TOOLCHAIN_EXPORTS",
+        &serde_json::to_string(&exports_vec)?,
+    )?;
+    set_github_env("PROJECT_TOOLCHAIN_EXPORTS_SS", &exports_vec.join(" "))?;
 
-    let disable_security = serde_json::to_string(&proj.disable_security.unwrap_or_default())?;
-    set_github_env("PROJECT_DISABLE_SECURITY", &disable_security)?;
+    let security_vec = proj.disable_security.clone().unwrap_or_default();
+    set_github_env(
+        "PROJECT_DISABLE_SECURITY",
+        &serde_json::to_string(&security_vec)?,
+    )?;
+    set_github_env("PROJECT_DISABLE_SECURITY_SS", &security_vec.join(" "))?;
 
     if let Some(urls) = proj.toolchain_urls {
         set_github_env("PROJECT_TOOLCHAIN_URLS", &serde_json::to_string(&urls)?)?;
+        set_github_env("PROJECT_TOOLCHAIN_URLS_SS", &urls.join(" "))?;
     }
 
     Ok(())
