@@ -29,15 +29,6 @@ pub struct GlobalConfig {
 
 pub type ProjectsMap = HashMap<String, serde_json::Value>;
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct UpstreamCommits {
-    pub ksu: Option<String>,
-    pub mksu: Option<String>,
-    pub resukisu: Option<String>,
-    #[serde(flatten)]
-    pub others: HashMap<String, String>,
-}
-
 pub const KSU_CONFIG_JSON: &str = r#"{
     "ksu": {
         "repo": "https://github.com/tiann/KernelSU.git",

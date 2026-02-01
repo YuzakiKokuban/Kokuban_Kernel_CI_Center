@@ -199,7 +199,6 @@ fn handle_meta(project_key: &str, branch: &str) -> Result<()> {
     let zip_prefix = proj.zip_name_prefix.as_deref().unwrap_or("Kernel");
     let localversion_base = &proj.localversion_base;
 
-    // Fix: Unified return type to String to avoid lifetime issues with temporary values
     let variant_suffix = match branch {
         "main" | "lkm" => "LKM".to_string(),
         "ksu" => "KSU".to_string(),
@@ -305,7 +304,6 @@ fn handle_setup(token: Option<String>, commit_message: String, readme_language: 
         if key.starts_with("_") { continue; }
         
         let proj: ProjectConfig = serde_json::from_value(val)?;
-        // Fix: Clone repo string to avoid partial move of `proj`
         let repo_url = proj.repo.clone();
         
         println!("Processing project: {} -> {}", key, repo_url);
@@ -379,7 +377,7 @@ fn handle_setup(token: Option<String>, commit_message: String, readme_language: 
         }
 
         if let Some(t) = &token {
-            let mut child = Command::new("gh")
+            let child = Command::new("gh")
                 .args(&["secret", "set", "CI_TOKEN"])
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
