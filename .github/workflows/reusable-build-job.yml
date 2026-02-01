@@ -46,7 +46,7 @@ jobs:
       - name: 安装依赖项
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential git libncurses5-dev bc bison flex libssl-dev p7zip-full lz4 cpio curl libelf-dev dwarves ccache jq lld
+          sudo apt-get install -y build-essential git libncurses5-dev bc bison flex libssl-dev p7zip-full lz4 cpio curl libelf-dev dwarves ccache jq lld pahole
       
       - name: 解析项目配置
         id: config
