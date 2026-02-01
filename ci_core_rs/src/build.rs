@@ -20,6 +20,7 @@ pub fn handle_build(project_key: String, branch: String, do_release: bool) -> Re
         return Err(anyhow!("Kernel source not found at ./kernel_source"));
     }
 
+    // 1. Toolchain Setup
     if let Some(urls) = &proj.toolchain_urls {
         let tc_download_dir = PathBuf::from("toolchain_download");
 
@@ -56,6 +57,7 @@ pub fn handle_build(project_key: String, branch: String, do_release: bool) -> Re
         fs::remove_dir_all(tc_download_dir)?;
     }
 
+    // 2. Prepare Environment Variables
     let toolchain_prefix = proj.toolchain_path_prefix.as_deref().unwrap_or("");
     let toolchain_base = env::current_dir()?.join(toolchain_prefix);
 
@@ -115,6 +117,7 @@ pub fn handle_build(project_key: String, branch: String, do_release: bool) -> Re
         );
     }
 
+    // 3. KernelSU Integration
     let setup_url = match branch.as_str() {
         "resukisu" => Some((
             "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh",
@@ -137,6 +140,16 @@ pub fn handle_build(project_key: String, branch: String, do_release: bool) -> Re
         run_cmd(&["bash", "-c", &cmd], Some(&kernel_source_path), false)?;
     }
 
+    // 4. Retrieve Kernel Version (NEW)
+    // 我们在这个阶段运行 make kernelversion 来获取版本号，此时环境已经配置好
+    println!("Extracting kernel version...");
+    let kernel_version = run_cmd(&["make", "kernelversion"], Some(&kernel_source_path), true)?
+        .unwrap_or_else(|| "unknown".to_string())
+        .trim()
+        .to_string();
+    println!("Detected Kernel Version: {}", kernel_version);
+
+    // 5. Construct Make Arguments
     let target_soc = project_key.split('_').nth(1).unwrap_or("unknown");
     let mut make_args = vec!["O=out", "ARCH=arm64", "LLVM=1", "LLVM_IAS=1"];
 
@@ -156,12 +169,14 @@ pub fn handle_build(project_key: String, branch: String, do_release: bool) -> Re
         make_args.push("CC=clang");
     }
 
+    // 6. Make Defconfig
     let mut defconfig_cmd = vec!["make"];
     defconfig_cmd.extend_from_slice(&make_args);
     defconfig_cmd.push(&proj.defconfig);
 
     run_cmd_with_env(&defconfig_cmd, Some(&kernel_source_path), &build_env)?;
 
+    // 7. Apply Security & Config Patches
     let mut disable_configs = vec![
         "UH",
         "RKP",
@@ -223,6 +238,7 @@ pub fn handle_build(project_key: String, branch: String, do_release: bool) -> Re
         }
     }
 
+    // 8. Handle Localversion
     let short_sha = run_cmd(
         &["git", "rev-parse", "--short", "HEAD"],
         Some(&kernel_source_path),
@@ -250,6 +266,7 @@ pub fn handle_build(project_key: String, branch: String, do_release: bool) -> Re
         build_env.insert("LOCALVERSION".to_string(), localversion.clone());
     }
 
+    // 9. Build Kernel
     let threads = run_cmd(&["nproc"], None, true)?.unwrap().trim().to_string();
     let jobs = format!("-j{}", threads);
 
@@ -262,6 +279,7 @@ pub fn handle_build(project_key: String, branch: String, do_release: bool) -> Re
         fs::write(kernel_source_path.join("localversion"), "")?;
     }
 
+    // 10. Package AnyKernel3
     let ak3_repo = proj
         .anykernel_repo
         .as_deref()
@@ -287,8 +305,13 @@ pub fn handle_build(project_key: String, branch: String, do_release: bool) -> Re
 
     let date_str = Local::now().format("%Y%m%d-%H%M").to_string();
     let zip_prefix = proj.zip_name_prefix.as_deref().unwrap_or("Kernel");
+
+    // 修改这里：使用 [Prefix]-[KernelVersion]-[LocalVersion]-[Date].zip
     let clean_localversion = localversion.trim_start_matches('-');
-    let final_zip_name = format!("{}-{}-{}.zip", zip_prefix, clean_localversion, date_str);
+    let final_zip_name = format!(
+        "{}-{}-{}-{}.zip",
+        zip_prefix, kernel_version, clean_localversion, date_str
+    );
 
     run_cmd(
         &[
@@ -317,6 +340,7 @@ pub fn handle_build(project_key: String, branch: String, do_release: bool) -> Re
         false,
     )?;
 
+    // 11. Release & Notify
     if do_release {
         let release_tag = format!("{}-{}-{}", zip_prefix, variant_suffix, date_str);
         let release_title = format!("{} {} Build ({})", zip_prefix, variant_suffix, date_str);
@@ -334,7 +358,10 @@ pub fn handle_build(project_key: String, branch: String, do_release: bool) -> Re
                     "--title",
                     &release_title,
                     "--notes",
-                    &format!("Automated build for {}", branch),
+                    &format!(
+                        "Automated build for {}\nKernel Version: {}",
+                        branch, kernel_version
+                    ),
                 ],
                 None,
                 false,
