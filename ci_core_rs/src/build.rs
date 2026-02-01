@@ -328,6 +328,8 @@ pub fn handle_build(project_key: String, branch: String, do_release: bool) -> Re
                     "create",
                     &release_tag,
                     &final_zip_name,
+                    "--repo",
+                    &proj.repo,
                     "--title",
                     &release_title,
                     "--notes",
