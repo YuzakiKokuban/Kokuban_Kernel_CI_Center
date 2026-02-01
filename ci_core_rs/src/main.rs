@@ -1,13 +1,13 @@
 mod config;
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{anyhow, Context, Result};
 use chrono::Local;
 use clap::{Parser, Subcommand};
-use config::{GlobalConfig, KSU_CONFIG_JSON, KsuConfigItem, ProjectConfig, ProjectsMap};
+use config::{GlobalConfig, KsuConfigItem, ProjectConfig, ProjectsMap, KSU_CONFIG_JSON};
 use std::collections::HashMap;
 use std::env;
 use std::fs::{self, OpenOptions};
-use std::io::{Read, Write};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
@@ -49,10 +49,7 @@ enum Commands {
         device_cn: String,
         #[arg(long, default_value = "Unknown Device")]
         device_en: String,
-        #[arg(
-            long,
-            default_value = "https://github.com/YuzakiKokuban/AnyKernel3.git"
-        )]
+        #[arg(long, default_value = "https://github.com/YuzakiKokuban/AnyKernel3.git")]
         ak3_repo: String,
         #[arg(long, default_value = "master")]
         ak3_branch: String,
@@ -88,46 +85,17 @@ enum Commands {
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
-
+    
     match cli.command {
         Commands::Parse { project } => handle_parse(&project),
         Commands::Meta { project, branch } => handle_meta(&project, &branch),
         Commands::Matrix { project, token } => handle_matrix(&project, token),
-        Commands::Add {
-            key,
-            repo,
-            defconfig,
-            localversion,
-            device_cn,
-            device_en,
-            ak3_repo,
-            ak3_branch,
-            zip_name,
-            toolchain_prefix,
-        } => handle_add(
-            key,
-            repo,
-            defconfig,
-            localversion,
-            device_cn,
-            device_en,
-            ak3_repo,
-            ak3_branch,
-            zip_name,
-            toolchain_prefix,
-        ),
-        Commands::Setup {
-            token,
-            commit_message,
-            readme_language,
-        } => handle_setup(token, commit_message, readme_language),
+        Commands::Add { key, repo, defconfig, localversion, device_cn, device_en, ak3_repo, ak3_branch, zip_name, toolchain_prefix } => {
+            handle_add(key, repo, defconfig, localversion, device_cn, device_en, ak3_repo, ak3_branch, zip_name, toolchain_prefix)
+        },
+        Commands::Setup { token, commit_message, readme_language } => handle_setup(token, commit_message, readme_language),
         Commands::Watch => handle_watch(),
-        Commands::Update {
-            token,
-            project,
-            variant,
-            commit_id,
-        } => handle_update(token, project, variant, commit_id),
+        Commands::Update { token, project, variant, commit_id } => handle_update(token, project, variant, commit_id),
         Commands::Notify { tag } => handle_notify(tag),
     }
 }
@@ -161,11 +129,8 @@ fn set_github_env(key: &str, value: &str) -> Result<()> {
         let mut file = OpenOptions::new().append(true).create(true).open(path)?;
         writeln!(file, "{}={}", key, value)?;
     }
-
-    let mut file = OpenOptions::new()
-        .append(true)
-        .create(true)
-        .open("build_vars.sh")?;
+    
+    let mut file = OpenOptions::new().append(true).create(true).open("build_vars.sh")?;
     writeln!(file, "export {}='{}'", key, value)?;
     Ok(())
 }
@@ -173,7 +138,7 @@ fn set_github_env(key: &str, value: &str) -> Result<()> {
 fn run_cmd(cmd: &[&str], cwd: Option<&Path>, capture: bool) -> Result<Option<String>> {
     let mut command = Command::new(cmd[0]);
     command.args(&cmd[1..]);
-
+    
     if let Some(dir) = cwd {
         command.current_dir(dir);
     }
@@ -181,15 +146,9 @@ fn run_cmd(cmd: &[&str], cwd: Option<&Path>, capture: bool) -> Result<Option<Str
     if capture {
         let output = command.output()?;
         if !output.status.success() {
-            return Err(anyhow!(
-                "Command failed: {:?} Stderr: {}",
-                cmd,
-                String::from_utf8_lossy(&output.stderr)
-            ));
+            return Err(anyhow!("Command failed: {:?} Stderr: {}", cmd, String::from_utf8_lossy(&output.stderr)));
         }
-        Ok(Some(
-            String::from_utf8_lossy(&output.stdout).trim().to_string(),
-        ))
+        Ok(Some(String::from_utf8_lossy(&output.stdout).trim().to_string()))
     } else {
         let status = command.status()?;
         if !status.success() {
@@ -201,47 +160,27 @@ fn run_cmd(cmd: &[&str], cwd: Option<&Path>, capture: bool) -> Result<Option<Str
 
 fn handle_parse(project_key: &str) -> Result<()> {
     let projects = load_projects()?;
-    let proj_val = projects
-        .get(project_key)
-        .ok_or_else(|| anyhow!("Project not found"))?;
+    let proj_val = projects.get(project_key).ok_or_else(|| anyhow!("Project not found"))?;
     let proj: ProjectConfig = serde_json::from_value(proj_val.clone())?;
 
     set_github_env("PROJECT_REPO", &proj.repo)?;
     set_github_env("PROJECT_DEFCONFIG", &proj.defconfig)?;
     set_github_env("PROJECT_LOCALVERSION_BASE", &proj.localversion_base)?;
-
+    
     if let Some(lto) = &proj.lto {
         set_github_env("PROJECT_LTO", lto)?;
     }
-
-    set_github_env(
-        "PROJECT_TOOLCHAIN_PREFIX",
-        proj.toolchain_path_prefix.as_deref().unwrap_or(""),
-    )?;
-    set_github_env(
-        "PROJECT_ZIP_NAME_PREFIX",
-        proj.zip_name_prefix.as_deref().unwrap_or("Kernel"),
-    )?;
-    set_github_env(
-        "PROJECT_AK3_REPO",
-        proj.anykernel_repo.as_deref().unwrap_or(""),
-    )?;
-    set_github_env(
-        "PROJECT_AK3_BRANCH",
-        proj.anykernel_branch.as_deref().unwrap_or(""),
-    )?;
-    set_github_env(
-        "PROJECT_VERSION_METHOD",
-        proj.version_method.as_deref().unwrap_or("param"),
-    )?;
-    set_github_env(
-        "PROJECT_EXTRA_HOST_ENV",
-        &proj.extra_host_env.unwrap_or(false).to_string(),
-    )?;
+    
+    set_github_env("PROJECT_TOOLCHAIN_PREFIX", proj.toolchain_path_prefix.as_deref().unwrap_or(""))?;
+    set_github_env("PROJECT_ZIP_NAME_PREFIX", proj.zip_name_prefix.as_deref().unwrap_or("Kernel"))?;
+    set_github_env("PROJECT_AK3_REPO", proj.anykernel_repo.as_deref().unwrap_or(""))?;
+    set_github_env("PROJECT_AK3_BRANCH", proj.anykernel_branch.as_deref().unwrap_or(""))?;
+    set_github_env("PROJECT_VERSION_METHOD", proj.version_method.as_deref().unwrap_or("param"))?;
+    set_github_env("PROJECT_EXTRA_HOST_ENV", &proj.extra_host_env.unwrap_or(false).to_string())?;
 
     let exports = serde_json::to_string(&proj.toolchain_path_exports.unwrap_or_default())?;
     set_github_env("PROJECT_TOOLCHAIN_EXPORTS", &exports)?;
-
+    
     let disable_security = serde_json::to_string(&proj.disable_security.unwrap_or_default())?;
     set_github_env("PROJECT_DISABLE_SECURITY", &disable_security)?;
 
@@ -254,30 +193,29 @@ fn handle_parse(project_key: &str) -> Result<()> {
 
 fn handle_meta(project_key: &str, branch: &str) -> Result<()> {
     let projects = load_projects()?;
-    let proj_val = projects
-        .get(project_key)
-        .ok_or_else(|| anyhow!("Project not found"))?;
+    let proj_val = projects.get(project_key).ok_or_else(|| anyhow!("Project not found"))?;
     let proj: ProjectConfig = serde_json::from_value(proj_val.clone())?;
 
     let zip_prefix = proj.zip_name_prefix.as_deref().unwrap_or("Kernel");
     let localversion_base = &proj.localversion_base;
 
+    // Fix: Unified return type to String to avoid lifetime issues with temporary values
     let variant_suffix = match branch {
-        "main" | "lkm" => "LKM",
-        "ksu" => "KSU",
-        "mksu" => "MKSU",
-        "resukisu" | "sukisuultra" => "ReSuki",
-        _ => branch.to_uppercase().as_str().into(),
+        "main" | "lkm" => "LKM".to_string(),
+        "ksu" => "KSU".to_string(),
+        "mksu" => "MKSU".to_string(),
+        "resukisu" | "sukisuultra" => "ReSuki".to_string(),
+        _ => branch.to_uppercase(),
     };
 
     let date_str = Local::now().format("%Y%m%d-%H%M").to_string();
-
+    
     let final_localversion = format!("{}-{}", localversion_base, variant_suffix);
     let release_tag = format!("{}-{}-{}", zip_prefix, variant_suffix, date_str);
     let final_zip_name = format!("{}-{}-{}.zip", zip_prefix, variant_suffix, date_str);
     let release_title = format!("{} {} Build ({})", zip_prefix, variant_suffix, date_str);
 
-    set_github_env("BUILD_VARIANT_SUFFIX", &variant_suffix.to_string())?;
+    set_github_env("BUILD_VARIANT_SUFFIX", &variant_suffix)?;
     set_github_env("FINAL_LOCALVERSION", &final_localversion)?;
     set_github_env("RELEASE_TAG", &release_tag)?;
     set_github_env("FINAL_ZIP_NAME", &final_zip_name)?;
@@ -288,14 +226,12 @@ fn handle_meta(project_key: &str, branch: &str) -> Result<()> {
 
 fn handle_matrix(project_key: &str, _token: Option<String>) -> Result<()> {
     let projects = load_projects()?;
-    let proj_val = projects
-        .get(project_key)
-        .ok_or_else(|| anyhow!("Project not found"))?;
+    let proj_val = projects.get(project_key).ok_or_else(|| anyhow!("Project not found"))?;
     let proj: ProjectConfig = serde_json::from_value(proj_val.clone())?;
 
     let raw_supported = proj.supported_ksu.unwrap_or_default();
     let mut branches = vec!["main".to_string()];
-
+    
     for x in raw_supported {
         if x != "sukisuultra" {
             branches.push(x);
@@ -304,11 +240,10 @@ fn handle_matrix(project_key: &str, _token: Option<String>) -> Result<()> {
         }
     }
 
-    let include: Vec<HashMap<String, String>> = branches
-        .into_iter()
+    let include: Vec<HashMap<String, String>> = branches.into_iter()
         .map(|b| HashMap::from([("branch".to_string(), b)]))
         .collect();
-
+    
     let matrix = HashMap::from([("include", include)]);
     let json_matrix = serde_json::to_string(&matrix)?;
 
@@ -322,20 +257,9 @@ fn handle_matrix(project_key: &str, _token: Option<String>) -> Result<()> {
     Ok(())
 }
 
-fn handle_add(
-    key: String,
-    repo: String,
-    defconfig: String,
-    localversion: String,
-    device_cn: String,
-    device_en: String,
-    ak3_repo: String,
-    ak3_branch: String,
-    zip_name: String,
-    toolchain_prefix: String,
-) -> Result<()> {
+fn handle_add(key: String, repo: String, defconfig: String, localversion: String, device_cn: String, device_en: String, ak3_repo: String, ak3_branch: String, zip_name: String, toolchain_prefix: String) -> Result<()> {
     let mut projects = load_projects()?;
-
+    
     let mut placeholders = HashMap::new();
     placeholders.insert("DEVICE_NAME_CN".to_string(), device_cn);
     placeholders.insert("DEVICE_NAME_EN".to_string(), device_en);
@@ -345,17 +269,9 @@ fn handle_add(
         defconfig,
         localversion_base: localversion,
         lto: None,
-        supported_ksu: Some(vec![
-            "resukisu".to_string(),
-            "mksu".to_string(),
-            "ksu".to_string(),
-        ]),
+        supported_ksu: Some(vec!["resukisu".to_string(), "mksu".to_string(), "ksu".to_string()]),
         toolchain_urls: None,
-        toolchain_path_prefix: if toolchain_prefix.is_empty() {
-            None
-        } else {
-            Some(toolchain_prefix)
-        },
+        toolchain_path_prefix: if toolchain_prefix.is_empty() { None } else { Some(toolchain_prefix) },
         toolchain_path_exports: None,
         anykernel_repo: Some(ak3_repo),
         anykernel_branch: Some(ak3_branch),
@@ -371,14 +287,10 @@ fn handle_add(
     Ok(())
 }
 
-fn handle_setup(
-    token: Option<String>,
-    commit_message: String,
-    readme_language: String,
-) -> Result<()> {
+fn handle_setup(token: Option<String>, commit_message: String, readme_language: String) -> Result<()> {
     let projects = load_projects()?;
     let workspace = get_workspace_dir();
-
+    
     if !workspace.exists() {
         fs::create_dir_all(&workspace)?;
     }
@@ -386,27 +298,18 @@ fn handle_setup(
     let readme_tpl = fs::read_to_string("templates/README.md.tpl")?;
     let trigger_tpl = fs::read_to_string("templates/trigger-central-build.yml.tpl")?;
 
-    run_cmd(
-        &["git", "config", "--global", "user.name", "Kokuban-Bot"],
-        None,
-        false,
-    )?;
-    run_cmd(
-        &["git", "config", "--global", "user.email", "bot@kokuban.dev"],
-        None,
-        false,
-    )?;
+    run_cmd(&["git", "config", "--global", "user.name", "Kokuban-Bot"], None, false)?;
+    run_cmd(&["git", "config", "--global", "user.email", "bot@kokuban.dev"], None, false)?;
 
     for (key, val) in projects {
-        if key.starts_with("_") {
-            continue;
-        }
-
+        if key.starts_with("_") { continue; }
+        
         let proj: ProjectConfig = serde_json::from_value(val)?;
-        let repo_url = proj.repo;
-
+        // Fix: Clone repo string to avoid partial move of `proj`
+        let repo_url = proj.repo.clone();
+        
         println!("Processing project: {} -> {}", key, repo_url);
-
+        
         let target_dir = workspace.join(&key);
         let auth_url = if let Some(t) = &token {
             format!("https://{}@github.com/{}.git", t, repo_url)
@@ -418,46 +321,22 @@ fn handle_setup(
             fs::remove_dir_all(&target_dir)?;
         }
 
-        run_cmd(
-            &["git", "clone", &auth_url, target_dir.to_str().unwrap()],
-            None,
-            false,
-        )?;
+        run_cmd(&["git", "clone", &auth_url, target_dir.to_str().unwrap()], None, false)?;
 
         let readme_content = process_readme(&readme_tpl, &proj, &repo_url, &readme_language);
         let target_branches = vec!["main", "ksu", "mksu", "resukisu"];
 
-        let remote_out =
-            run_cmd(&["git", "branch", "-r"], Some(&target_dir), true)?.unwrap_or_default();
-        let remote_branches: Vec<&str> = remote_out
-            .lines()
-            .map(|l| l.trim().trim_start_matches("origin/"))
-            .collect();
+        let remote_out = run_cmd(&["git", "branch", "-r"], Some(&target_dir), true)?.unwrap_or_default();
+        let remote_branches: Vec<&str> = remote_out.lines().map(|l| l.trim().trim_start_matches("origin/")).collect();
 
         for branch in target_branches {
             let branch_exists = remote_branches.contains(&branch);
-
+            
             if branch == "resukisu" && !branch_exists && remote_branches.contains(&"sukisuultra") {
-                run_cmd(
-                    &["git", "checkout", "sukisuultra"],
-                    Some(&target_dir),
-                    false,
-                )?;
-                run_cmd(
-                    &["git", "branch", "-m", "resukisu"],
-                    Some(&target_dir),
-                    false,
-                )?;
-                run_cmd(
-                    &["git", "push", "origin", "-u", "resukisu"],
-                    Some(&target_dir),
-                    false,
-                )?;
-                run_cmd(
-                    &["git", "push", "origin", "--delete", "sukisuultra"],
-                    Some(&target_dir),
-                    false,
-                )?;
+                run_cmd(&["git", "checkout", "sukisuultra"], Some(&target_dir), false)?;
+                run_cmd(&["git", "branch", "-m", "resukisu"], Some(&target_dir), false)?;
+                run_cmd(&["git", "push", "origin", "-u", "resukisu"], Some(&target_dir), false)?;
+                run_cmd(&["git", "push", "origin", "--delete", "sukisuultra"], Some(&target_dir), false)?;
             } else if branch_exists {
                 run_cmd(&["git", "checkout", branch], Some(&target_dir), false)?;
             } else {
@@ -474,27 +353,17 @@ fn handle_setup(
                 fs::copy(".github/FUNDING.yml", github_dir.join("FUNDING.yml"))?;
             }
 
-            for old in [
-                "build.sh",
-                "build_kernel.sh",
-                "update.sh",
-                "update-kernelsu.yml",
-            ] {
+            for old in ["build.sh", "build_kernel.sh", "update.sh", "update-kernelsu.yml"] {
                 let p = target_dir.join(old);
-                if p.exists() {
-                    fs::remove_file(p)?;
-                }
+                if p.exists() { fs::remove_file(p)?; }
             }
 
             let repo_owner = repo_url.split('/').next().unwrap_or("YuzakiKokuban");
             let trigger_content = trigger_tpl
                 .replace("__PROJECT_KEY__", &key)
                 .replace("__REPO_OWNER__", repo_owner);
-
-            fs::write(
-                workflows_dir.join("trigger-central-build.yml"),
-                trigger_content,
-            )?;
+            
+            fs::write(workflows_dir.join("trigger-central-build.yml"), trigger_content)?;
 
             if Path::new("configs/universal.gitignore").exists() {
                 fs::copy("configs/universal.gitignore", target_dir.join(".gitignore"))?;
@@ -502,18 +371,9 @@ fn handle_setup(
 
             run_cmd(&["git", "add", "."], Some(&target_dir), false)?;
             let status = run_cmd(&["git", "status", "--porcelain"], Some(&target_dir), true)?;
-
+            
             if !status.unwrap_or_default().is_empty() {
-                run_cmd(
-                    &[
-                        "git",
-                        "commit",
-                        "-m",
-                        &format!("{} (branch: {})", commit_message, branch),
-                    ],
-                    Some(&target_dir),
-                    false,
-                )?;
+                run_cmd(&["git", "commit", "-m", &format!("{} (branch: {})", commit_message, branch)], Some(&target_dir), false)?;
                 run_cmd(&["git", "push", "origin", branch], Some(&target_dir), false)?;
             }
         }
@@ -525,27 +385,14 @@ fn handle_setup(
                 .stdout(Stdio::piped())
                 .current_dir(&target_dir)
                 .spawn();
-
+                
             if let Ok(mut child) = child {
                 if let Some(mut stdin) = child.stdin.take() {
                     let _ = stdin.write_all(t.as_bytes());
                 }
                 let _ = child.wait();
             }
-            let _ = run_cmd(
-                &[
-                    "gh",
-                    "api",
-                    "--method",
-                    "PATCH",
-                    &format!("repos/{}", repo_url),
-                    "-f",
-                    "has_sponsorships=true",
-                    "--silent",
-                ],
-                None,
-                false,
-            );
+            let _ = run_cmd(&["gh", "api", "--method", "PATCH", &format!("repos/{}", repo_url), "-f", "has_sponsorships=true", "--silent"], None, false);
         }
     }
     Ok(())
@@ -554,18 +401,11 @@ fn handle_setup(
 fn process_readme(template: &str, proj: &ProjectConfig, repo_url: &str, lang: &str) -> String {
     let mut content = template.to_string();
     let placeholders = proj.readme_placeholders.clone().unwrap_or_default();
+    
+    let cn_name = placeholders.get("DEVICE_NAME_CN").map(|s| s.as_str()).unwrap_or("未知设备");
+    let en_name = placeholders.get("DEVICE_NAME_EN").map(|s| s.as_str()).unwrap_or("Unknown Device");
 
-    let cn_name = placeholders
-        .get("DEVICE_NAME_CN")
-        .map(|s| s.as_str())
-        .unwrap_or("未知设备");
-    let en_name = placeholders
-        .get("DEVICE_NAME_EN")
-        .map(|s| s.as_str())
-        .unwrap_or("Unknown Device");
-
-    content = content
-        .replace("__DEVICE_NAME_CN__", cn_name)
+    content = content.replace("__DEVICE_NAME_CN__", cn_name)
         .replace("__DEVICE_NAME_EN__", en_name)
         .replace("__PROJECT_REPO__", repo_url)
         .replace("__LOCALVERSION_BASE__", &proj.localversion_base);
@@ -578,13 +418,12 @@ fn process_readme(template: &str, proj: &ProjectConfig, repo_url: &str, lang: &s
         content = re.replace_all(&content, "").to_string();
     }
 
-    content
-        .replace("", "")
-        .replace("", "")
-        .replace("", "")
-        .replace("", "")
-        .trim()
-        .to_string()
+    content.replace("", "")
+           .replace("", "")
+           .replace("", "")
+           .replace("", "")
+           .trim()
+           .to_string()
 }
 
 fn handle_watch() -> Result<()> {
@@ -595,17 +434,13 @@ fn handle_watch() -> Result<()> {
     } else {
         HashMap::new()
     };
-
+    
     track_data.remove("sukisuultra");
     let projects_map = load_projects()?;
     let mut update_matrix = Vec::new();
 
     for (variant, config) in ksu_configs {
-        let output = run_cmd(
-            &["git", "ls-remote", &config.repo, &config.branch],
-            None,
-            true,
-        )?;
+        let output = run_cmd(&["git", "ls-remote", &config.repo, &config.branch], None, true)?;
         let latest_hash = match output {
             Some(s) => s.split_whitespace().next().unwrap_or("").to_string(),
             None => continue,
@@ -617,24 +452,16 @@ fn handle_watch() -> Result<()> {
             track_data.insert(variant.clone(), latest_hash.clone());
 
             for (p_key, p_val) in &projects_map {
-                if p_key.starts_with("_") {
-                    continue;
-                }
+                if p_key.starts_with("_") { continue; }
                 let p: ProjectConfig = serde_json::from_value(p_val.clone())?;
                 let supported = p.supported_ksu.unwrap_or_default();
-                let normalized_supported: Vec<String> = supported
-                    .into_iter()
-                    .map(|x| x.replace("sukisuultra", "resukisu"))
-                    .collect();
-
+                let normalized_supported: Vec<String> = supported.into_iter().map(|x| x.replace("sukisuultra", "resukisu")).collect();
+                
                 if normalized_supported.contains(&variant) {
                     let mut map = HashMap::new();
                     map.insert("project".to_string(), p_key.clone());
                     map.insert("variant".to_string(), variant.clone());
-                    map.insert(
-                        "commit_id".to_string(),
-                        latest_hash.chars().take(7).collect(),
-                    );
+                    map.insert("commit_id".to_string(), latest_hash.chars().take(7).collect());
                     update_matrix.push(map);
                 }
             }
@@ -646,30 +473,15 @@ fn handle_watch() -> Result<()> {
     if let Ok(path) = env::var("GITHUB_OUTPUT") {
         let mut file = OpenOptions::new().append(true).create(true).open(path)?;
         writeln!(file, "matrix={}", serde_json::to_string(&update_matrix)?)?;
-        writeln!(
-            file,
-            "found_updates={}",
-            if !update_matrix.is_empty() {
-                "true"
-            } else {
-                "false"
-            }
-        )?;
+        writeln!(file, "found_updates={}", if !update_matrix.is_empty() { "true" } else { "false" })?;
     }
 
     Ok(())
 }
 
-fn handle_update(
-    token: String,
-    project_key: String,
-    variant: String,
-    commit_id: String,
-) -> Result<()> {
+fn handle_update(token: String, project_key: String, variant: String, commit_id: String) -> Result<()> {
     let projects = load_projects()?;
-    let proj_val = projects
-        .get(&project_key)
-        .ok_or_else(|| anyhow!("Project not found"))?;
+    let proj_val = projects.get(&project_key).ok_or_else(|| anyhow!("Project not found"))?;
     let proj: ProjectConfig = serde_json::from_value(proj_val.clone())?;
 
     let normalized_variant = variant.replace("sukisuultra", "resukisu");
@@ -681,19 +493,7 @@ fn handle_update(
     }
 
     let auth_url = format!("https://{}@github.com/{}.git", token, repo_url);
-    run_cmd(
-        &[
-            "git",
-            "clone",
-            "--depth=1",
-            "--branch",
-            &normalized_variant,
-            &auth_url,
-            target_dir.to_str().unwrap(),
-        ],
-        None,
-        false,
-    )?;
+    run_cmd(&["git", "clone", "--depth=1", "--branch", &normalized_variant, &auth_url, target_dir.to_str().unwrap()], None, false)?;
 
     fs::write(target_dir.join("KERNELSU_VERSION.txt"), &commit_id)?;
 
@@ -706,40 +506,23 @@ fn handle_update(
         let setup_script = target_dir.join("setup.sh");
         let script_content = reqwest::blocking::get(&cfg.setup_url)?.text()?;
         fs::write(&setup_script, script_content)?;
-
+        
         let mut args = vec!["bash", "setup.sh"];
         let setup_args_refs: Vec<&str> = cfg.setup_args.iter().map(|s| s.as_str()).collect();
         args.extend(setup_args_refs);
-
+        
         run_cmd(&args, Some(&target_dir), false)?;
         fs::remove_file(setup_script)?;
     }
 
-    run_cmd(
-        &["git", "config", "user.name", "Kokuban-Bot"],
-        Some(&target_dir),
-        false,
-    )?;
-    run_cmd(
-        &["git", "config", "user.email", "bot@kokuban.dev"],
-        Some(&target_dir),
-        false,
-    )?;
+    run_cmd(&["git", "config", "user.name", "Kokuban-Bot"], Some(&target_dir), false)?;
+    run_cmd(&["git", "config", "user.email", "bot@kokuban.dev"], Some(&target_dir), false)?;
 
     run_cmd(&["git", "add", "."], Some(&target_dir), false)?;
     let status = run_cmd(&["git", "status", "--porcelain"], Some(&target_dir), true)?;
 
     if !status.unwrap_or_default().is_empty() {
-        run_cmd(
-            &[
-                "git",
-                "commit",
-                "-m",
-                &format!("ci: update {} to {}", normalized_variant, commit_id),
-            ],
-            Some(&target_dir),
-            false,
-        )?;
+        run_cmd(&["git", "commit", "-m", &format!("ci: update {} to {}", normalized_variant, commit_id)], Some(&target_dir), false)?;
         run_cmd(&["git", "push"], Some(&target_dir), false)?;
     }
 
@@ -750,27 +533,18 @@ fn handle_update(
 fn handle_notify(tag_name: String) -> Result<()> {
     let token = env::var("TELEGRAM_BOT_TOKEN").context("Missing TELEGRAM_BOT_TOKEN")?;
     let projects = load_projects()?;
-
-    let globals_val = projects
-        .get("_globals")
-        .cloned()
-        .unwrap_or(serde_json::Value::Null);
-    let globals: GlobalConfig = serde_json::from_value(globals_val).unwrap_or(GlobalConfig {
-        broadcast_channel: None,
-        resukisu_chat_id: None,
-        resukisu_topic_id: None,
-    });
+    
+    let globals_val = projects.get("_globals").cloned().unwrap_or(serde_json::Value::Null);
+    let globals: GlobalConfig = serde_json::from_value(globals_val).unwrap_or(GlobalConfig { broadcast_channel: None, resukisu_chat_id: None, resukisu_topic_id: None });
 
     let mut target_project: Option<ProjectConfig> = None;
     let mut repo_url = "Unknown/Repo".to_string();
 
     for (key, val) in &projects {
-        if key.starts_with("_") {
-            continue;
-        }
+        if key.starts_with("_") { continue; }
         let p: ProjectConfig = serde_json::from_value(val.clone())?;
         let prefix = p.zip_name_prefix.as_deref().unwrap_or("Kernel");
-
+        
         if tag_name.starts_with(prefix) {
             target_project = Some(p.clone());
             repo_url = p.repo;
@@ -798,26 +572,10 @@ fn handle_notify(tag_name: String) -> Result<()> {
         return Ok(());
     }
 
-    let output = run_cmd(
-        &[
-            "gh",
-            "release",
-            "view",
-            &tag_name,
-            "--repo",
-            &repo_url,
-            "--json",
-            "assets,body,name,url,author",
-        ],
-        None,
-        true,
-    )?
-    .unwrap();
+    let output = run_cmd(&["gh", "release", "view", &tag_name, "--repo", &repo_url, "--json", "assets,body,name,url,author"], None, true)?.unwrap();
     let release_info: serde_json::Value = serde_json::from_str(&output)?;
 
-    let author = release_info["author"]["login"]
-        .as_str()
-        .unwrap_or("YuzakiKokuban");
+    let author = release_info["author"]["login"].as_str().unwrap_or("YuzakiKokuban");
     let name = release_info["name"].as_str().unwrap_or("Update");
     let url = release_info["url"].as_str().unwrap_or("");
 
@@ -834,13 +592,12 @@ fn handle_notify(tag_name: String) -> Result<()> {
         json_body.insert("text", serde_json::to_value(&msg)?);
         json_body.insert("parse_mode", serde_json::to_value("HTML")?);
         json_body.insert("disable_web_page_preview", serde_json::to_value(true)?);
-
+        
         if let Some(tid) = topic_id {
             json_body.insert("message_thread_id", serde_json::to_value(tid)?);
         }
 
-        let _ = client
-            .post(format!("https://api.telegram.org/bot{}/sendMessage", token))
+        let _ = client.post(format!("https://api.telegram.org/bot{}/sendMessage", token))
             .json(&json_body)
             .send();
     }
@@ -850,19 +607,13 @@ fn handle_notify(tag_name: String) -> Result<()> {
         for asset in asset_list {
             let name = asset["name"].as_str().unwrap();
             let size = asset["size"].as_i64().unwrap_or(0);
-
+            
             if size > 50 * 1024 * 1024 {
                 println!("Skipping {} (too large)", name);
                 continue;
             }
 
-            run_cmd(
-                &[
-                    "gh", "release", "download", &tag_name, "--repo", &repo_url, "-p", name,
-                ],
-                None,
-                false,
-            )?;
+            run_cmd(&["gh", "release", "download", &tag_name, "--repo", &repo_url, "-p", name], None, false)?;
 
             for (chat_id, topic_id) in &destinations {
                 let caption = format!(
@@ -874,23 +625,16 @@ fn handle_notify(tag_name: String) -> Result<()> {
                     .text("chat_id", chat_id.clone())
                     .text("caption", caption)
                     .text("parse_mode", "HTML");
-
+                
                 let form = if let Some(tid) = topic_id {
                     form.text("message_thread_id", tid.to_string())
-                } else {
-                    form
-                };
+                } else { form };
 
                 let file_content = fs::read(name)?;
-                let part = reqwest::blocking::multipart::Part::bytes(file_content)
-                    .file_name(name.to_owned());
+                let part = reqwest::blocking::multipart::Part::bytes(file_content).file_name(name.to_owned());
                 let form = form.part("document", part);
 
-                let _ = client
-                    .post(format!(
-                        "https://api.telegram.org/bot{}/sendDocument",
-                        token
-                    ))
+                let _ = client.post(format!("https://api.telegram.org/bot{}/sendDocument", token))
                     .multipart(form)
                     .send();
             }
