@@ -287,7 +287,8 @@ pub fn handle_build(project_key: String, branch: String, do_release: bool) -> Re
 
     let date_str = Local::now().format("%Y%m%d-%H%M").to_string();
     let zip_prefix = proj.zip_name_prefix.as_deref().unwrap_or("Kernel");
-    let final_zip_name = format!("{}-{}-{}.zip", zip_prefix, variant_suffix, date_str);
+    let clean_localversion = localversion.trim_start_matches('-');
+    let final_zip_name = format!("{}-{}-{}.zip", zip_prefix, clean_localversion, date_str);
 
     run_cmd(
         &[

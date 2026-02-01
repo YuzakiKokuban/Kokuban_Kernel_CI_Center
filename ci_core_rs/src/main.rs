@@ -140,7 +140,7 @@ fn main() -> Result<()> {
             variant,
             commit_id,
         } => handle_update(token, project, variant, commit_id),
-        Commands::Notify { tag } => utils::handle_notify(tag), // 修复：调用 utils::handle_notify
+        Commands::Notify { tag } => utils::handle_notify(tag),
         Commands::Build {
             project,
             branch,
@@ -185,7 +185,9 @@ fn handle_meta(project_key: &str, branch: &str) -> Result<()> {
 
     let final_localversion = format!("{}-{}", localversion_base, variant_suffix);
     let release_tag = format!("{}-{}-{}", zip_prefix, variant_suffix, date_str);
-    let final_zip_name = format!("{}-{}-{}.zip", zip_prefix, variant_suffix, date_str);
+    let clean_localversion = final_localversion.trim_start_matches('-');
+    let final_zip_name = format!("{}-{}-{}.zip", zip_prefix, clean_localversion, date_str);
+
     let release_title = format!("{} {} Build ({})", zip_prefix, variant_suffix, date_str);
 
     set_github_env("BUILD_VARIANT_SUFFIX", &variant_suffix)?;

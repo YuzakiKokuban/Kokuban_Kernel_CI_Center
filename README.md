@@ -18,9 +18,9 @@ Kokuban Kernel CI Center 是一个专为 Android Linux 内核编译设计的集�
 
 本项目由以下核心组件构成：
 
-1.  **CI Core (Rust)**: 位于 `ci_core_rs/` 目录。负责解析 `projects.json` 配置、生成 GitHub Actions 构建矩阵、执行具体的编译指令（Make）、处理 AnyKernel3 打包以及执行发布通知。
-2.  **配置中心**: 位于 `configs/` 目录。`projects.json` 定义了所有受管项目的元数据；`upstream_commits.json` 用于追踪上游变更。
-3.  **工作流 (Workflows)**: 位于 `.github/workflows/` 目录。定义了 CI 的触发条件（手动触发、定时触发、上游变更触发）并调用 CI Core 执行实际任务。
+1. **CI Core (Rust)**: 位于 `ci_core_rs/` 目录。负责解析 `projects.json` 配置、生成 GitHub Actions 构建矩阵、执行具体的编译指令（Make）、处理 AnyKernel3 打包以及执行发布通知。
+2. **配置中心**: 位于 `configs/` 目录。`projects.json` 定义了所有受管项目的元数据；`upstream_commits.json` 用于追踪上游变更。
+3. **工作流 (Workflows)**: 位于 `.github/workflows/` 目录。定义了 CI 的触发条件（手动触发、定时触发、上游变更触发）并调用 CI Core 执行实际任务。
 
 ## 支持设备列表
 
