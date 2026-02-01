@@ -152,6 +152,7 @@ if [[ "$DO_RELEASE" == "true" ]]; then
             --title "$RELEASE_TITLE" \
             --notes "Automated build for $BRANCH_NAME"
         
+        export CI_CENTRAL_ROOT="$(pwd)/.."
         $CI_CORE_BIN notify --tag "$RELEASE_TAG"
     else
         exit 1
