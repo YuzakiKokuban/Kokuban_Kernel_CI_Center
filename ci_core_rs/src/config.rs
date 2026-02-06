@@ -46,7 +46,7 @@ pub const KSU_CONFIG_JSON: &str = r#"{
         "repo": "https://github.com/ReSukiSU/ReSukiSU.git",
         "branch": "main",
         "setup_url": "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh",
-        "setup_args": ["builtin"]
+        "setup_args": ["main"]
     }
 }"#;
 
