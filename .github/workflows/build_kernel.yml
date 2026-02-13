@@ -12,6 +12,7 @@ on:
           - s23_sm8550
           - s24_sm8650
           - tabs10_mt6989
+          - z6_sm8650
       branch:
         description: 'Git Branch/Tag'
         required: true

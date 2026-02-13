@@ -6,7 +6,7 @@ on:
         description: 'Select Project'
         required: true
         type: choice
-        options: [z5_sm8550, s25_sm8750, s23_sm8550, s24_sm8650, tabs10_mt6989]
+        options: [z5_sm8550, s25_sm8750, s23_sm8550, s24_sm8650, tabs10_mt6989, z6_sm8650]
 
 permissions:
   contents: write

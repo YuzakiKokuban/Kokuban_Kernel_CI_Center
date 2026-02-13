@@ -162,5 +162,38 @@
     "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
     "anykernel_branch": "mt6989",
     "zip_name_prefix": "TabS10_kernel"
+  },
+  "z6_sm8650": {
+    "repo": "YuzakiKokuban/android_kernel_samsung_sm8650_Z6",
+    "defconfig": "pineapple_gki_defconfig",
+    "localversion_base": "-android14-Kokuban-Cyrene-CYI7",
+    "lto": "",
+    "supported_ksu": [
+      "resukisu",
+      "mksu",
+      "ksu"
+    ],
+    "toolchain_urls": [
+      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8650/releases/download/toolchain/toolchainS24.tar.gz.00",
+      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8650/releases/download/toolchain/toolchainS24.tar.gz.01"
+    ],
+    "toolchain_path_prefix": "prebuilts",
+    "toolchain_path_exports": [
+      "build-tools/linux-x86/bin",
+      "build-tools/path/linux-x86",
+      "clang/host/linux-x86/clang-r487747c/bin",
+      "clang-tools/linux-x86/bin",
+      "kernel-build-tools/linux-x86/bin"
+    ],
+    "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
+    "anykernel_branch": "pineapple_z",
+    "zip_name_prefix": "Z6_Kernel",
+    "version_method": "param",
+    "extra_host_env": false,
+    "disable_security": [],
+    "readme_placeholders": {
+      "DEVICE_NAME_CN": "三星 Galaxy Z6 系列",
+      "DEVICE_NAME_EN": "Samsung Galaxy Z6 Series"
+    }
   }
 }
