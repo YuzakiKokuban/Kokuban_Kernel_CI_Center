@@ -1,4 +1,4 @@
-name: 3. Watch Upstream KernelSU
+name: Watch Upstream KernelSU
 on:
   schedule:
     - cron: '0 0 */3 * *'
@@ -72,4 +72,4 @@ jobs:
             --token "${{ secrets.GH_TOKEN }}" \
             --project "${{ matrix.project }}" \
             --variant "${{ matrix.variant }}" \
-            --commit_id "${{ matrix.commit_id }}"
+            --commit-id "${{ matrix.commit_id }}"

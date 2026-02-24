@@ -1,4 +1,4 @@
-name: 2. Manual Update KernelSU
+name: Manual Update KernelSU
 on:
   workflow_dispatch:
     inputs:
@@ -54,4 +54,4 @@ jobs:
             --token "${{ secrets.GH_TOKEN }}" \
             --project "${{ inputs.project }}" \
             --variant "${{ inputs.branch }}" \
-            --commit_id "${{ env.COMMIT_ID }}"
+            --commit-id "${{ env.COMMIT_ID }}"
