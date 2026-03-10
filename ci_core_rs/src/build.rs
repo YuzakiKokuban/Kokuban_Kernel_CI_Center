@@ -253,7 +253,7 @@ pub fn handle_build(project_key: String, branch: String, do_release: bool) -> Re
     if proj.version_method.as_deref().unwrap_or("param") == "file" {
         fs::write(
             kernel_source_path.join("localversion"),
-            format!("{}-g{}", localversion, short_sha),
+            localversion.clone(),
         )?;
     } else {
         make_args.push("LOCALVERSION=");
