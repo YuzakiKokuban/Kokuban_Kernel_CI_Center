@@ -207,11 +207,13 @@
     ],
     "version_method": "file",
     "toolchain_urls": [
-      "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r530567.tar.gz"
+      "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r547379.tar.gz",
+      "https://android.googlesource.com/kernel/prebuilts/build-tools/+archive/refs/heads/main.tar.gz"
     ],
-    "toolchain_path_prefix": "prebuilts",
+    "toolchain_path_prefix": "",
     "toolchain_path_exports": [
-      "bin"
+      "bin",
+      "linux-x86/bin"
     ],
     "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
     "anykernel_branch": "canoe",
