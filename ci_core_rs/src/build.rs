@@ -29,11 +29,9 @@ pub fn handle_build(project_key: String, branch: String, do_release: bool) -> Re
         fs::create_dir_all(&tc_download_dir)?;
 
         for url in urls {
-            println!("Downloading toolchain: {}", url);
             run_cmd(&["wget", "-q", url], Some(&tc_download_dir), false)?;
         }
 
-        println!("Extracting toolchain...");
         let extract_script = r#"
             set -e
             if ls *.tar.gz.[0-9]* 1> /dev/null 2>&1; then
@@ -75,6 +73,7 @@ pub fn handle_build(project_key: String, branch: String, do_release: bool) -> Re
 
     build_env.insert("PATH".to_string(), new_path);
     build_env.insert("ARCH".to_string(), "arm64".to_string());
+    build_env.insert("SUBARCH".to_string(), "arm64".to_string());
     build_env.insert("CLANG_TRIPLE".to_string(), "aarch64-linux-gnu-".to_string());
     build_env.insert(
         "CROSS_COMPILE".to_string(),
@@ -84,6 +83,8 @@ pub fn handle_build(project_key: String, branch: String, do_release: bool) -> Re
         "CROSS_COMPILE_COMPAT".to_string(),
         "arm-linux-gnueabi-".to_string(),
     );
+    build_env.insert("KCFLAGS".to_string(), "-O2 -pipe -Wno-error".to_string());
+    build_env.insert("KCPPFLAGS".to_string(), "-O2 -pipe -Wno-error".to_string());
 
     if let Some(true) = proj.extra_host_env {
         let kbt = toolchain_base.join("kernel-build-tools/linux-x86");
@@ -132,38 +133,62 @@ pub fn handle_build(project_key: String, branch: String, do_release: bool) -> Re
     };
 
     if let Some((url, arg)) = setup_url {
-        println!("Installing KernelSU for {}", branch);
         let cmd = format!("curl -LSs '{}' | bash -s {}", url, arg);
         run_cmd(&["bash", "-c", &cmd], Some(&kernel_source_path), false)?;
     }
 
-    println!("Extracting kernel version...");
     let kernel_version = run_cmd(&["make", "kernelversion"], Some(&kernel_source_path), true)?
         .unwrap_or_else(|| "unknown".to_string())
         .trim()
         .to_string();
-    println!("Detected Kernel Version: {}", kernel_version);
 
     let target_soc = project_key.split('_').nth(1).unwrap_or("unknown");
-    let mut make_args = vec!["O=out", "ARCH=arm64", "LLVM=1", "LLVM_IAS=1"];
-
-    make_args.push("LLVM_AR=llvm-ar");
-    make_args.push("HOSTAR=llvm-ar");
+    let mut make_args = vec![
+        "O=out",
+        "ARCH=arm64",
+        "SUBARCH=arm64",
+        "LLVM=1",
+        "LLVM_IAS=1",
+        "LD=ld.lld",
+        "HOSTLD=ld.lld",
+        "AR=llvm-ar",
+        "NM=llvm-nm",
+        "OBJCOPY=llvm-objcopy",
+        "OBJDUMP=llvm-objdump",
+        "OBJSIZE=llvm-size",
+        "READELF=llvm-readelf",
+        "STRIP=llvm-strip",
+        "RUSTC=rustc",
+        "HOSTRUSTC=rustc",
+        "BINDGEN=bindgen",
+    ];
 
     let soc_arg = format!("TARGET_SOC={}", target_soc);
     make_args.push(&soc_arg);
 
+    fs::write(kernel_source_path.join("protected_module_names_list"), "")?;
+    fs::write(kernel_source_path.join("protected_exports_list"), "")?;
+
+    let git_exclude_path = kernel_source_path.join(".git/info/exclude");
+    let mut exclude_data = fs::read_to_string(&git_exclude_path).unwrap_or_default();
+    exclude_data.push_str("\nprotected_module_names_list\nprotected_exports_list\n");
+    let _ = fs::write(git_exclude_path, exclude_data);
+
     if run_cmd(&["which", "ccache"], None, false).is_ok() {
         build_env.insert("CC".to_string(), "ccache clang".to_string());
         build_env.insert("CXX".to_string(), "ccache clang++".to_string());
+        build_env.insert("HOSTCC".to_string(), "ccache clang".to_string());
+        build_env.insert("HOSTCXX".to_string(), "ccache clang++".to_string());
         build_env.insert(
             "CCACHE_DIR".to_string(),
             format!("{}/.ccache", env::current_dir()?.display()),
         );
         run_cmd(&["ccache", "-M", "5G"], None, false)?;
         make_args.push("CC=ccache clang");
+        make_args.push("HOSTCC=ccache clang");
     } else {
         make_args.push("CC=clang");
+        make_args.push("HOSTCC=clang");
     }
 
     let mut defconfig_cmd = vec!["make"];
