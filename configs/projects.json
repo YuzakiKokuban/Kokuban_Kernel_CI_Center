@@ -205,6 +205,7 @@
       "mksu",
       "ksu"
     ],
+    "version_method": "file",
     "toolchain_urls": [
       "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r530567.tar.gz"
     ],
