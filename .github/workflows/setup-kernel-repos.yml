@@ -42,5 +42,5 @@ jobs:
         run: |
           ./ci_core_rs/target/release/kokuban_ci_core setup \
             --token "${{ secrets.GH_TOKEN }}" \
-            --commit_message "${{ inputs.commit_message }}" \
-            --readme_language "${{ inputs.readme_language }}"
+            --commit-message "${{ inputs.commit_message }}" \
+            --readme-language "${{ inputs.readme_language }}"
