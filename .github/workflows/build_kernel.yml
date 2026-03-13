@@ -142,3 +142,10 @@ jobs:
             --project ${{ env.PROJECT }} \
             --branch ${{ env.VARIANT }} \
             --do-release ${{ env.DO_RELEASE }}
+      
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ env.PROJECT }}-kernel-${{ github.run_id }}
+          path: "*.zip"
