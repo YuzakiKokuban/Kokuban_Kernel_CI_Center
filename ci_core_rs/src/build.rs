@@ -122,6 +122,23 @@ pub fn handle_build(
         );
     }
 
+    if let Some(ref custom_time) = custom_build_time {
+        if custom_time.starts_with('#') {
+            let parts: Vec<&str> = custom_time.splitn(2, ' ').collect();
+            if parts.len() == 2 {
+                build_env.insert(
+                    "KBUILD_BUILD_VERSION".to_string(),
+                    parts[0].replace("#", ""),
+                );
+                build_env.insert("KBUILD_BUILD_TIMESTAMP".to_string(), parts[1].to_string());
+            } else {
+                build_env.insert("KBUILD_BUILD_TIMESTAMP".to_string(), custom_time.clone());
+            }
+        } else {
+            build_env.insert("KBUILD_BUILD_TIMESTAMP".to_string(), custom_time.clone());
+        }
+    }
+
     let setup_url = match branch.as_str() {
         "resukisu" => Some((
             "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh",
@@ -330,11 +347,7 @@ pub fn handle_build(
 
     fs::copy(image_path, "AnyKernel3/Image")?;
 
-    let date_str = if let Some(custom) = custom_build_time {
-        custom
-    } else {
-        Local::now().format("%Y%m%d-%H%M").to_string()
-    };
+    let date_str = Local::now().format("%Y%m%d-%H%M").to_string();
     let zip_prefix = proj.zip_name_prefix.as_deref().unwrap_or("Kernel");
 
     let clean_localversion = localversion.trim_start_matches('-');
