@@ -302,13 +302,15 @@ pub fn handle_build(
         format!("{}-{}", proj.localversion_base, variant_suffix)
     };
 
+    let localversion_arg = format!("LOCALVERSION={}", localversion);
+
     if proj.version_method.as_deref().unwrap_or("param") == "file" {
         fs::write(
             kernel_source_path.join("localversion"),
             localversion.clone(),
         )?;
     } else {
-        make_args.push("LOCALVERSION=");
+        make_args.push(&localversion_arg);
         build_env.insert("LOCALVERSION".to_string(), localversion.clone());
     }
 
