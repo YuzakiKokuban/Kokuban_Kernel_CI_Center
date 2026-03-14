@@ -95,9 +95,9 @@ enum Commands {
         branch: String,
         #[arg(long, action = clap::ArgAction::Set)]
         do_release: bool,
-        #[arg(long)]
+        #[arg(long, allow_hyphen_values = true)]
         custom_localversion: Option<String>,
-        #[arg(long)]
+        #[arg(long, allow_hyphen_values = true)]
         custom_build_time: Option<String>,
     },
 }

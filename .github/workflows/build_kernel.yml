@@ -164,10 +164,10 @@ jobs:
         run: |
           ARGS=(--project ${{ env.PROJECT }} --branch ${{ env.VARIANT }} --do-release ${{ env.DO_RELEASE }})
           if [ -n "${{ env.CUSTOM_LOCALVERSION }}" ]; then
-            ARGS+=(--custom-localversion "${{ env.CUSTOM_LOCALVERSION }}")
+            ARGS+=("--custom-localversion=${{ env.CUSTOM_LOCALVERSION }}")
           fi
           if [ -n "${{ env.CUSTOM_BUILD_TIME }}" ]; then
-            ARGS+=(--custom-build-time "${{ env.CUSTOM_BUILD_TIME }}")
+            ARGS+=("--custom-build-time=${{ env.CUSTOM_BUILD_TIME }}")
           fi
           ./ci_core_rs/target/release/kokuban_ci_core build "${ARGS[@]}"
       
