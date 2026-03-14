@@ -95,6 +95,10 @@ enum Commands {
         branch: String,
         #[arg(long, action = clap::ArgAction::Set)]
         do_release: bool,
+        #[arg(long)]
+        custom_localversion: Option<String>,
+        #[arg(long)]
+        custom_build_time: Option<String>,
     },
 }
 
@@ -145,7 +149,15 @@ fn main() -> Result<()> {
             project,
             branch,
             do_release,
-        } => build::handle_build(project, branch, do_release),
+            custom_localversion,
+            custom_build_time,
+        } => build::handle_build(
+            project,
+            branch,
+            do_release,
+            custom_localversion,
+            custom_build_time,
+        ),
     }
 }
 

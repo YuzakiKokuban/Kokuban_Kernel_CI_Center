@@ -8,7 +8,13 @@ use std::path::{Path, PathBuf};
 use crate::config::ProjectConfig;
 use crate::utils::{handle_notify, load_projects, run_cmd, run_cmd_with_env};
 
-pub fn handle_build(project_key: String, branch: String, do_release: bool) -> Result<()> {
+pub fn handle_build(
+    project_key: String,
+    branch: String,
+    do_release: bool,
+    custom_localversion: Option<String>,
+    custom_build_time: Option<String>,
+) -> Result<()> {
     let projects = load_projects()?;
     let proj_val = projects
         .get(&project_key)
@@ -273,7 +279,11 @@ pub fn handle_build(project_key: String, branch: String, do_release: bool) -> Re
         _ => branch.to_uppercase(),
     };
 
-    let localversion = format!("{}-{}", proj.localversion_base, variant_suffix);
+    let localversion = if let Some(custom) = custom_localversion {
+        custom
+    } else {
+        format!("{}-{}", proj.localversion_base, variant_suffix)
+    };
 
     if proj.version_method.as_deref().unwrap_or("param") == "file" {
         fs::write(
@@ -320,7 +330,11 @@ pub fn handle_build(project_key: String, branch: String, do_release: bool) -> Re
 
     fs::copy(image_path, "AnyKernel3/Image")?;
 
-    let date_str = Local::now().format("%Y%m%d-%H%M").to_string();
+    let date_str = if let Some(custom) = custom_build_time {
+        custom
+    } else {
+        Local::now().format("%Y%m%d-%H%M").to_string()
+    };
     let zip_prefix = proj.zip_name_prefix.as_deref().unwrap_or("Kernel");
 
     let clean_localversion = localversion.trim_start_matches('-');

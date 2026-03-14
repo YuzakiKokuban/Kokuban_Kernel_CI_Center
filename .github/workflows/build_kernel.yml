@@ -32,6 +32,16 @@ on:
         description: 'Create Release'
         type: boolean
         default: true
+      custom_localversion:
+        description: 'Custom Localversion Override'
+        type: string
+        required: false
+        default: ''
+      custom_build_time:
+        description: 'Custom Build Time Override'
+        type: string
+        required: false
+        default: ''
   repository_dispatch:
     types: [build-kernel]
   workflow_call:
@@ -48,6 +58,12 @@ on:
       do_release:
         type: boolean
         default: true
+      custom_localversion:
+        type: string
+        default: ''
+      custom_build_time:
+        type: string
+        default: ''
 
 jobs:
   build:
@@ -77,6 +93,8 @@ jobs:
           BRANCH=""
           VARIANT="default"
           RELEASE="true"
+          CUSTOM_LOCALVERSION=""
+          CUSTOM_BUILD_TIME=""
 
           if [ "${{ github.event_name }}" == "repository_dispatch" ]; then
             PROJECT="${{ github.event.client_payload.project }}"
@@ -86,17 +104,23 @@ jobs:
             BRANCH="${{ inputs.branch }}"
             VARIANT="${{ inputs.ksu_variant }}"
             RELEASE="${{ inputs.do_release }}"
+            CUSTOM_LOCALVERSION="${{ inputs.custom_localversion }}"
+            CUSTOM_BUILD_TIME="${{ inputs.custom_build_time }}"
           else
             PROJECT="${{ inputs.project }}"
             BRANCH="${{ inputs.branch }}"
             VARIANT="${{ inputs.ksu_variant }}"
             RELEASE="${{ inputs.do_release }}"
+            CUSTOM_LOCALVERSION="${{ inputs.custom_localversion }}"
+            CUSTOM_BUILD_TIME="${{ inputs.custom_build_time }}"
           fi
 
           echo "PROJECT=${PROJECT}" >> $GITHUB_ENV
           echo "BRANCH_TARGET=${BRANCH}" >> $GITHUB_ENV
           echo "VARIANT_INPUT=${VARIANT}" >> $GITHUB_ENV
           echo "DO_RELEASE=${RELEASE}" >> $GITHUB_ENV
+          echo "CUSTOM_LOCALVERSION=${CUSTOM_LOCALVERSION}" >> $GITHUB_ENV
+          echo "CUSTOM_BUILD_TIME=${CUSTOM_BUILD_TIME}" >> $GITHUB_ENV
 
       - name: Parse Configuration
         run: ./ci_core_rs/target/release/kokuban_ci_core parse --project ${{ env.PROJECT }}
@@ -138,10 +162,14 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         run: |
-          ./ci_core_rs/target/release/kokuban_ci_core build \
-            --project ${{ env.PROJECT }} \
-            --branch ${{ env.VARIANT }} \
-            --do-release ${{ env.DO_RELEASE }}
+          ARGS=(--project ${{ env.PROJECT }} --branch ${{ env.VARIANT }} --do-release ${{ env.DO_RELEASE }})
+          if [ -n "${{ env.CUSTOM_LOCALVERSION }}" ]; then
+            ARGS+=(--custom-localversion "${{ env.CUSTOM_LOCALVERSION }}")
+          fi
+          if [ -n "${{ env.CUSTOM_BUILD_TIME }}" ]; then
+            ARGS+=(--custom-build-time "${{ env.CUSTOM_BUILD_TIME }}")
+          fi
+          ./ci_core_rs/target/release/kokuban_ci_core build "${ARGS[@]}"
       
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
