@@ -172,7 +172,7 @@ jobs:
           ./ci_core_rs/target/release/kokuban_ci_core build "${ARGS[@]}"
       
       - name: Upload Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: ${{ env.PROJECT }}-kernel-${{ github.run_id }}
