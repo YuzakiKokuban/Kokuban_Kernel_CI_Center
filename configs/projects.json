@@ -215,7 +215,7 @@
       "bin",
       "linux-x86/bin"
     ],
-    "lto": "thin",
+    "lto": "none",
     "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
     "anykernel_branch": "canoe",
     "zip_name_prefix": "Mi17_Kernel",

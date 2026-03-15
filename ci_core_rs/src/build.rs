@@ -278,6 +278,22 @@ pub fn handle_build(
                 Some(&kernel_source_path),
                 false,
             )?;
+        } else if lto == "none" {
+            run_cmd(
+                &[
+                    "scripts/config",
+                    "--file",
+                    "out/.config",
+                    "-e",
+                    "LTO_NONE",
+                    "-d",
+                    "LTO_CLANG_THIN",
+                    "-d",
+                    "LTO_CLANG_FULL",
+                ],
+                Some(&kernel_source_path),
+                false,
+            )?;
         }
     }
 
