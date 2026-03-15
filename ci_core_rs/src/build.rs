@@ -297,6 +297,9 @@ pub fn handle_build(
     };
 
     let localversion = if let Some(custom) = custom_localversion {
+        let _ = fs::write(kernel_source_path.join(".scmversion"), "");
+        make_args.push("LOCALVERSION_AUTO=n");
+        build_env.insert("LOCALVERSION_AUTO".to_string(), "n".to_string());
         custom
     } else {
         format!("{}-{}", proj.localversion_base, variant_suffix)
