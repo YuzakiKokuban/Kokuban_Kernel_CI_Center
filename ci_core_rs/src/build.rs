@@ -89,8 +89,17 @@ pub fn handle_build(
         "CROSS_COMPILE_COMPAT".to_string(),
         "arm-linux-gnueabi-".to_string(),
     );
-    build_env.insert("KCFLAGS".to_string(), "-O2 -pipe -Wno-error".to_string());
-    build_env.insert("KCPPFLAGS".to_string(), "-O2 -pipe -Wno-error".to_string());
+    build_env.insert(
+        "KCFLAGS".to_string(),
+        "-O2 -pipe -Wno-error -D__ANDROID_COMMON_KERNEL__".to_string(),
+    );
+    build_env.insert(
+        "KCPPFLAGS".to_string(),
+        "-O2 -pipe -Wno-error -D__ANDROID_COMMON_KERNEL__".to_string(),
+    );
+    build_env.insert("IN_KERNEL_MODULES".to_string(), "1".to_string());
+    build_env.insert("DO_NOT_STRIP_MODULES".to_string(), "1".to_string());
+    build_env.insert("PAGE_SIZE".to_string(), "4096".to_string());
 
     if let Some(true) = proj.extra_host_env {
         let kbt = toolchain_base.join("kernel-build-tools/linux-x86");
@@ -336,7 +345,7 @@ pub fn handle_build(
     let threads = run_cmd(&["nproc"], None, true)?.unwrap().trim().to_string();
     let jobs = format!("-j{}", threads);
 
-    let mut build_cmd = vec!["make", &jobs];
+    let mut build_cmd = vec!["make", &jobs, "Image", "modules"];
     build_cmd.extend_from_slice(&make_args);
 
     run_cmd_with_env(&build_cmd, Some(&kernel_source_path), &build_env)?;
