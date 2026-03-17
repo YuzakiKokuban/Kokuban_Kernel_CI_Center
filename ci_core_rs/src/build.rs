@@ -101,7 +101,7 @@ pub fn handle_build(
         if let Ok(common_real_path) = fs::canonicalize(&kernel_source_path) {
             if let Some(root_real_path) = common_real_path.parent() {
                 kcflags = format!(
-                    "-O2 -pipe -Wno-error -fno-stack-protector -D__ANDROID_COMMON_KERNEL__ -fdebug-prefix-map={}=. -fmacro-prefix-map={}=. -ffile-prefix-map={}=.",
+                    "-O2 -pipe -Wno-error -fno-stack-protector -no-canonical-prefixes -D__ANDROID_COMMON_KERNEL__ -fdebug-prefix-map={}=. -fmacro-prefix-map={}=. -ffile-prefix-map={}=.",
                     root_real_path.display(),
                     root_real_path.display(),
                     root_real_path.display()
@@ -113,6 +113,11 @@ pub fn handle_build(
             "LIBCLANG_PATH".to_string(),
             libclang_path.display().to_string(),
         );
+        build_env.insert("KBUILD_GENDWARFKSYMS_STABLE".to_string(), "1".to_string());
+        build_env.insert("KBUILD_BUILD_USER".to_string(), "build-user".to_string());
+        build_env.insert("KBUILD_BUILD_HOST".to_string(), "build-host".to_string());
+        build_env.insert("TZ".to_string(), "UTC".to_string());
+        build_env.insert("LC_ALL".to_string(), "C".to_string());
     }
 
     build_env.insert("KCFLAGS".to_string(), kcflags.clone());
@@ -260,28 +265,35 @@ pub fn handle_build(
     run_cmd_with_env(&defconfig_cmd, Some(&kernel_source_path), &build_env)?;
 
     if target_soc_str == "sm8850" {
-        run_cmd(
-            &[
-                "scripts/config",
-                "--file",
-                "out/.config",
-                "-e",
-                "RUST",
-                "-m",
-                "ANDROID_BINDER_IPC_RUST",
-                "-e",
-                "CC_OPTIMIZE_FOR_PERFORMANCE",
-                "-d",
-                "HEADERS_INSTALL",
-                "--set-str",
-                "LOCALVERSION",
-                "",
-                "-d",
-                "LOCALVERSION_AUTO",
-            ],
-            Some(&kernel_source_path),
-            false,
-        )?;
+        let mut config_cmd = vec![
+            "scripts/config",
+            "--file",
+            "out/.config",
+            "-e",
+            "RUST",
+            "-m",
+            "ANDROID_BINDER_IPC_RUST",
+            "-e",
+            "CC_OPTIMIZE_FOR_PERFORMANCE",
+            "-d",
+            "HEADERS_INSTALL",
+            "--set-str",
+            "LOCALVERSION",
+            "",
+            "-d",
+            "LOCALVERSION_AUTO",
+            "-e",
+            "TMPFS_XATTR",
+            "-e",
+            "TMPFS_POSIX_ACL",
+        ];
+
+        if setup_url.is_some() {
+            config_cmd.push("-e");
+            config_cmd.push("KSU");
+        }
+
+        run_cmd(&config_cmd, Some(&kernel_source_path), false)?;
     }
 
     let mut disable_configs = vec![
@@ -360,6 +372,11 @@ pub fn handle_build(
             )?;
         }
     }
+
+    let mut olddefconfig_cmd = vec!["make"];
+    olddefconfig_cmd.extend_from_slice(&make_args);
+    olddefconfig_cmd.push("olddefconfig");
+    run_cmd_with_env(&olddefconfig_cmd, Some(&kernel_source_path), &build_env)?;
 
     let short_sha = run_cmd(
         &["git", "rev-parse", "--short=12", "HEAD"],
