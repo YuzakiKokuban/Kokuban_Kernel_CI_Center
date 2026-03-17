@@ -26,6 +26,8 @@ pub fn handle_build(
         return Err(anyhow!("Kernel source not found at ./kernel_source"));
     }
 
+    let target_soc_str = project_key.split('_').nth(1).unwrap_or("unknown");
+
     if let Some(urls) = &proj.toolchain_urls {
         let tc_download_dir = PathBuf::from("toolchain_download");
 
@@ -47,6 +49,10 @@ pub fn handle_build(
             elif ls *.tar.gz 1> /dev/null 2>&1; then
                 for tarball in *.tar.gz; do
                     tar -zxf "$tarball" --warning=no-unknown-keyword -C ..
+                done
+            elif ls *.zip 1> /dev/null 2>&1; then
+                for zipball in *.zip; do
+                    unzip -q "$zipball" -d ..
                 done
             fi
         "#;
@@ -89,14 +95,28 @@ pub fn handle_build(
         "CROSS_COMPILE_COMPAT".to_string(),
         "arm-linux-gnueabi-".to_string(),
     );
-    build_env.insert(
-        "KCFLAGS".to_string(),
-        "-O2 -pipe -Wno-error -D__ANDROID_COMMON_KERNEL__".to_string(),
-    );
-    build_env.insert(
-        "KCPPFLAGS".to_string(),
-        "-O2 -pipe -Wno-error -D__ANDROID_COMMON_KERNEL__".to_string(),
-    );
+
+    let mut kcflags = "-O2 -pipe -Wno-error -D__ANDROID_COMMON_KERNEL__".to_string();
+    if target_soc_str == "sm8850" {
+        if let Ok(common_real_path) = fs::canonicalize(&kernel_source_path) {
+            if let Some(root_real_path) = common_real_path.parent() {
+                kcflags = format!(
+                    "-O2 -pipe -Wno-error -fno-stack-protector -D__ANDROID_COMMON_KERNEL__ -fdebug-prefix-map={}=. -fmacro-prefix-map={}=. -ffile-prefix-map={}=.",
+                    root_real_path.display(),
+                    root_real_path.display(),
+                    root_real_path.display()
+                );
+            }
+        }
+        let libclang_path = toolchain_base.join("lib");
+        build_env.insert(
+            "LIBCLANG_PATH".to_string(),
+            libclang_path.display().to_string(),
+        );
+    }
+
+    build_env.insert("KCFLAGS".to_string(), kcflags.clone());
+    build_env.insert("KCPPFLAGS".to_string(), kcflags);
     build_env.insert("IN_KERNEL_MODULES".to_string(), "1".to_string());
     build_env.insert("DO_NOT_STRIP_MODULES".to_string(), "1".to_string());
     build_env.insert("PAGE_SIZE".to_string(), "4096".to_string());
@@ -169,12 +189,20 @@ pub fn handle_build(
         run_cmd(&["bash", "-c", &cmd], Some(&kernel_source_path), false)?;
     }
 
+    if target_soc_str == "sm8850" {
+        let setlocalversion_path = kernel_source_path.join("scripts/setlocalversion");
+        if setlocalversion_path.exists() {
+            let content = fs::read_to_string(&setlocalversion_path).unwrap_or_default();
+            let new_content = content.replace(" -dirty", "");
+            let _ = fs::write(&setlocalversion_path, new_content);
+        }
+    }
+
     let kernel_version = run_cmd(&["make", "kernelversion"], Some(&kernel_source_path), true)?
         .unwrap_or_else(|| "unknown".to_string())
         .trim()
         .to_string();
 
-    let target_soc = project_key.split('_').nth(1).unwrap_or("unknown");
     let mut make_args = vec![
         "O=out",
         "ARCH=arm64",
@@ -195,7 +223,7 @@ pub fn handle_build(
         "BINDGEN=bindgen",
     ];
 
-    let soc_arg = format!("TARGET_SOC={}", target_soc);
+    let soc_arg = format!("TARGET_SOC={}", target_soc_str);
     make_args.push(&soc_arg);
 
     fs::write(kernel_source_path.join("protected_module_names_list"), "")?;
@@ -228,6 +256,26 @@ pub fn handle_build(
     defconfig_cmd.push(&proj.defconfig);
 
     run_cmd_with_env(&defconfig_cmd, Some(&kernel_source_path), &build_env)?;
+
+    if target_soc_str == "sm8850" {
+        run_cmd(
+            &[
+                "scripts/config",
+                "--file",
+                "out/.config",
+                "-e",
+                "RUST",
+                "-m",
+                "ANDROID_BINDER_IPC_RUST",
+                "-e",
+                "CC_OPTIMIZE_FOR_PERFORMANCE",
+                "-d",
+                "HEADERS_INSTALL",
+            ],
+            Some(&kernel_source_path),
+            false,
+        )?;
+    }
 
     let mut disable_configs = vec![
         "UH",
