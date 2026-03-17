@@ -120,6 +120,10 @@ pub fn handle_build(
         build_env.insert("LC_ALL".to_string(), "C".to_string());
     }
 
+    build_env.insert("RUSTC".to_string(), "rustc".to_string());
+    build_env.insert("HOSTRUSTC".to_string(), "rustc".to_string());
+    build_env.insert("BINDGEN".to_string(), "bindgen".to_string());
+
     build_env.insert("KCFLAGS".to_string(), kcflags.clone());
     build_env.insert("KCPPFLAGS".to_string(), kcflags);
     build_env.insert("IN_KERNEL_MODULES".to_string(), "1".to_string());
@@ -241,7 +245,7 @@ pub fn handle_build(
     exclude_data.push_str("\nprotected_module_names_list\nprotected_exports_list\n");
     let _ = fs::write(git_exclude_path, exclude_data);
 
-    if run_cmd(&["which", "ccache"], None, false).is_ok() {
+    if target_soc_str != "sm8850" && run_cmd(&["which", "ccache"], None, false).is_ok() {
         build_env.insert("CC".to_string(), "ccache clang".to_string());
         build_env.insert("CXX".to_string(), "ccache clang++".to_string());
         build_env.insert("HOSTCC".to_string(), "ccache clang".to_string());
