@@ -193,7 +193,9 @@ pub fn handle_build(
         let setlocalversion_path = kernel_source_path.join("scripts/setlocalversion");
         if setlocalversion_path.exists() {
             let content = fs::read_to_string(&setlocalversion_path).unwrap_or_default();
-            let new_content = content.replace(" -dirty", "");
+            let new_content = content
+                .replace(" -dirty", "")
+                .replace("res=\"$res+\"", "res=\"$res\"");
             let _ = fs::write(&setlocalversion_path, new_content);
         }
     }
@@ -271,6 +273,11 @@ pub fn handle_build(
                 "CC_OPTIMIZE_FOR_PERFORMANCE",
                 "-d",
                 "HEADERS_INSTALL",
+                "--set-str",
+                "LOCALVERSION",
+                "",
+                "-d",
+                "LOCALVERSION_AUTO",
             ],
             Some(&kernel_source_path),
             false,
@@ -355,11 +362,13 @@ pub fn handle_build(
     }
 
     let short_sha = run_cmd(
-        &["git", "rev-parse", "--short", "HEAD"],
+        &["git", "rev-parse", "--short=12", "HEAD"],
         Some(&kernel_source_path),
         true,
     )?
-    .unwrap_or_else(|| "unknown".to_string());
+    .unwrap_or_else(|| "unknown".to_string())
+    .trim()
+    .to_string();
 
     let variant_suffix = match branch.as_str() {
         "main" | "lkm" => "LKM".to_string(),
@@ -369,14 +378,23 @@ pub fn handle_build(
         _ => branch.to_uppercase(),
     };
 
-    let localversion = if let Some(custom) = custom_localversion {
+    let mut localversion = if let Some(ref custom) = custom_localversion {
         let _ = fs::write(kernel_source_path.join(".scmversion"), "");
         make_args.push("LOCALVERSION_AUTO=n");
         build_env.insert("LOCALVERSION_AUTO".to_string(), "n".to_string());
-        custom
+        custom.clone()
     } else {
         format!("{}-{}", proj.localversion_base, variant_suffix)
     };
+
+    if target_soc_str == "sm8850" {
+        if custom_localversion.is_none() {
+            localversion = format!("{}-g{}-4k", proj.localversion_base, short_sha);
+        }
+        let _ = fs::write(kernel_source_path.join(".scmversion"), "");
+        make_args.push("LOCALVERSION_AUTO=n");
+        build_env.insert("LOCALVERSION_AUTO".to_string(), "n".to_string());
+    }
 
     let localversion_arg = format!("LOCALVERSION={}", localversion);
 
