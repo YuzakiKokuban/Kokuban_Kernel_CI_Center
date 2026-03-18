@@ -291,8 +291,18 @@ pub fn handle_build(
 
     if target_soc_str == "sm8850" {
         println!("Testing rust_is_available.sh...");
-        let rust_check_cmd = vec!["sh", "scripts/rust_is_available.sh", "-v"];
-        let _ = run_cmd_with_env(&rust_check_cmd, Some(&kernel_source_path), &build_env);
+        let mut cmd = std::process::Command::new("sh");
+        cmd.arg("scripts/rust_is_available.sh").arg("-v");
+        cmd.current_dir(&kernel_source_path);
+        for (k, v) in &build_env {
+            cmd.env(k, v);
+        }
+        if let Ok(output) = cmd.output() {
+            println!("stdout:\n{}", String::from_utf8_lossy(&output.stdout));
+            println!("stderr:\n{}", String::from_utf8_lossy(&output.stderr));
+        } else {
+            println!("Failed to execute rust_is_available.sh process.");
+        }
     }
 
     let mut defconfig_cmd = vec!["make"];
@@ -420,22 +430,31 @@ pub fn handle_build(
         let setlocalversion_path = kernel_source_path.join("scripts/setlocalversion");
         if setlocalversion_path.exists() {
             let content = fs::read_to_string(&setlocalversion_path).unwrap_or_default();
-            let new_content =
-                content.replace("echo \"$res\"", &format!("echo \"{}\"", localversion));
+            let new_content = content
+                .replace("echo \"$res\"", &format!("echo \"{}\"", localversion))
+                .replace("${scm_version}", "");
             let _ = fs::write(&setlocalversion_path, new_content);
         }
     }
 
     let localversion_arg = format!("LOCALVERSION={}", localversion);
 
-    if proj.version_method.as_deref().unwrap_or("param") == "file" {
-        fs::write(
-            kernel_source_path.join("localversion"),
-            localversion.clone(),
-        )?;
+    if target_soc_str != "sm8850" {
+        if proj.version_method.as_deref().unwrap_or("param") == "file" {
+            let _ = fs::write(
+                kernel_source_path.join("localversion"),
+                localversion.clone(),
+            );
+        } else {
+            make_args.push(&localversion_arg);
+            build_env.insert("LOCALVERSION".to_string(), localversion.clone());
+        }
     } else {
-        make_args.push(&localversion_arg);
-        build_env.insert("LOCALVERSION".to_string(), localversion.clone());
+        if proj.version_method.as_deref().unwrap_or("param") == "file" {
+            let _ = fs::write(kernel_source_path.join("localversion"), "");
+        }
+        make_args.push("LOCALVERSION=");
+        build_env.insert("LOCALVERSION".to_string(), "".to_string());
     }
 
     let threads = run_cmd(&["nproc"], None, true)?.unwrap().trim().to_string();
