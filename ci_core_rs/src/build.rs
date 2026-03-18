@@ -298,6 +298,7 @@ pub fn handle_build(
             cmd.env(k, v);
         }
         if let Ok(output) = cmd.output() {
+            println!("rust_is_available.sh Exit Status: {}", output.status);
             println!("stdout:\n{}", String::from_utf8_lossy(&output.stdout));
             println!("stderr:\n{}", String::from_utf8_lossy(&output.stderr));
         } else {
@@ -429,11 +430,8 @@ pub fn handle_build(
 
         let setlocalversion_path = kernel_source_path.join("scripts/setlocalversion");
         if setlocalversion_path.exists() {
-            let content = fs::read_to_string(&setlocalversion_path).unwrap_or_default();
-            let new_content = content
-                .replace("echo \"$res\"", &format!("echo \"{}\"", localversion))
-                .replace("${scm_version}", "");
-            let _ = fs::write(&setlocalversion_path, new_content);
+            let script_content = format!("#!/bin/sh\necho \"{}\"\n", localversion);
+            let _ = fs::write(&setlocalversion_path, script_content);
         }
     }
 
