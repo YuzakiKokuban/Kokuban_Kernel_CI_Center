@@ -220,7 +220,17 @@ pub fn handle_build(
         }
     }
 
-    let kernel_version = run_cmd(&["make", "kernelversion"], Some(&kernel_source_path), true)?
+    let kernel_version_cmd = if target_soc_str == "sm8850" {
+        vec![
+            "bash",
+            "-c",
+            "source ./_setup_env.sh 2>/dev/null || true && make kernelversion",
+        ]
+    } else {
+        vec!["make", "kernelversion"]
+    };
+
+    let kernel_version = run_cmd(&kernel_version_cmd, Some(&kernel_source_path), true)?
         .unwrap_or_else(|| "unknown".to_string())
         .trim()
         .to_string();
@@ -291,8 +301,10 @@ pub fn handle_build(
 
     if target_soc_str == "sm8850" {
         println!("Testing rust_is_available.sh...");
-        let mut cmd = std::process::Command::new("sh");
-        cmd.arg("scripts/rust_is_available.sh").arg("-v");
+        let mut cmd = std::process::Command::new("bash");
+        cmd.arg("-c").arg(
+            "source ./_setup_env.sh 2>/dev/null || true && sh scripts/rust_is_available.sh -v",
+        );
         cmd.current_dir(&kernel_source_path);
         for (k, v) in &build_env {
             cmd.env(k, v);
@@ -306,11 +318,25 @@ pub fn handle_build(
         }
     }
 
-    let mut defconfig_cmd = vec!["make"];
-    defconfig_cmd.extend_from_slice(&make_args);
-    defconfig_cmd.push(&proj.defconfig);
-
-    run_cmd_with_env(&defconfig_cmd, Some(&kernel_source_path), &build_env)?;
+    if target_soc_str == "sm8850" {
+        let mut cmd_str = format!(
+            "source ./_setup_env.sh 2>/dev/null || true && make {}",
+            proj.defconfig
+        );
+        for arg in &make_args {
+            cmd_str.push_str(&format!(" '{}'", arg));
+        }
+        run_cmd_with_env(
+            &["bash", "-c", &cmd_str],
+            Some(&kernel_source_path),
+            &build_env,
+        )?;
+    } else {
+        let mut defconfig_cmd = vec!["make"];
+        defconfig_cmd.extend_from_slice(&make_args);
+        defconfig_cmd.push(&proj.defconfig);
+        run_cmd_with_env(&defconfig_cmd, Some(&kernel_source_path), &build_env)?;
+    }
 
     let mut disable_configs = vec![
         "UH",
@@ -389,10 +415,23 @@ pub fn handle_build(
         }
     }
 
-    let mut olddefconfig_cmd = vec!["make"];
-    olddefconfig_cmd.extend_from_slice(&make_args);
-    olddefconfig_cmd.push("olddefconfig");
-    run_cmd_with_env(&olddefconfig_cmd, Some(&kernel_source_path), &build_env)?;
+    if target_soc_str == "sm8850" {
+        let mut cmd_str =
+            "source ./_setup_env.sh 2>/dev/null || true && make olddefconfig".to_string();
+        for arg in &make_args {
+            cmd_str.push_str(&format!(" '{}'", arg));
+        }
+        run_cmd_with_env(
+            &["bash", "-c", &cmd_str],
+            Some(&kernel_source_path),
+            &build_env,
+        )?;
+    } else {
+        let mut olddefconfig_cmd = vec!["make"];
+        olddefconfig_cmd.extend_from_slice(&make_args);
+        olddefconfig_cmd.push("olddefconfig");
+        run_cmd_with_env(&olddefconfig_cmd, Some(&kernel_source_path), &build_env)?;
+    }
 
     let short_sha = run_cmd(
         &["git", "rev-parse", "--short=12", "HEAD"],
@@ -458,13 +497,27 @@ pub fn handle_build(
     let threads = run_cmd(&["nproc"], None, true)?.unwrap().trim().to_string();
     let jobs = format!("-j{}", threads);
 
-    let mut build_cmd = vec!["make", &jobs, "Image"];
-    if target_soc_str != "sm8850" {
-        build_cmd.push("modules");
+    if target_soc_str == "sm8850" {
+        let mut cmd_str = format!(
+            "source ./_setup_env.sh 2>/dev/null || true && make {} Image",
+            jobs
+        );
+        for arg in &make_args {
+            cmd_str.push_str(&format!(" '{}'", arg));
+        }
+        run_cmd_with_env(
+            &["bash", "-c", &cmd_str],
+            Some(&kernel_source_path),
+            &build_env,
+        )?;
+    } else {
+        let mut build_cmd = vec!["make", &jobs, "Image"];
+        if target_soc_str != "sm8850" {
+            build_cmd.push("modules");
+        }
+        build_cmd.extend_from_slice(&make_args);
+        run_cmd_with_env(&build_cmd, Some(&kernel_source_path), &build_env)?;
     }
-    build_cmd.extend_from_slice(&make_args);
-
-    run_cmd_with_env(&build_cmd, Some(&kernel_source_path), &build_env)?;
 
     if proj.version_method.as_deref().unwrap_or("param") == "file" {
         fs::write(kernel_source_path.join("localversion"), "")?;
