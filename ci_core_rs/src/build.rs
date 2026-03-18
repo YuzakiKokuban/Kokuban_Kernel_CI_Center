@@ -28,6 +28,37 @@ pub fn handle_build(
 
     let target_soc_str = project_key.split('_').nth(1).unwrap_or("unknown");
 
+    let rust_cmd = if std::process::Command::new("sccache")
+        .arg("-V")
+        .output()
+        .is_ok()
+    {
+        "sccache rustc"
+    } else {
+        "rustc"
+    };
+
+    let cc_cmd = if std::process::Command::new("sccache")
+        .arg("-V")
+        .output()
+        .is_ok()
+    {
+        "sccache clang"
+    } else if std::process::Command::new("ccache")
+        .arg("-V")
+        .output()
+        .is_ok()
+    {
+        "ccache clang"
+    } else {
+        "clang"
+    };
+
+    let rustc_arg = format!("RUSTC={}", rust_cmd);
+    let hostrustc_arg = format!("HOSTRUSTC={}", rust_cmd);
+    let cc_arg = format!("CC={}", cc_cmd);
+    let hostcc_arg = format!("HOSTCC={}", cc_cmd);
+
     if let Some(urls) = &proj.toolchain_urls {
         let tc_download_dir = PathBuf::from("toolchain_download");
 
@@ -132,8 +163,8 @@ pub fn handle_build(
         build_env.insert("LC_ALL".to_string(), "C".to_string());
     }
 
-    build_env.insert("RUSTC".to_string(), "rustc".to_string());
-    build_env.insert("HOSTRUSTC".to_string(), "rustc".to_string());
+    build_env.insert("RUSTC".to_string(), rust_cmd.to_string());
+    build_env.insert("HOSTRUSTC".to_string(), rust_cmd.to_string());
     build_env.insert("BINDGEN".to_string(), "bindgen".to_string());
 
     build_env.insert("KCFLAGS".to_string(), kcflags.clone());
@@ -251,13 +282,16 @@ pub fn handle_build(
         "OBJSIZE=llvm-size",
         "READELF=llvm-readelf",
         "STRIP=llvm-strip",
-        "RUSTC=rustc",
-        "HOSTRUSTC=rustc",
         "BINDGEN=bindgen",
     ];
 
     let soc_arg = format!("TARGET_SOC={}", target_soc_str);
     make_args.push(&soc_arg);
+
+    make_args.push(rustc_arg.as_str());
+    make_args.push(hostrustc_arg.as_str());
+    make_args.push(cc_arg.as_str());
+    make_args.push(hostcc_arg.as_str());
 
     fs::write(kernel_source_path.join("protected_module_names_list"), "")?;
     fs::write(kernel_source_path.join("protected_exports_list"), "")?;
@@ -267,10 +301,8 @@ pub fn handle_build(
     exclude_data.push_str("\nprotected_module_names_list\nprotected_exports_list\n");
     let _ = fs::write(git_exclude_path, exclude_data);
 
-    make_args.push("CC=clang");
-    make_args.push("HOSTCC=clang");
-    build_env.insert("CC".to_string(), "clang".to_string());
-    build_env.insert("HOSTCC".to_string(), "clang".to_string());
+    build_env.insert("CC".to_string(), cc_cmd.to_string());
+    build_env.insert("HOSTCC".to_string(), cc_cmd.to_string());
     build_env.insert("LD".to_string(), "ld.lld".to_string());
     build_env.insert("HOSTLD".to_string(), "ld.lld".to_string());
 

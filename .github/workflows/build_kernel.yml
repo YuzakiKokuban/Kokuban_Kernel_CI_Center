@@ -127,17 +127,6 @@ jobs:
             echo "VARIANT=${{ env.VARIANT_INPUT }}" >> $GITHUB_ENV
           fi
 
-      - name: Cache Toolchain
-        uses: actions/cache@v4
-        with:
-          path: |
-            prebuilts
-            kernel_platform/prebuilts
-            bin
-            build-tools
-            bindgen-cli-x86_64-unknown-linux-gnu
-          key: ${{ runner.os }}-toolchain-${{ env.PROJECT }}
-
       - name: Checkout Kernel Source
         uses: actions/checkout@v6
         with:
@@ -147,16 +136,17 @@ jobs:
           submodules: recursive
           token: ${{ secrets.GH_TOKEN }}
 
-      - name: Setup ccache
+      - name: Setup sccache
         uses: hendrikmuhs/ccache-action@v1.2.14
         with:
+          variant: sccache
           key: ${{ env.PROJECT }}-${{ env.VARIANT }}-${{ env.BRANCH_TARGET }}
           max-size: 5G
 
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential git libncurses5-dev bc bison flex libssl-dev p7zip-full lz4 cpio curl libelf-dev dwarves jq lld pahole libdw-dev ccache
+          sudo apt-get install -y build-essential git libncurses5-dev bc bison flex libssl-dev p7zip-full lz4 cpio curl libelf-dev dwarves jq lld pahole libdw-dev
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Build and Release
