@@ -64,6 +64,8 @@ pub fn handle_build(
                     done
                 fi
             fi
+            chmod -R +x ../bin/ 2>/dev/null || true
+            chmod +x ../bindgen-cli-*/bindgen 2>/dev/null || true
         "#;
 
         run_cmd(
@@ -418,7 +420,8 @@ pub fn handle_build(
         let setlocalversion_path = kernel_source_path.join("scripts/setlocalversion");
         if setlocalversion_path.exists() {
             let content = fs::read_to_string(&setlocalversion_path).unwrap_or_default();
-            let new_content = content.replace("echo \"$res\"", &format!("echo \"{}\"", localversion));
+            let new_content =
+                content.replace("echo \"$res\"", &format!("echo \"{}\"", localversion));
             let _ = fs::write(&setlocalversion_path, new_content);
         }
     }

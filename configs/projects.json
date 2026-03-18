@@ -214,9 +214,8 @@
     ],
     "toolchain_path_prefix": "",
     "toolchain_path_exports": [
-      "",
       "bin",
-      "lib"
+      "bindgen-cli-x86_64-unknown-linux-gnu"
     ],
     "lto": "none",
     "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
