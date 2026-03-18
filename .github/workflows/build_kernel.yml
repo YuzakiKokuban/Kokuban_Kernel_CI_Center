@@ -142,19 +142,10 @@ jobs:
           submodules: recursive
           token: ${{ secrets.GH_TOKEN }}
 
-      - name: Setup CCache
-        uses: actions/cache@v5
-        with:
-          path: kernel_source/.ccache
-          key: ccache-${{ env.PROJECT }}-${{ env.VARIANT }}-${{ github.run_id }}
-          restore-keys: |
-            ccache-${{ env.PROJECT }}-${{ env.VARIANT }}-
-            ccache-${{ env.PROJECT }}-
-
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential git libncurses5-dev bc bison flex libssl-dev p7zip-full lz4 cpio curl libelf-dev dwarves ccache jq lld pahole libdw-dev
+          sudo apt-get install -y build-essential git libncurses5-dev bc bison flex libssl-dev p7zip-full lz4 cpio curl libelf-dev dwarves jq lld pahole libdw-dev
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Build and Release

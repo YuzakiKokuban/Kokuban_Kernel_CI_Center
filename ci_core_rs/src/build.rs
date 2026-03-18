@@ -109,7 +109,7 @@ pub fn handle_build(
                 );
             }
         }
-        let libclang_path = toolchain_base.join("lib64");
+        let libclang_path = toolchain_base.join("lib");
         build_env.insert(
             "LIBCLANG_PATH".to_string(),
             libclang_path.display().to_string(),
@@ -246,24 +246,20 @@ pub fn handle_build(
     exclude_data.push_str("\nprotected_module_names_list\nprotected_exports_list\n");
     let _ = fs::write(git_exclude_path, exclude_data);
 
-    if target_soc_str != "sm8850" && run_cmd(&["which", "ccache"], None, false).is_ok() {
-        build_env.insert("CC".to_string(), "ccache clang".to_string());
-        build_env.insert("CXX".to_string(), "ccache clang++".to_string());
-        build_env.insert("HOSTCC".to_string(), "ccache clang".to_string());
-        build_env.insert("HOSTCXX".to_string(), "ccache clang++".to_string());
-        build_env.insert(
-            "CCACHE_DIR".to_string(),
-            format!("{}/.ccache", env::current_dir()?.display()),
-        );
-        run_cmd(&["ccache", "-M", "5G"], None, false)?;
-        make_args.push("CC=ccache clang");
-        make_args.push("HOSTCC=ccache clang");
-    } else {
-        make_args.push("CC=clang");
-        make_args.push("HOSTCC=clang");
-    }
+    make_args.push("CC=clang");
+    make_args.push("HOSTCC=clang");
+    build_env.insert("CC".to_string(), "clang".to_string());
+    build_env.insert("HOSTCC".to_string(), "clang".to_string());
+    build_env.insert("LD".to_string(), "ld.lld".to_string());
+    build_env.insert("HOSTLD".to_string(), "ld.lld".to_string());
 
     if target_soc_str == "sm8850" {
+        let build_config_path = kernel_source_path.join("build.config.gki");
+        if build_config_path.exists() {
+            let content = fs::read_to_string(&build_config_path).unwrap_or_default();
+            let _ = fs::write(&build_config_path, content.replace("check_defconfig", ""));
+        }
+
         let defconfig_file =
             kernel_source_path.join(format!("arch/arm64/configs/{}", proj.defconfig));
         if defconfig_file.exists() {
@@ -404,6 +400,14 @@ pub fn handle_build(
         let _ = fs::write(kernel_source_path.join(".scmversion"), "");
         make_args.push("LOCALVERSION_AUTO=n");
         build_env.insert("LOCALVERSION_AUTO".to_string(), "n".to_string());
+
+        let setlocalversion_path = kernel_source_path.join("scripts/setlocalversion");
+        if setlocalversion_path.exists() {
+            let content = fs::read_to_string(&setlocalversion_path).unwrap_or_default();
+            let new_content =
+                content.replace("echo \"$res\"", &format!("echo \"{}\"", localversion));
+            let _ = fs::write(&setlocalversion_path, new_content);
+        }
     }
 
     let localversion_arg = format!("LOCALVERSION={}", localversion);
@@ -421,7 +425,10 @@ pub fn handle_build(
     let threads = run_cmd(&["nproc"], None, true)?.unwrap().trim().to_string();
     let jobs = format!("-j{}", threads);
 
-    let mut build_cmd = vec!["make", &jobs, "Image", "modules"];
+    let mut build_cmd = vec!["make", &jobs, "Image"];
+    if target_soc_str != "sm8850" {
+        build_cmd.push("modules");
+    }
     build_cmd.extend_from_slice(&make_args);
 
     run_cmd_with_env(&build_cmd, Some(&kernel_source_path), &build_env)?;
