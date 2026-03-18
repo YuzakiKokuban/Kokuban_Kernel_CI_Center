@@ -6,7 +6,7 @@ on:
         description: 'Project to update'
         required: true
         type: choice
-        options: [z5_sm8550, s25_sm8750, s23_sm8550, s24_sm8650, tabs10_mt6989, mi17_sm8850]
+        options: [z5_sm8550, s25_sm8750, s23_sm8550, s24_sm8650, tabs10_mt6989, z6_sm8650, mi17_sm8850]
       branch:
         description: 'Variant (KernelSU Type)'
         required: true
@@ -37,15 +37,36 @@ jobs:
           workspaces: ci_core_rs
 
       - name: Build CI Core
-        run: cargo build --release --manifest-path ci_core_rs/Cargo.toml
-          
+        run: cargo build --release --locked --manifest-path ci_core_rs/Cargo.toml
+
       - name: Determine Commit Hash
         id: hash
         run: |
+          set -euo pipefail
+
           if [ "${{ inputs.commit_id }}" == "latest" ]; then
-             echo "COMMIT_ID=$(git ls-remote https://github.com/tiann/KernelSU.git main | cut -c1-7)" >> $GITHUB_ENV
+            case "${{ inputs.branch }}" in
+              ksu)
+                repo="https://github.com/tiann/KernelSU.git"
+                branch="main"
+                ;;
+              mksu)
+                repo="https://github.com/5ec1cff/KernelSU.git"
+                branch="main"
+                ;;
+              resukisu)
+                repo="https://github.com/ReSukiSU/ReSukiSU.git"
+                branch="main"
+                ;;
+              *)
+                echo "Unsupported KernelSU variant: ${{ inputs.branch }}"
+                exit 1
+                ;;
+            esac
+
+            echo "COMMIT_ID=$(git ls-remote \"$repo\" \"$branch\" | cut -c1-7)" >> "$GITHUB_ENV"
           else
-             echo "COMMIT_ID=${{ inputs.commit_id }}" >> $GITHUB_ENV
+            echo "COMMIT_ID=${{ inputs.commit_id }}" >> "$GITHUB_ENV"
           fi
 
       - name: Execute Update

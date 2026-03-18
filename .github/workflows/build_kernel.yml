@@ -70,44 +70,44 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      ARTIFACT_DIR: build_artifacts
     steps:
       - uses: actions/checkout@v6
 
-      - name: Normalize Inputs
-        id: inputs
+      - name: Resolve Build Parameters
         run: |
-          PROJECT=""
-          BRANCH=""
-          VARIANT="default"
-          RELEASE="true"
-          CUSTOM_LOCALVERSION=""
-          CUSTOM_BUILD_TIME=""
-
-          if [ "${{ github.event_name }}" == "repository_dispatch" ]; then
-            PROJECT="${{ github.event.client_payload.project }}"
-            BRANCH="${{ github.event.client_payload.branch }}"
-          elif [ "${{ github.event_name }}" == "workflow_call" ]; then
-            PROJECT="${{ inputs.project }}"
-            BRANCH="${{ inputs.branch }}"
-            VARIANT="${{ inputs.ksu_variant }}"
-            RELEASE="${{ inputs.do_release }}"
-            CUSTOM_LOCALVERSION="${{ inputs.custom_localversion }}"
-            CUSTOM_BUILD_TIME="${{ inputs.custom_build_time }}"
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            project="${{ github.event.client_payload.project }}"
+            branch="${{ github.event.client_payload.branch }}"
+            variant="default"
+            release="true"
+            custom_localversion=""
+            custom_build_time=""
           else
-            PROJECT="${{ inputs.project }}"
-            BRANCH="${{ inputs.branch }}"
-            VARIANT="${{ inputs.ksu_variant }}"
-            RELEASE="${{ inputs.do_release }}"
-            CUSTOM_LOCALVERSION="${{ inputs.custom_localversion }}"
-            CUSTOM_BUILD_TIME="${{ inputs.custom_build_time }}"
+            project="${{ inputs.project }}"
+            branch="${{ inputs.branch }}"
+            variant="${{ inputs.ksu_variant }}"
+            release="${{ inputs.do_release }}"
+            custom_localversion="${{ inputs.custom_localversion }}"
+            custom_build_time="${{ inputs.custom_build_time }}"
           fi
 
-          echo "PROJECT=${PROJECT}" >> $GITHUB_ENV
-          echo "BRANCH_TARGET=${BRANCH}" >> $GITHUB_ENV
-          echo "VARIANT_INPUT=${VARIANT}" >> $GITHUB_ENV
-          echo "DO_RELEASE=${RELEASE}" >> $GITHUB_ENV
-          echo "CUSTOM_LOCALVERSION=${CUSTOM_LOCALVERSION}" >> $GITHUB_ENV
-          echo "CUSTOM_BUILD_TIME=${CUSTOM_BUILD_TIME}" >> $GITHUB_ENV
+          if [ "$variant" = "default" ] || [ -z "$variant" ]; then
+            resolved_variant="$branch"
+          else
+            resolved_variant="$variant"
+          fi
+
+          {
+            echo "PROJECT=$project"
+            echo "BRANCH_TARGET=$branch"
+            echo "VARIANT_INPUT=$variant"
+            echo "VARIANT=$resolved_variant"
+            echo "DO_RELEASE=$release"
+            echo "CUSTOM_LOCALVERSION=$custom_localversion"
+            echo "CUSTOM_BUILD_TIME=$custom_build_time"
+          } >> "$GITHUB_ENV"
 
       - name: Download CI Core
         env:
@@ -118,14 +118,6 @@ jobs:
 
       - name: Parse Configuration
         run: ./kokuban_ci_core parse --project ${{ env.PROJECT }}
-
-      - name: Determine Variant
-        run: |
-          if [ "${{ env.VARIANT_INPUT }}" == "default" ] || [ -z "${{ env.VARIANT_INPUT }}" ]; then
-            echo "VARIANT=${{ env.BRANCH_TARGET }}" >> $GITHUB_ENV
-          else
-            echo "VARIANT=${{ env.VARIANT_INPUT }}" >> $GITHUB_ENV
-          fi
 
       - name: Checkout Kernel Source
         uses: actions/checkout@v6
@@ -140,7 +132,7 @@ jobs:
         uses: hendrikmuhs/ccache-action@v1.2.21
         with:
           variant: sccache
-          key: ${{ env.PROJECT }}-${{ env.VARIANT }}-${{ env.BRANCH_TARGET }}
+          key: kernel-build-shared-${{ env.PROJECT }}
           max-size: 5G
 
       - name: Install Dependencies
@@ -162,10 +154,42 @@ jobs:
             ARGS+=("--custom-build-time=${{ env.CUSTOM_BUILD_TIME }}")
           fi
           ./kokuban_ci_core build "${ARGS[@]}"
-      
+
+      - name: Collect Build Artifacts
+        if: always()
+        id: collect-artifacts
+        run: |
+          if ./kokuban_ci_core collect-artifacts --artifact-dir "$ARTIFACT_DIR"; then
+            :
+          else
+            echo "collect-artifacts command unavailable, falling back to shell collector."
+            mkdir -p "$ARTIFACT_DIR"
+            shopt -s nullglob
+
+            copied=0
+            for zipball in *.zip; do
+              cp "$zipball" "$ARTIFACT_DIR/"
+              copied=1
+            done
+
+            for extra_file in kernel_source/out/.config kernel_source/out/vmlinux.symvers; do
+              if [ -f "$extra_file" ]; then
+                cp "$extra_file" "$ARTIFACT_DIR/"
+                copied=1
+              fi
+            done
+
+            if [ "$copied" -eq 1 ]; then
+              echo "has_artifacts=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "has_artifacts=false" >> "$GITHUB_OUTPUT"
+              echo "No build artifacts were produced, skipping upload."
+            fi
+          fi
+
       - name: Upload Artifact
         uses: actions/upload-artifact@v7
-        if: always()
+        if: always() && steps.collect-artifacts.outputs.has_artifacts == 'true'
         with:
           name: ${{ env.PROJECT }}-kernel-${{ github.run_id }}
-          path: "*.zip"
+          path: ${{ env.ARTIFACT_DIR }}/*

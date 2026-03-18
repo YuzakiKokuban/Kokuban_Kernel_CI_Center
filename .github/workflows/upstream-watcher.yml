@@ -27,7 +27,7 @@ jobs:
           workspaces: ci_core_rs
 
       - name: Build CI Core
-        run: cargo build --release --manifest-path ci_core_rs/Cargo.toml
+        run: cargo build --release --locked --manifest-path ci_core_rs/Cargo.toml
           
       - name: Check Upstream
         id: watcher
@@ -64,7 +64,7 @@ jobs:
           workspaces: ci_core_rs
 
       - name: Build CI Core
-        run: cargo build --release --manifest-path ci_core_rs/Cargo.toml
+        run: cargo build --release --locked --manifest-path ci_core_rs/Cargo.toml
           
       - name: Perform Update
         run: |
