@@ -398,7 +398,7 @@ pub fn handle_build(
 
     if target_soc_str == "sm8850" {
         if custom_localversion.is_none() {
-            localversion = format!("{}-{}-4k", proj.localversion_base, variant_suffix);
+            localversion = format!("{}-g{}-4k", proj.localversion_base, short_sha);
         }
         let _ = fs::write(kernel_source_path.join(".scmversion"), "");
         make_args.push("LOCALVERSION_AUTO=n");
