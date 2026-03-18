@@ -47,14 +47,22 @@ pub fn handle_build(
                 cat *.tar.gz.* | tar -zxf - --warning=no-unknown-keyword -C ..
             elif ls *part_aa* 1> /dev/null 2>&1 || ls *_aa.tar.gz 1> /dev/null 2>&1 || ls *.tar.gz.aa 1> /dev/null 2>&1; then
                 cat *.tar.gz | tar -zxf - --warning=no-unknown-keyword -C ..
-            elif ls *.tar.gz 1> /dev/null 2>&1; then
-                for tarball in *.tar.gz; do
-                    tar -zxf "$tarball" --warning=no-unknown-keyword -C ..
-                done
-            elif ls *.zip 1> /dev/null 2>&1; then
-                for zipball in *.zip; do
-                    unzip -q "$zipball" -d ..
-                done
+            else
+                if ls *.tar.gz 1> /dev/null 2>&1; then
+                    for tarball in *.tar.gz; do
+                        tar -zxf "$tarball" --warning=no-unknown-keyword -C ..
+                    done
+                fi
+                if ls *.tar.xz 1> /dev/null 2>&1; then
+                    for tarball in *.tar.xz; do
+                        tar -xf "$tarball" -C ..
+                    done
+                fi
+                if ls *.zip 1> /dev/null 2>&1; then
+                    for zipball in *.zip; do
+                        unzip -o -q "$zipball" -d ..
+                    done
+                fi
             fi
         "#;
 
@@ -410,8 +418,7 @@ pub fn handle_build(
         let setlocalversion_path = kernel_source_path.join("scripts/setlocalversion");
         if setlocalversion_path.exists() {
             let content = fs::read_to_string(&setlocalversion_path).unwrap_or_default();
-            let new_content =
-                content.replace("echo \"$res\"", &format!("echo \"{}\"", localversion));
+            let new_content = content.replace("echo \"$res\"", &format!("echo \"{}\"", localversion));
             let _ = fs::write(&setlocalversion_path, new_content);
         }
     }
