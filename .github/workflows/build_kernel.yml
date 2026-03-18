@@ -137,7 +137,7 @@ jobs:
           token: ${{ secrets.GH_TOKEN }}
 
       - name: Setup sccache
-        uses: hendrikmuhs/ccache-action@v1.2.14
+        uses: hendrikmuhs/ccache-action@v1.2.21
         with:
           variant: sccache
           key: ${{ env.PROJECT }}-${{ env.VARIANT }}-${{ env.BRANCH_TARGET }}
