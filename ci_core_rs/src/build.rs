@@ -37,6 +37,7 @@ pub fn handle_build(
         fs::create_dir_all(&tc_download_dir)?;
 
         for url in urls {
+            println!("Downloading toolchain from {}...", url);
             run_cmd(&["wget", "-q", url], Some(&tc_download_dir), false)?;
         }
 
