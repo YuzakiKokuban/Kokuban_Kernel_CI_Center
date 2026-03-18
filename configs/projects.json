@@ -215,6 +215,7 @@
     "toolchain_path_prefix": "",
     "toolchain_path_exports": [
       "bin",
+      "build-tools/bin",
       "bindgen-cli-x86_64-unknown-linux-gnu"
     ],
     "lto": "none",

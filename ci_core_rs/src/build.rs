@@ -65,6 +65,7 @@ pub fn handle_build(
                 fi
             fi
             chmod -R +x ../bin/ 2>/dev/null || true
+            chmod -R +x ../build-tools/bin/ 2>/dev/null || true
             chmod +x ../bindgen-cli-*/bindgen 2>/dev/null || true
         "#;
 
@@ -300,11 +301,9 @@ pub fn handle_build(
     }
 
     if target_soc_str == "sm8850" {
-        println!("Testing rust_is_available.sh...");
+        println!("Testing Environment and rust_is_available.sh...");
         let mut cmd = std::process::Command::new("bash");
-        cmd.arg("-c").arg(
-            "source ./_setup_env.sh 2>/dev/null || true && sh scripts/rust_is_available.sh -v",
-        );
+        cmd.arg("-c").arg("source ./_setup_env.sh 2>/dev/null || true && echo '=== Toolchain Versions ===' && clang --version | head -n1 && rustc -V && bindgen --version && pahole --version && echo '==========================' && sh scripts/rust_is_available.sh -v");
         cmd.current_dir(&kernel_source_path);
         for (k, v) in &build_env {
             cmd.env(k, v);
