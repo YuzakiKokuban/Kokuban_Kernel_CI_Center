@@ -18,23 +18,17 @@ jobs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v6
-      
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@nightly
-        with:
-          toolchain: nightly
 
-      - name: Cache Rust
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: ci_core_rs
-
-      - name: Build CI Core
-        run: cargo build --release --locked --manifest-path ci_core_rs/Cargo.toml
+      - name: Download CI Core
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          gh release download ci-core-latest -p "kokuban_ci_core" --clobber
+          chmod +x kokuban_ci_core
           
       - name: Generate Matrix
         id: set-matrix
-        run: ./ci_core_rs/target/release/kokuban_ci_core matrix --project ${{ inputs.project }}
+        run: ./kokuban_ci_core matrix --project ${{ inputs.project }}
 
   build:
     needs: matrix
