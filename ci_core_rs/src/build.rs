@@ -3,6 +3,7 @@ use chrono::Local;
 use std::collections::HashMap;
 use std::env;
 use std::fs;
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
 use crate::config::ProjectConfig;
@@ -28,14 +29,20 @@ pub fn handle_build(
 
     let target_soc_str = project_key.split('_').nth(1).unwrap_or("unknown");
 
+    let wrapper_dir = env::current_dir()?.join(".compiler_wrappers");
+    let _ = fs::create_dir_all(&wrapper_dir);
+
     let rust_cmd = if std::process::Command::new("sccache")
         .arg("-V")
         .output()
         .is_ok()
     {
-        "sccache rustc"
+        let wrapper_path = wrapper_dir.join("rustc");
+        fs::write(&wrapper_path, "#!/bin/sh\nexec sccache rustc \"$@\"\n")?;
+        fs::set_permissions(&wrapper_path, PermissionsExt::from_mode(0o755))?;
+        wrapper_path.to_string_lossy().to_string()
     } else {
-        "rustc"
+        "rustc".to_string()
     };
 
     let cc_cmd = if std::process::Command::new("sccache")
@@ -43,15 +50,21 @@ pub fn handle_build(
         .output()
         .is_ok()
     {
-        "sccache clang"
+        let wrapper_path = wrapper_dir.join("clang");
+        fs::write(&wrapper_path, "#!/bin/sh\nexec sccache clang \"$@\"\n")?;
+        fs::set_permissions(&wrapper_path, PermissionsExt::from_mode(0o755))?;
+        wrapper_path.to_string_lossy().to_string()
     } else if std::process::Command::new("ccache")
         .arg("-V")
         .output()
         .is_ok()
     {
-        "ccache clang"
+        let wrapper_path = wrapper_dir.join("clang");
+        fs::write(&wrapper_path, "#!/bin/sh\nexec ccache clang \"$@\"\n")?;
+        fs::set_permissions(&wrapper_path, PermissionsExt::from_mode(0o755))?;
+        wrapper_path.to_string_lossy().to_string()
     } else {
-        "clang"
+        "clang".to_string()
     };
 
     let rustc_arg = format!("RUSTC={}", rust_cmd);
@@ -163,8 +176,8 @@ pub fn handle_build(
         build_env.insert("LC_ALL".to_string(), "C".to_string());
     }
 
-    build_env.insert("RUSTC".to_string(), rust_cmd.to_string());
-    build_env.insert("HOSTRUSTC".to_string(), rust_cmd.to_string());
+    build_env.insert("RUSTC".to_string(), rust_cmd.clone());
+    build_env.insert("HOSTRUSTC".to_string(), rust_cmd.clone());
     build_env.insert("BINDGEN".to_string(), "bindgen".to_string());
 
     build_env.insert("KCFLAGS".to_string(), kcflags.clone());
@@ -288,10 +301,10 @@ pub fn handle_build(
     let soc_arg = format!("TARGET_SOC={}", target_soc_str);
     make_args.push(&soc_arg);
 
-    make_args.push(rustc_arg.as_str());
-    make_args.push(hostrustc_arg.as_str());
-    make_args.push(cc_arg.as_str());
-    make_args.push(hostcc_arg.as_str());
+    make_args.push(&rustc_arg);
+    make_args.push(&hostrustc_arg);
+    make_args.push(&cc_arg);
+    make_args.push(&hostcc_arg);
 
     fs::write(kernel_source_path.join("protected_module_names_list"), "")?;
     fs::write(kernel_source_path.join("protected_exports_list"), "")?;
@@ -301,8 +314,8 @@ pub fn handle_build(
     exclude_data.push_str("\nprotected_module_names_list\nprotected_exports_list\n");
     let _ = fs::write(git_exclude_path, exclude_data);
 
-    build_env.insert("CC".to_string(), cc_cmd.to_string());
-    build_env.insert("HOSTCC".to_string(), cc_cmd.to_string());
+    build_env.insert("CC".to_string(), cc_cmd.clone());
+    build_env.insert("HOSTCC".to_string(), cc_cmd.clone());
     build_env.insert("LD".to_string(), "ld.lld".to_string());
     build_env.insert("HOSTLD".to_string(), "ld.lld".to_string());
 
@@ -335,7 +348,7 @@ pub fn handle_build(
     if target_soc_str == "sm8850" {
         println!("Testing Environment and rust_is_available.sh...");
         let mut cmd = std::process::Command::new("bash");
-        cmd.arg("-c").arg("source ./_setup_env.sh 2>/dev/null || true && echo '=== Toolchain Versions ===' && clang --version | head -n1 && rustc -V && bindgen --version && pahole --version && echo '==========================' && sh scripts/rust_is_available.sh -v");
+        cmd.arg("-c").arg("source ./_setup_env.sh 2>/dev/null || true && echo '=== Toolchain Versions ===' && $CC --version | head -n1 && $RUSTC -V && bindgen --version && pahole --version && echo '==========================' && sh scripts/rust_is_available.sh -v");
         cmd.current_dir(&kernel_source_path);
         for (k, v) in &build_env {
             cmd.env(k, v);
