@@ -214,8 +214,7 @@
     "toolchain_path_prefix": "",
     "toolchain_path_exports": [
       "bin",
-      "linux-x86/bin",
-      "rust/bin"
+      "linux-x86/bin"
     ],
     "lto": "none",
     "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",

@@ -108,7 +108,7 @@ pub fn handle_build(
                 );
             }
         }
-        let libclang_path = toolchain_base.join("lib");
+        let libclang_path = toolchain_base.join("lib64");
         build_env.insert(
             "LIBCLANG_PATH".to_string(),
             libclang_path.display().to_string(),
@@ -262,43 +262,31 @@ pub fn handle_build(
         make_args.push("HOSTCC=clang");
     }
 
+    if target_soc_str == "sm8850" {
+        let defconfig_file =
+            kernel_source_path.join(format!("arch/arm64/configs/{}", proj.defconfig));
+        if defconfig_file.exists() {
+            let mut defconfig_content = fs::read_to_string(&defconfig_file).unwrap_or_default();
+            defconfig_content.push_str("\nCONFIG_RUST=y\n");
+            defconfig_content.push_str("CONFIG_ANDROID_BINDER_IPC_RUST=m\n");
+            defconfig_content.push_str("CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE=y\n");
+            defconfig_content.push_str("CONFIG_HEADERS_INSTALL=n\n");
+            defconfig_content.push_str("CONFIG_TMPFS_XATTR=y\n");
+            defconfig_content.push_str("CONFIG_TMPFS_POSIX_ACL=y\n");
+            defconfig_content.push_str("CONFIG_LOCALVERSION=\"\"\n");
+            defconfig_content.push_str("CONFIG_LOCALVERSION_AUTO=n\n");
+            if setup_url.is_some() {
+                defconfig_content.push_str("CONFIG_KSU=y\n");
+            }
+            let _ = fs::write(&defconfig_file, defconfig_content);
+        }
+    }
+
     let mut defconfig_cmd = vec!["make"];
     defconfig_cmd.extend_from_slice(&make_args);
     defconfig_cmd.push(&proj.defconfig);
 
     run_cmd_with_env(&defconfig_cmd, Some(&kernel_source_path), &build_env)?;
-
-    if target_soc_str == "sm8850" {
-        let mut config_cmd = vec![
-            "scripts/config",
-            "--file",
-            "out/.config",
-            "-e",
-            "RUST",
-            "-m",
-            "ANDROID_BINDER_IPC_RUST",
-            "-e",
-            "CC_OPTIMIZE_FOR_PERFORMANCE",
-            "-d",
-            "HEADERS_INSTALL",
-            "--set-str",
-            "LOCALVERSION",
-            "",
-            "-d",
-            "LOCALVERSION_AUTO",
-            "-e",
-            "TMPFS_XATTR",
-            "-e",
-            "TMPFS_POSIX_ACL",
-        ];
-
-        if setup_url.is_some() {
-            config_cmd.push("-e");
-            config_cmd.push("KSU");
-        }
-
-        run_cmd(&config_cmd, Some(&kernel_source_path), false)?;
-    }
 
     let mut disable_configs = vec![
         "UH",
@@ -410,7 +398,7 @@ pub fn handle_build(
 
     if target_soc_str == "sm8850" {
         if custom_localversion.is_none() {
-            localversion = format!("{}-g{}-4k", proj.localversion_base, short_sha);
+            localversion = format!("{}-{}-4k", proj.localversion_base, variant_suffix);
         }
         let _ = fs::write(kernel_source_path.join(".scmversion"), "");
         make_args.push("LOCALVERSION_AUTO=n");
