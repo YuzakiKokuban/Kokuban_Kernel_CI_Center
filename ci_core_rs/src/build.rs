@@ -279,6 +279,12 @@ pub fn handle_build(
         }
     }
 
+    if target_soc_str == "sm8850" {
+        println!("Testing rust_is_available.sh...");
+        let rust_check_cmd = vec!["sh", "scripts/rust_is_available.sh", "-v"];
+        let _ = run_cmd_with_env(&rust_check_cmd, Some(&kernel_source_path), &build_env);
+    }
+
     let mut defconfig_cmd = vec!["make"];
     defconfig_cmd.extend_from_slice(&make_args);
     defconfig_cmd.push(&proj.defconfig);

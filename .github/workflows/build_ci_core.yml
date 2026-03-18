@@ -1,0 +1,27 @@
+name: Build CI Core
+on:
+  push:
+    paths:
+      - 'ci_core_rs/**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build CI Core
+        run: cargo build --release --manifest-path ci_core_rs/Cargo.toml
+
+      - name: Release CI Core
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ci-core-latest
+          name: CI Core Latest Build
+          files: ci_core_rs/target/release/kokuban_ci_core

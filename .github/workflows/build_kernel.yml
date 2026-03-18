@@ -73,19 +73,6 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@nightly
-        with:
-          toolchain: nightly
-
-      - name: Cache Rust
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: ci_core_rs
-
-      - name: Build CI Core
-        run: cargo build --release --manifest-path ci_core_rs/Cargo.toml
-
       - name: Normalize Inputs
         id: inputs
         run: |
@@ -122,8 +109,15 @@ jobs:
           echo "CUSTOM_LOCALVERSION=${CUSTOM_LOCALVERSION}" >> $GITHUB_ENV
           echo "CUSTOM_BUILD_TIME=${CUSTOM_BUILD_TIME}" >> $GITHUB_ENV
 
+      - name: Download CI Core
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          gh release download ci-core-latest -p "kokuban_ci_core"
+          chmod +x kokuban_ci_core
+
       - name: Parse Configuration
-        run: ./ci_core_rs/target/release/kokuban_ci_core parse --project ${{ env.PROJECT }}
+        run: ./kokuban_ci_core parse --project ${{ env.PROJECT }}
 
       - name: Determine Variant
         run: |
@@ -160,7 +154,7 @@ jobs:
           if [ -n "${{ env.CUSTOM_BUILD_TIME }}" ]; then
             ARGS+=("--custom-build-time=${{ env.CUSTOM_BUILD_TIME }}")
           fi
-          ./ci_core_rs/target/release/kokuban_ci_core build "${ARGS[@]}"
+          ./kokuban_ci_core build "${ARGS[@]}"
       
       - name: Upload Artifact
         uses: actions/upload-artifact@v7

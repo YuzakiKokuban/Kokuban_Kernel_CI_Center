@@ -207,14 +207,14 @@
     ],
     "version_method": "file",
     "toolchain_urls": [
-      "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r547379.tar.gz",
-      "https://android.googlesource.com/kernel/prebuilts/build-tools/+archive/refs/heads/main.tar.gz",
-      "https://github.com/cctv18/oneplus_sm8650_toolchain/releases/download/LLVM-Clang19-r536225/rust.zip"
+      "https://github.com/cctv18/oneplus_sm8650_toolchain/releases/download/LLVM-Clang19-r536225/clang-r536225.zip",
+      "https://github.com/cctv18/oneplus_sm8650_toolchain/releases/download/LLVM-Clang19-r536225/rust.zip",
+      "https://github.com/cctv18/oneplus_sm8650_toolchain/releases/download/LLVM-Clang19-r536225/build-tools.zip"
     ],
     "toolchain_path_prefix": "",
     "toolchain_path_exports": [
       "bin",
-      "linux-x86/bin"
+      "lib"
     ],
     "lto": "none",
     "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
