@@ -427,11 +427,7 @@ pub fn handle_build(
         run_cmd_with_env(&defconfig_cmd, Some(&kernel_source_path), &build_env)?;
     }
 
-    let mut disable_configs = if target_soc_str == "sm8850" {
-        vec!["TRIM_UNUSED_KSYMS"]
-    } else {
-        vec!["UH", "RKP", "KDP", "SECURITY_DEFEX", "INTEGRITY", "FIVE"]
-    };
+    let mut disable_configs = vec!["TRIM_UNUSED_KSYMS"];
     if let Some(disables) = &proj.disable_security {
         for d in disables {
             disable_configs.push(d);

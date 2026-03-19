@@ -30,7 +30,15 @@
     ],
     "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
     "anykernel_branch": "kalama_z",
-    "zip_name_prefix": "Z5_Kernel"
+    "zip_name_prefix": "Z5_Kernel",
+    "disable_security": [
+      "UH",
+      "RKP",
+      "KDP",
+      "SECURITY_DEFEX",
+      "INTEGRITY",
+      "FIVE"
+    ]
   },
   "s25_sm8750": {
     "repo": "YuzakiKokuban/android_kernel_samsung_sm8750",
@@ -50,7 +58,13 @@
       "GAF",
       "GAF_V6",
       "FIVE_CERT_USER",
-      "FIVE_DEFAULT_HASH"
+      "FIVE_DEFAULT_HASH",
+      "UH",
+      "RKP",
+      "KDP",
+      "SECURITY_DEFEX",
+      "INTEGRITY",
+      "FIVE"
     ],
     "readme_placeholders": {
       "DEVICE_NAME_CN": "三星 Galaxy S25 系列",
@@ -99,7 +113,15 @@
     ],
     "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
     "anykernel_branch": "kalama",
-    "zip_name_prefix": "S23_kernel"
+    "zip_name_prefix": "S23_kernel",
+    "disable_security": [
+      "UH",
+      "RKP",
+      "KDP",
+      "SECURITY_DEFEX",
+      "INTEGRITY",
+      "FIVE"
+    ]
   },
   "s24_sm8650": {
     "repo": "YuzakiKokuban/android_kernel_samsung_sm8650",
@@ -127,7 +149,15 @@
     ],
     "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
     "anykernel_branch": "pineapple",
-    "zip_name_prefix": "S24_Snapdragon_kernel"
+    "zip_name_prefix": "S24_Snapdragon_kernel",
+    "disable_security": [
+      "UH",
+      "RKP",
+      "KDP",
+      "SECURITY_DEFEX",
+      "INTEGRITY",
+      "FIVE"
+    ]
   },
   "tabs10_mt6989": {
     "repo": "YuzakiKokuban/android_kernel_samsung_mt6989_TabS10",
@@ -147,7 +177,13 @@
       "PROCA_GKI_10",
       "PROCA_S_OS",
       "GAF",
-      "GAF_V6"
+      "GAF_V6",
+      "UH",
+      "RKP",
+      "KDP",
+      "SECURITY_DEFEX",
+      "INTEGRITY",
+      "FIVE"
     ],
     "toolchain_urls": [
       "https://github.com/YuzakiKokuban/android_kernel_samsung_mt6989_TabS10/releases/download/toolchain/toolchainS10.tar.gz.001",
@@ -190,7 +226,14 @@
     "zip_name_prefix": "Z6_Kernel",
     "version_method": "param",
     "extra_host_env": false,
-    "disable_security": [],
+    "disable_security": [
+      "UH",
+      "RKP",
+      "KDP",
+      "SECURITY_DEFEX",
+      "INTEGRITY",
+      "FIVE"
+    ],
     "readme_placeholders": {
       "DEVICE_NAME_CN": "三星 Galaxy Z6 系列",
       "DEVICE_NAME_EN": "Samsung Galaxy Z6 Series"
