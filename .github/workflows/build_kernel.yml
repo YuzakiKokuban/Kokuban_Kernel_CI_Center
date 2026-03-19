@@ -192,4 +192,4 @@ jobs:
         if: always() && steps.collect-artifacts.outputs.has_artifacts == 'true'
         with:
           name: ${{ env.PROJECT }}-kernel-${{ github.run_id }}
-          path: ${{ env.ARTIFACT_DIR }}/*
+          path: ${{ env.ARTIFACT_DIR }}
