@@ -222,6 +222,12 @@ pub fn handle_notify(tag_name: String) -> Result<()> {
     );
 
     let client = reqwest::blocking::Client::new();
+    let temp_download_dir = env::temp_dir().join(format!(
+        "kokuban_notify_{}_{}",
+        std::process::id(),
+        tag_name.replace(['/', '\\', ' '], "_")
+    ));
+    fs::create_dir_all(&temp_download_dir)?;
 
     for (chat_id, topic_id) in &destinations {
         let mut json_body = HashMap::new();
@@ -263,9 +269,11 @@ pub fn handle_notify(tag_name: String) -> Result<()> {
                     name,
                     "--clobber",
                 ],
-                None,
+                Some(&temp_download_dir),
                 false,
             )?;
+
+            let asset_path = temp_download_dir.join(name);
 
             for (chat_id, topic_id) in &destinations {
                 let caption = format!(
@@ -284,7 +292,7 @@ pub fn handle_notify(tag_name: String) -> Result<()> {
                     form
                 };
 
-                let file_content = fs::read(name)?;
+                let file_content = fs::read(&asset_path)?;
                 let part = reqwest::blocking::multipart::Part::bytes(file_content)
                     .file_name(name.to_owned());
                 let form = form.part("document", part);
@@ -297,10 +305,14 @@ pub fn handle_notify(tag_name: String) -> Result<()> {
                     .multipart(form)
                     .send();
             }
-            if Path::new(name).exists() {
-                fs::remove_file(name)?;
+            if asset_path.exists() {
+                fs::remove_file(&asset_path)?;
             }
         }
+    }
+
+    if temp_download_dir.exists() {
+        fs::remove_dir_all(temp_download_dir)?;
     }
 
     Ok(())

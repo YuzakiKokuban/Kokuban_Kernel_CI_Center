@@ -193,3 +193,4 @@ jobs:
         with:
           name: ${{ env.PROJECT }}-kernel-${{ github.run_id }}
           path: ${{ env.ARTIFACT_DIR }}
+          include-hidden-files: true
