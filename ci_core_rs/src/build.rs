@@ -43,6 +43,33 @@ fn copy_artifact_if_exists(source: &Path, artifact_dir: &Path) -> Result<bool> {
     Ok(true)
 }
 
+fn upsert_kconfig_entry(content: &str, key: &str, value: &str) -> String {
+    let key_prefix = format!("{key}=");
+    let not_set_line = format!("# {key} is not set");
+    let replacement = format!("{key}={value}");
+
+    let mut found = false;
+    let mut lines = Vec::new();
+
+    for line in content.lines() {
+        if line.starts_with(&key_prefix) || line == not_set_line {
+            if !found {
+                lines.push(replacement.clone());
+                found = true;
+            }
+            continue;
+        }
+
+        lines.push(line.to_string());
+    }
+
+    if !found {
+        lines.push(replacement);
+    }
+
+    lines.join("\n") + "\n"
+}
+
 pub fn handle_build(
     project_key: String,
     branch: String,
@@ -343,16 +370,21 @@ pub fn handle_build(
             kernel_source_path.join(format!("arch/arm64/configs/{}", proj.defconfig));
         if defconfig_file.exists() {
             let mut defconfig_content = fs::read_to_string(&defconfig_file).unwrap_or_default();
-            defconfig_content.push_str("\nCONFIG_RUST=y\n");
-            defconfig_content.push_str("CONFIG_ANDROID_BINDER_IPC_RUST=m\n");
-            defconfig_content.push_str("CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE=y\n");
-            defconfig_content.push_str("CONFIG_HEADERS_INSTALL=n\n");
-            defconfig_content.push_str("CONFIG_TMPFS_XATTR=y\n");
-            defconfig_content.push_str("CONFIG_TMPFS_POSIX_ACL=y\n");
-            defconfig_content.push_str("CONFIG_LOCALVERSION=\"\"\n");
-            defconfig_content.push_str("CONFIG_LOCALVERSION_AUTO=n\n");
+            defconfig_content = upsert_kconfig_entry(&defconfig_content, "CONFIG_RUST", "y");
+            defconfig_content =
+                upsert_kconfig_entry(&defconfig_content, "CONFIG_ANDROID_BINDER_IPC_RUST", "m");
+            defconfig_content = upsert_kconfig_entry(
+                &defconfig_content,
+                "CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE",
+                "y",
+            );
+            defconfig_content =
+                upsert_kconfig_entry(&defconfig_content, "CONFIG_HEADERS_INSTALL", "n");
+            defconfig_content = upsert_kconfig_entry(&defconfig_content, "CONFIG_TMPFS_XATTR", "y");
+            defconfig_content =
+                upsert_kconfig_entry(&defconfig_content, "CONFIG_TMPFS_POSIX_ACL", "y");
             if setup_url.is_some() {
-                defconfig_content.push_str("CONFIG_KSU=y\n");
+                defconfig_content = upsert_kconfig_entry(&defconfig_content, "CONFIG_KSU", "y");
             }
             let _ = fs::write(&defconfig_file, defconfig_content);
         }
@@ -395,15 +427,11 @@ pub fn handle_build(
         run_cmd_with_env(&defconfig_cmd, Some(&kernel_source_path), &build_env)?;
     }
 
-    let mut disable_configs = vec![
-        "UH",
-        "RKP",
-        "KDP",
-        "SECURITY_DEFEX",
-        "INTEGRITY",
-        "FIVE",
-        "TRIM_UNUSED_KSYMS",
-    ];
+    let mut disable_configs = if target_soc_str == "sm8850" {
+        vec!["TRIM_UNUSED_KSYMS"]
+    } else {
+        vec!["UH", "RKP", "KDP", "SECURITY_DEFEX", "INTEGRITY", "FIVE"]
+    };
     if let Some(disables) = &proj.disable_security {
         for d in disables {
             disable_configs.push(d);
