@@ -38,24 +38,17 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v6
-      
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@nightly
-        with:
-          toolchain: nightly
-          components: rustfmt, clippy
 
-      - name: Cache Rust
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: ci_core_rs
-
-      - name: Build CI Core
-        run: cargo build --release --manifest-path ci_core_rs/Cargo.toml
+      - name: Download CI Core
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          gh release download ci-core-latest -p "kokuban_ci_core" --clobber
+          chmod +x kokuban_ci_core
 
       - name: Add to Configuration
         run: |
-          ./ci_core_rs/target/release/kokuban_ci_core add \
+          ./kokuban_ci_core add \
             --key "${{ inputs.project_key }}" \
             --repo "${{ inputs.repo_path }}" \
             --defconfig "${{ inputs.defconfig }}" \

@@ -7,7 +7,68 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
 use crate::config::ProjectConfig;
-use crate::utils::{handle_notify, load_projects, run_cmd, run_cmd_with_env};
+use crate::utils::{handle_notify, load_projects, run_cmd, run_cmd_with_env, set_github_output};
+
+fn command_exists(command: &str) -> bool {
+    std::process::Command::new(command)
+        .arg("-V")
+        .output()
+        .is_ok()
+}
+
+fn create_compiler_wrapper(
+    wrapper_dir: &Path,
+    wrapper_name: &str,
+    command_prefix: &str,
+    tool: &str,
+) -> Result<String> {
+    let wrapper_path = wrapper_dir.join(wrapper_name);
+    fs::write(
+        &wrapper_path,
+        format!("#!/bin/sh\nexec {} {} \"$@\"\n", command_prefix, tool),
+    )?;
+    fs::set_permissions(&wrapper_path, PermissionsExt::from_mode(0o755))?;
+    Ok(wrapper_path.to_string_lossy().to_string())
+}
+
+fn copy_artifact_if_exists(source: &Path, artifact_dir: &Path) -> Result<bool> {
+    if !source.is_file() {
+        return Ok(false);
+    }
+
+    let file_name = source
+        .file_name()
+        .ok_or_else(|| anyhow!("Artifact path {:?} has no filename", source))?;
+    fs::copy(source, artifact_dir.join(file_name))?;
+    Ok(true)
+}
+
+fn upsert_kconfig_entry(content: &str, key: &str, value: &str) -> String {
+    let key_prefix = format!("{key}=");
+    let not_set_line = format!("# {key} is not set");
+    let replacement = format!("{key}={value}");
+
+    let mut found = false;
+    let mut lines = Vec::new();
+
+    for line in content.lines() {
+        if line.starts_with(&key_prefix) || line == not_set_line {
+            if !found {
+                lines.push(replacement.clone());
+                found = true;
+            }
+            continue;
+        }
+
+        lines.push(line.to_string());
+    }
+
+    if !found {
+        lines.push(replacement);
+    }
+
+    lines.join("\n") + "\n"
+}
 
 pub fn handle_build(
     project_key: String,
@@ -32,37 +93,16 @@ pub fn handle_build(
     let wrapper_dir = env::current_dir()?.join(".compiler_wrappers");
     let _ = fs::create_dir_all(&wrapper_dir);
 
-    let rust_cmd = if std::process::Command::new("sccache")
-        .arg("-V")
-        .output()
-        .is_ok()
-    {
-        let wrapper_path = wrapper_dir.join("rustc");
-        fs::write(&wrapper_path, "#!/bin/sh\nexec sccache rustc \"$@\"\n")?;
-        fs::set_permissions(&wrapper_path, PermissionsExt::from_mode(0o755))?;
-        wrapper_path.to_string_lossy().to_string()
+    let rust_cmd = if command_exists("sccache") {
+        create_compiler_wrapper(&wrapper_dir, "rustc", "sccache", "rustc")?
     } else {
         "rustc".to_string()
     };
 
-    let cc_cmd = if std::process::Command::new("sccache")
-        .arg("-V")
-        .output()
-        .is_ok()
-    {
-        let wrapper_path = wrapper_dir.join("clang");
-        fs::write(&wrapper_path, "#!/bin/sh\nexec sccache clang \"$@\"\n")?;
-        fs::set_permissions(&wrapper_path, PermissionsExt::from_mode(0o755))?;
-        wrapper_path.to_string_lossy().to_string()
-    } else if std::process::Command::new("ccache")
-        .arg("-V")
-        .output()
-        .is_ok()
-    {
-        let wrapper_path = wrapper_dir.join("clang");
-        fs::write(&wrapper_path, "#!/bin/sh\nexec ccache clang \"$@\"\n")?;
-        fs::set_permissions(&wrapper_path, PermissionsExt::from_mode(0o755))?;
-        wrapper_path.to_string_lossy().to_string()
+    let cc_cmd = if command_exists("sccache") {
+        create_compiler_wrapper(&wrapper_dir, "clang", "sccache", "clang")?
+    } else if command_exists("ccache") {
+        create_compiler_wrapper(&wrapper_dir, "clang", "ccache", "clang")?
     } else {
         "clang".to_string()
     };
@@ -330,16 +370,21 @@ pub fn handle_build(
             kernel_source_path.join(format!("arch/arm64/configs/{}", proj.defconfig));
         if defconfig_file.exists() {
             let mut defconfig_content = fs::read_to_string(&defconfig_file).unwrap_or_default();
-            defconfig_content.push_str("\nCONFIG_RUST=y\n");
-            defconfig_content.push_str("CONFIG_ANDROID_BINDER_IPC_RUST=m\n");
-            defconfig_content.push_str("CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE=y\n");
-            defconfig_content.push_str("CONFIG_HEADERS_INSTALL=n\n");
-            defconfig_content.push_str("CONFIG_TMPFS_XATTR=y\n");
-            defconfig_content.push_str("CONFIG_TMPFS_POSIX_ACL=y\n");
-            defconfig_content.push_str("CONFIG_LOCALVERSION=\"\"\n");
-            defconfig_content.push_str("CONFIG_LOCALVERSION_AUTO=n\n");
+            defconfig_content = upsert_kconfig_entry(&defconfig_content, "CONFIG_RUST", "y");
+            defconfig_content =
+                upsert_kconfig_entry(&defconfig_content, "CONFIG_ANDROID_BINDER_IPC_RUST", "m");
+            defconfig_content = upsert_kconfig_entry(
+                &defconfig_content,
+                "CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE",
+                "y",
+            );
+            defconfig_content =
+                upsert_kconfig_entry(&defconfig_content, "CONFIG_HEADERS_INSTALL", "n");
+            defconfig_content = upsert_kconfig_entry(&defconfig_content, "CONFIG_TMPFS_XATTR", "y");
+            defconfig_content =
+                upsert_kconfig_entry(&defconfig_content, "CONFIG_TMPFS_POSIX_ACL", "y");
             if setup_url.is_some() {
-                defconfig_content.push_str("CONFIG_KSU=y\n");
+                defconfig_content = upsert_kconfig_entry(&defconfig_content, "CONFIG_KSU", "y");
             }
             let _ = fs::write(&defconfig_file, defconfig_content);
         }
@@ -382,15 +427,11 @@ pub fn handle_build(
         run_cmd_with_env(&defconfig_cmd, Some(&kernel_source_path), &build_env)?;
     }
 
-    let mut disable_configs = vec![
-        "UH",
-        "RKP",
-        "KDP",
-        "SECURITY_DEFEX",
-        "INTEGRITY",
-        "FIVE",
-        "TRIM_UNUSED_KSYMS",
-    ];
+    let mut disable_configs = if target_soc_str == "sm8850" {
+        vec!["TRIM_UNUSED_KSYMS"]
+    } else {
+        vec!["UH", "RKP", "KDP", "SECURITY_DEFEX", "INTEGRITY", "FIVE"]
+    };
     if let Some(disables) = &proj.disable_security {
         for d in disables {
             disable_configs.push(d);
@@ -656,6 +697,41 @@ pub fn handle_build(
         } else {
             return Err(anyhow!("Final zip not found"));
         }
+    }
+
+    Ok(())
+}
+
+pub fn handle_collect_artifacts(artifact_dir: String) -> Result<()> {
+    let artifact_dir = PathBuf::from(artifact_dir);
+    fs::create_dir_all(&artifact_dir)?;
+
+    let mut has_artifacts = false;
+
+    for entry in fs::read_dir(".")? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.extension().and_then(|ext| ext.to_str()) == Some("zip") {
+            has_artifacts |= copy_artifact_if_exists(&path, &artifact_dir)?;
+        }
+    }
+
+    for extra_artifact in [
+        "kernel_source/out/.config",
+        "kernel_source/out/vmlinux.symvers",
+    ] {
+        has_artifacts |= copy_artifact_if_exists(Path::new(extra_artifact), &artifact_dir)?;
+    }
+
+    set_github_output(
+        "has_artifacts",
+        if has_artifacts { "true" } else { "false" },
+    )?;
+
+    if has_artifacts {
+        println!("Collected build artifacts into {}", artifact_dir.display());
+    } else {
+        println!("No build artifacts were produced, skipping upload.");
     }
 
     Ok(())

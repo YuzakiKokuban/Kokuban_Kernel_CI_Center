@@ -100,6 +100,10 @@ enum Commands {
         #[arg(long, allow_hyphen_values = true)]
         custom_build_time: Option<String>,
     },
+    CollectArtifacts {
+        #[arg(long, default_value = "build_artifacts")]
+        artifact_dir: String,
+    },
 }
 
 fn main() -> Result<()> {
@@ -158,6 +162,9 @@ fn main() -> Result<()> {
             custom_localversion,
             custom_build_time,
         ),
+        Commands::CollectArtifacts { artifact_dir } => {
+            build::handle_collect_artifacts(artifact_dir)
+        }
     }
 }
 

@@ -45,12 +45,20 @@ pub fn save_json<T: serde::Serialize>(path: &Path, data: &T) -> Result<()> {
     Ok(())
 }
 
-pub fn set_github_env(key: &str, value: &str) -> Result<()> {
-    if let Ok(path) = env::var("GITHUB_ENV") {
+fn write_github_kv(var_name: &str, key: &str, value: &str) -> Result<()> {
+    if let Ok(path) = env::var(var_name) {
         let mut file = OpenOptions::new().append(true).create(true).open(path)?;
         writeln!(file, "{}={}", key, value)?;
     }
     Ok(())
+}
+
+pub fn set_github_env(key: &str, value: &str) -> Result<()> {
+    write_github_kv("GITHUB_ENV", key, value)
+}
+
+pub fn set_github_output(key: &str, value: &str) -> Result<()> {
+    write_github_kv("GITHUB_OUTPUT", key, value)
 }
 
 pub fn run_cmd(cmd: &[&str], cwd: Option<&Path>, capture: bool) -> Result<Option<String>> {
