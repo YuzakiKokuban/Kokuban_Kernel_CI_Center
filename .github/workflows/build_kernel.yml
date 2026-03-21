@@ -99,6 +99,9 @@ jobs:
             resolved_variant="$variant"
           fi
 
+          safe_artifact_branch=$(printf '%s' "$branch" | sed 's#[^A-Za-z0-9._-]#-#g')
+          artifact_name="${project}-kernel-${safe_artifact_branch}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+
           {
             echo "PROJECT=$project"
             echo "BRANCH_TARGET=$branch"
@@ -107,6 +110,7 @@ jobs:
             echo "DO_RELEASE=$release"
             echo "CUSTOM_LOCALVERSION=$custom_localversion"
             echo "CUSTOM_BUILD_TIME=$custom_build_time"
+            echo "ARTIFACT_NAME=$artifact_name"
           } >> "$GITHUB_ENV"
 
       - name: Download CI Core
@@ -191,6 +195,6 @@ jobs:
         uses: actions/upload-artifact@v7
         if: always() && steps.collect-artifacts.outputs.has_artifacts == 'true'
         with:
-          name: ${{ env.PROJECT }}-kernel-${{ github.run_id }}
+          name: ${{ env.ARTIFACT_NAME }}
           path: ${{ env.ARTIFACT_DIR }}
           include-hidden-files: true
