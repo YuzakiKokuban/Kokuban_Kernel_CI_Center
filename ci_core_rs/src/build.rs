@@ -548,10 +548,17 @@ pub fn handle_build(
         make_args.push("LOCALVERSION_AUTO=n");
         build_env.insert("LOCALVERSION_AUTO".to_string(), "n".to_string());
 
-        let setlocalversion_path = kernel_source_path.join("scripts/setlocalversion");
-        if setlocalversion_path.exists() {
-            let script_content = format!("#!/bin/sh\necho \"{}\"\n", localversion);
-            let _ = fs::write(&setlocalversion_path, script_content);
+        let out_config_path = kernel_source_path.join("out/.config");
+        if out_config_path.exists() {
+            let config_content = fs::read_to_string(&out_config_path).unwrap_or_default();
+            let config_content = upsert_kconfig_entry(
+                &config_content,
+                "CONFIG_LOCALVERSION",
+                &format!("\"{}\"", localversion),
+            );
+            let config_content =
+                upsert_kconfig_entry(&config_content, "CONFIG_LOCALVERSION_AUTO", "n");
+            let _ = fs::write(&out_config_path, config_content);
         }
     }
 
