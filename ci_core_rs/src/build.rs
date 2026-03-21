@@ -70,6 +70,58 @@ fn upsert_kconfig_entry(content: &str, key: &str, value: &str) -> String {
     lines.join("\n") + "\n"
 }
 
+fn apply_sm8850_localversion(
+    kernel_source_path: &Path,
+    defconfig_name: &str,
+    localversion: &str,
+) -> Result<()> {
+    let setlocalversion_path = kernel_source_path.join("scripts/setlocalversion");
+    if setlocalversion_path.exists() {
+        let mut content = fs::read_to_string(&setlocalversion_path).unwrap_or_default();
+        content = content.replace(" -dirty", "");
+
+        let dirty_cleanup_line = r#"res=$(echo "$res" | sed 's/-dirty//g')"#;
+        let final_release_echo = r#"echo "${KERNELVERSION}${file_localversion}${config_localversion}${LOCALVERSION}${scm_version}""#;
+
+        if !content.contains(dirty_cleanup_line) {
+            if let Some(final_echo_pos) = content.rfind(final_release_echo) {
+                content.insert_str(final_echo_pos, &format!("{dirty_cleanup_line}\n"));
+            } else {
+                if !content.ends_with('\n') {
+                    content.push('\n');
+                }
+                content.push_str(dirty_cleanup_line);
+                content.push('\n');
+            }
+        }
+
+        if let Some(final_echo_pos) = content.rfind(final_release_echo) {
+            content.replace_range(
+                final_echo_pos..final_echo_pos + final_release_echo.len(),
+                &format!(r#"echo "{}""#, localversion),
+            );
+        }
+
+        content = content.replace("${scm_version}", "");
+        fs::write(&setlocalversion_path, content)?;
+    }
+
+    let defconfig_path = kernel_source_path.join(format!("arch/arm64/configs/{}", defconfig_name));
+    if defconfig_path.exists() {
+        let mut defconfig_content = fs::read_to_string(&defconfig_path).unwrap_or_default();
+        defconfig_content = upsert_kconfig_entry(
+            &defconfig_content,
+            "CONFIG_LOCALVERSION",
+            &format!("\"{}\"", localversion),
+        );
+        defconfig_content =
+            upsert_kconfig_entry(&defconfig_content, "CONFIG_LOCALVERSION_AUTO", "n");
+        fs::write(defconfig_path, defconfig_content)?;
+    }
+
+    Ok(())
+}
+
 pub fn handle_build(
     project_key: String,
     branch: String,
@@ -294,17 +346,6 @@ pub fn handle_build(
         run_cmd(&["bash", "-c", &cmd], Some(&kernel_source_path), false)?;
     }
 
-    if target_soc_str == "sm8850" {
-        let setlocalversion_path = kernel_source_path.join("scripts/setlocalversion");
-        if setlocalversion_path.exists() {
-            let content = fs::read_to_string(&setlocalversion_path).unwrap_or_default();
-            let new_content = content
-                .replace(" -dirty", "")
-                .replace("res=\"$res+\"", "res=\"$res\"");
-            let _ = fs::write(&setlocalversion_path, new_content);
-        }
-    }
-
     let kernel_version_cmd = if target_soc_str == "sm8850" {
         vec![
             "bash",
@@ -319,6 +360,15 @@ pub fn handle_build(
         .unwrap_or_else(|| "unknown".to_string())
         .trim()
         .to_string();
+
+    let short_sha = run_cmd(
+        &["git", "rev-parse", "--short=12", "HEAD"],
+        Some(&kernel_source_path),
+        true,
+    )?
+    .unwrap_or_else(|| "unknown".to_string())
+    .trim()
+    .to_string();
 
     let mut make_args = vec![
         "O=out",
@@ -358,6 +408,35 @@ pub fn handle_build(
     build_env.insert("HOSTCC".to_string(), cc_cmd.clone());
     build_env.insert("LD".to_string(), "ld.lld".to_string());
     build_env.insert("HOSTLD".to_string(), "ld.lld".to_string());
+
+    let variant_suffix = match branch.as_str() {
+        "main" | "lkm" => "LKM".to_string(),
+        "ksu" => "KSU".to_string(),
+        "mksu" => "MKSU".to_string(),
+        "resukisu" | "sukisuultra" => "ReSuki".to_string(),
+        _ => branch.to_uppercase(),
+    };
+
+    let mut localversion = if let Some(ref custom) = custom_localversion {
+        let custom = custom.trim();
+        if target_soc_str == "sm8850" {
+            format!("-{}", custom.trim_start_matches('-'))
+        } else {
+            custom.to_string()
+        }
+    } else {
+        format!("{}-{}", proj.localversion_base, variant_suffix)
+    };
+
+    if target_soc_str == "sm8850" {
+        if custom_localversion.is_none() {
+            localversion = format!("{}-g{}-4k", proj.localversion_base, short_sha);
+        }
+        let _ = fs::write(kernel_source_path.join(".scmversion"), "");
+        make_args.push("LOCALVERSION_AUTO=n");
+        build_env.insert("LOCALVERSION_AUTO".to_string(), "n".to_string());
+        apply_sm8850_localversion(&kernel_source_path, &proj.defconfig, &localversion)?;
+    }
 
     if target_soc_str == "sm8850" {
         let build_config_path = kernel_source_path.join("build.config.gki");
@@ -514,52 +593,10 @@ pub fn handle_build(
         run_cmd_with_env(&olddefconfig_cmd, Some(&kernel_source_path), &build_env)?;
     }
 
-    let short_sha = run_cmd(
-        &["git", "rev-parse", "--short=12", "HEAD"],
-        Some(&kernel_source_path),
-        true,
-    )?
-    .unwrap_or_else(|| "unknown".to_string())
-    .trim()
-    .to_string();
-
-    let variant_suffix = match branch.as_str() {
-        "main" | "lkm" => "LKM".to_string(),
-        "ksu" => "KSU".to_string(),
-        "mksu" => "MKSU".to_string(),
-        "resukisu" | "sukisuultra" => "ReSuki".to_string(),
-        _ => branch.to_uppercase(),
-    };
-
-    let mut localversion = if let Some(ref custom) = custom_localversion {
+    if custom_localversion.is_some() && target_soc_str != "sm8850" {
         let _ = fs::write(kernel_source_path.join(".scmversion"), "");
         make_args.push("LOCALVERSION_AUTO=n");
         build_env.insert("LOCALVERSION_AUTO".to_string(), "n".to_string());
-        custom.clone()
-    } else {
-        format!("{}-{}", proj.localversion_base, variant_suffix)
-    };
-
-    if target_soc_str == "sm8850" {
-        if custom_localversion.is_none() {
-            localversion = format!("{}-g{}-4k", proj.localversion_base, short_sha);
-        }
-        let _ = fs::write(kernel_source_path.join(".scmversion"), "");
-        make_args.push("LOCALVERSION_AUTO=n");
-        build_env.insert("LOCALVERSION_AUTO".to_string(), "n".to_string());
-
-        let out_config_path = kernel_source_path.join("out/.config");
-        if out_config_path.exists() {
-            let config_content = fs::read_to_string(&out_config_path).unwrap_or_default();
-            let config_content = upsert_kconfig_entry(
-                &config_content,
-                "CONFIG_LOCALVERSION",
-                &format!("\"{}\"", localversion),
-            );
-            let config_content =
-                upsert_kconfig_entry(&config_content, "CONFIG_LOCALVERSION_AUTO", "n");
-            let _ = fs::write(&out_config_path, config_content);
-        }
     }
 
     let localversion_arg = format!("LOCALVERSION={}", localversion);
