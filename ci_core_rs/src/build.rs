@@ -95,13 +95,6 @@ fn apply_sm8850_localversion(
             }
         }
 
-        if let Some(final_echo_pos) = content.rfind(final_release_echo) {
-            content.replace_range(
-                final_echo_pos..final_echo_pos + final_release_echo.len(),
-                &format!(r#"echo "{}""#, localversion),
-            );
-        }
-
         content = content.replace("${scm_version}", "");
         fs::write(&setlocalversion_path, content)?;
     }
