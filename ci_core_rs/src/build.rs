@@ -557,6 +557,31 @@ pub fn handle_build(
         let _ = fs::write(kernel_source_path.join(".scmversion"), "");
         make_args.push("LOCALVERSION_AUTO=n");
         build_env.insert("LOCALVERSION_AUTO".to_string(), "n".to_string());
+        custom.clone()
+    } else {
+        format!("{}-{}", proj.localversion_base, variant_suffix)
+    };
+
+    if target_soc_str == "sm8850" {
+        if custom_localversion.is_none() {
+            localversion = format!("{}-g{}-4k", proj.localversion_base, short_sha);
+        }
+        let _ = fs::write(kernel_source_path.join(".scmversion"), "");
+        make_args.push("LOCALVERSION_AUTO=n");
+        build_env.insert("LOCALVERSION_AUTO".to_string(), "n".to_string());
+
+        let out_config_path = kernel_source_path.join("out/.config");
+        if out_config_path.exists() {
+            let config_content = fs::read_to_string(&out_config_path).unwrap_or_default();
+            let config_content = upsert_kconfig_entry(
+                &config_content,
+                "CONFIG_LOCALVERSION",
+                &format!("\"{}\"", localversion),
+            );
+            let config_content =
+                upsert_kconfig_entry(&config_content, "CONFIG_LOCALVERSION_AUTO", "n");
+            let _ = fs::write(&out_config_path, config_content);
+        }
     }
 
     let localversion_arg = format!("LOCALVERSION={}", localversion);
