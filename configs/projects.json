@@ -52,13 +52,6 @@
     "version_method": "file",
     "extra_host_env": true,
     "disable_security": [
-      "PROCA",
-      "PROCA_GKI_10",
-      "PROCA_S_OS",
-      "GAF",
-      "GAF_V6",
-      "FIVE_CERT_USER",
-      "FIVE_DEFAULT_HASH",
       "UH",
       "RKP",
       "KDP",
@@ -173,11 +166,6 @@
       "DEVICE_NAME_EN": "Samsung Galaxy Tab S10 Series"
     },
     "disable_security": [
-      "PROCA",
-      "PROCA_GKI_10",
-      "PROCA_S_OS",
-      "GAF",
-      "GAF_V6",
       "UH",
       "RKP",
       "KDP",
