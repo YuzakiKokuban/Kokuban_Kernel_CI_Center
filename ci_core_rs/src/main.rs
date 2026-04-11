@@ -99,6 +99,8 @@ enum Commands {
         custom_localversion: Option<String>,
         #[arg(long, allow_hyphen_values = true)]
         custom_build_time: Option<String>,
+        #[arg(long, allow_hyphen_values = true)]
+        resukisu_setup_arg: Option<String>,
     },
     CollectArtifacts {
         #[arg(long, default_value = "build_artifacts")]
@@ -155,12 +157,14 @@ fn main() -> Result<()> {
             do_release,
             custom_localversion,
             custom_build_time,
+            resukisu_setup_arg,
         } => build::handle_build(
             project,
             branch,
             do_release,
             custom_localversion,
             custom_build_time,
+            resukisu_setup_arg,
         ),
         Commands::CollectArtifacts { artifact_dir } => {
             build::handle_collect_artifacts(artifact_dir)

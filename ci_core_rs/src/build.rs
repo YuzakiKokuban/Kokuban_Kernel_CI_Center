@@ -121,6 +121,7 @@ pub fn handle_build(
     do_release: bool,
     custom_localversion: Option<String>,
     custom_build_time: Option<String>,
+    resukisu_setup_arg: Option<String>,
 ) -> Result<()> {
     let projects = load_projects()?;
     let proj_val = projects
@@ -318,10 +319,16 @@ pub fn handle_build(
         }
     }
 
+    let resukisu_setup_arg = resukisu_setup_arg
+        .as_deref()
+        .map(str::trim)
+        .filter(|arg| !arg.is_empty())
+        .unwrap_or("main");
+
     let setup_url = match branch.as_str() {
         "resukisu" => Some((
             "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh",
-            "main",
+            resukisu_setup_arg,
         )),
         "mksu" => Some((
             "https://raw.githubusercontent.com/5ec1cff/KernelSU/main/kernel/setup.sh",
