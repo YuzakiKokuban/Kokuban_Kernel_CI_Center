@@ -74,7 +74,7 @@ fn truncate_to_len(input: &str, max_len: usize) -> String {
     input.chars().take(max_len).collect()
 }
 
-fn build_sm8850_localversion(base: &str, short_sha: &str, kernel_version: &str) -> Result<String> {
+fn build_sm8750_localversion(base: &str, short_sha: &str, kernel_version: &str) -> Result<String> {
     const UNAME_MAX_VISIBLE_LEN: usize = 63;
 
     let normalized_base = if base.trim().is_empty() {
@@ -82,11 +82,11 @@ fn build_sm8850_localversion(base: &str, short_sha: &str, kernel_version: &str) 
     } else {
         format!("-{}", base.trim().trim_start_matches('-'))
     };
-    let commit_suffix = format!("-g{}-4k", short_sha);
+    let commit_suffix = format!("-g{}", short_sha);
 
     if kernel_version.len() >= UNAME_MAX_VISIBLE_LEN {
         return Err(anyhow!(
-            "kernelversion is too long for uname limit: {}",
+            "kernelversion is too long for sm8750 uname limit: {}",
             kernel_version
         ));
     }
@@ -94,7 +94,7 @@ fn build_sm8850_localversion(base: &str, short_sha: &str, kernel_version: &str) 
     let max_localversion_len = UNAME_MAX_VISIBLE_LEN.saturating_sub(kernel_version.len());
     if commit_suffix.len() > max_localversion_len {
         return Err(anyhow!(
-            "Not enough uname budget for sm8850 localversion suffix {}",
+            "Not enough uname budget for sm8750 localversion suffix {}",
             commit_suffix
         ));
     }
@@ -751,21 +751,26 @@ pub fn handle_build(
         format!("{}-{}", proj.localversion_base, variant_suffix)
     };
 
-    if target_soc_str == "sm8850" {
-        let sm8850_base = custom_localversion
+    if target_soc_str == "sm8750" {
+        let sm8750_base = custom_localversion
             .as_deref()
             .map(str::trim)
             .filter(|value| !value.is_empty())
-            .unwrap_or(&proj.localversion_base);
-        localversion = build_sm8850_localversion(sm8850_base, &short_sha, &kernel_version)?;
+            .unwrap_or(&localversion);
+        localversion = build_sm8750_localversion(sm8750_base, &short_sha, &kernel_version)?;
 
         println!(
-            "sm8850 uname release: {}{} (len={})",
+            "sm8750 uname release: {}{} (len={})",
             kernel_version,
             localversion,
             kernel_version.len() + localversion.len()
         );
+    }
 
+    if target_soc_str == "sm8850" {
+        if custom_localversion.is_none() {
+            localversion = format!("{}-g{}-4k", proj.localversion_base, short_sha);
+        }
         let _ = fs::write(kernel_source_path.join(".scmversion"), "");
         make_args.push("LOCALVERSION_AUTO=n");
         build_env.insert("LOCALVERSION_AUTO".to_string(), "n".to_string());
