@@ -10,9 +10,7 @@
     "localversion_base": "-android13-Kokuban-Mei-FYIA",
     "lto": "thin",
     "supported_ksu": [
-      "resukisu",
-      "mksu",
-      "ksu"
+      "resukisu"
     ],
     "readme_placeholders": {
       "DEVICE_NAME_CN": "三星 Galaxy Z5 系列",
@@ -45,9 +43,7 @@
     "defconfig": "defconfig",
     "localversion_base": "-android15-Kokuban-Herta-BYIF",
     "supported_ksu": [
-      "resukisu",
-      "mksu",
-      "ksu"
+      "resukisu"
     ],
     "version_method": "file",
     "extra_host_env": true,
@@ -89,9 +85,7 @@
       "setup_url": "https://github.com/cctv18/Baseband-guard/raw/master/setup.sh"
     },
     "watch_upstream_variants": [
-      "resukisu",
-      "mksu",
-      "ksu"
+      "resukisu"
     ]
   },
   "s23_sm8550": {
@@ -100,9 +94,7 @@
     "localversion_base": "-android13-Kokuban-Firefly-EYI7",
     "lto": "thin",
     "supported_ksu": [
-      "resukisu",
-      "mksu",
-      "ksu"
+      "resukisu"
     ],
     "readme_placeholders": {
       "DEVICE_NAME_CN": "三星 Galaxy S23 系列",
@@ -136,9 +128,7 @@
     "defconfig": "pineapple_gki_defconfig",
     "localversion_base": "-android14-Kokuban-Elysia-CYL1",
     "supported_ksu": [
-      "resukisu",
-      "mksu",
-      "ksu"
+      "resukisu"
     ],
     "readme_placeholders": {
       "DEVICE_NAME_CN": "三星 Galaxy S24 Snapdragon 系列",
@@ -172,9 +162,7 @@
     "defconfig": "mt6989_defconfig",
     "localversion_base": "-android14-Kokuban-Exusiai-CYI6",
     "supported_ksu": [
-      "resukisu",
-      "mksu",
-      "ksu"
+      "resukisu"
     ],
     "readme_placeholders": {
       "DEVICE_NAME_CN": "三星 Galaxy Tab S10 系列",
@@ -208,9 +196,7 @@
     "localversion_base": "-android14-Kokuban-Cyrene-CYI7",
     "lto": "",
     "supported_ksu": [
-      "resukisu",
-      "mksu",
-      "ksu"
+      "resukisu"
     ],
     "toolchain_urls": [
       "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8650/releases/download/toolchain/toolchainS24.tar.gz.00",
@@ -247,9 +233,7 @@
     "defconfig": "gki_defconfig",
     "localversion_base": "-android16-Kokuban-SilverWolf",
     "supported_ksu": [
-      "resukisu",
-      "mksu",
-      "ksu"
+      "resukisu"
     ],
     "version_method": "file",
     "toolchain_urls": [
@@ -279,9 +263,7 @@
       "setup_url": "https://github.com/cctv18/Baseband-guard/raw/master/setup.sh"
     },
     "watch_upstream_variants": [
-      "resukisu",
-      "mksu",
-      "ksu"
+      "resukisu"
     ],
     "readme_placeholders": {
       "DEVICE_NAME_CN": "小米 17 系列",

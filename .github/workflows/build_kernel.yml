@@ -19,13 +19,11 @@ on:
         required: true
         default: 'main'
       ksu_variant:
-        description: 'KSU Variant Override'
+        description: 'Build Mode Override'
         type: choice
         options:
           - default
           - resukisu
-          - mksu
-          - ksu
           - lkm
         default: 'default'
       do_release:

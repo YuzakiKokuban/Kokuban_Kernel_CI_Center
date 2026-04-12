@@ -206,8 +206,6 @@ fn handle_meta(project_key: &str, branch: &str) -> Result<()> {
 
     let variant_suffix = match branch {
         "main" | "lkm" => "LKM".to_string(),
-        "ksu" => "KSU".to_string(),
-        "mksu" => "MKSU".to_string(),
         "resukisu" | "sukisuultra" => "ReSuki".to_string(),
         _ => branch.to_uppercase(),
     };
@@ -295,11 +293,7 @@ fn handle_add(
         defconfig,
         localversion_base: localversion,
         lto: None,
-        supported_ksu: Some(vec![
-            "resukisu".to_string(),
-            "mksu".to_string(),
-            "ksu".to_string(),
-        ]),
+        supported_ksu: Some(vec!["resukisu".to_string()]),
         toolchain_urls: None,
         toolchain_path_prefix: if toolchain_prefix.is_empty() {
             None

@@ -637,14 +637,6 @@ pub fn handle_build(
             "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh",
             resukisu_setup_arg,
         )),
-        "mksu" => Some((
-            "https://raw.githubusercontent.com/5ec1cff/KernelSU/main/kernel/setup.sh",
-            "-",
-        )),
-        "ksu" => Some((
-            "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh",
-            "-",
-        )),
         _ => None,
     };
 
@@ -740,8 +732,6 @@ pub fn handle_build(
 
     let variant_suffix = match branch.as_str() {
         "main" | "lkm" => "LKM".to_string(),
-        "ksu" => "KSU".to_string(),
-        "mksu" => "MKSU".to_string(),
         "resukisu" | "sukisuultra" => "ReSuki".to_string(),
         _ => branch.to_uppercase(),
     };
