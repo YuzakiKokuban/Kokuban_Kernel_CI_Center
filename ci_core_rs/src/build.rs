@@ -243,11 +243,7 @@ fn ensure_bbg_lsm(content: &str) -> String {
     lines.join("\n") + "\n"
 }
 
-fn apply_susfs_overlay(
-    kernel_source_path: &Path,
-    susfs: &SusfsConfig,
-    branch: &str,
-) -> Result<bool> {
+fn apply_susfs_overlay(kernel_source_path: &Path, susfs: &SusfsConfig) -> Result<()> {
     let temp_dir = kernel_source_path.join(".susfs_workspace");
     if temp_dir.exists() {
         fs::remove_dir_all(&temp_dir)?;
@@ -310,29 +306,8 @@ fn apply_susfs_overlay(
         &["common".to_string(), "kernel_platform/common".to_string()],
     )?;
 
-    let mut ksu_patch_applied = false;
-    if let Some(ksu_patch_path) = &susfs.ksu_patch_path {
-        let ksu_patch = temp_dir.join(ksu_patch_path);
-        if ksu_patch.exists() {
-            if let Some(ksu_dir) = find_first_existing_dir(
-                kernel_source_path,
-                &[
-                    "KernelSU".to_string(),
-                    "KernelSU-Next".to_string(),
-                    "ReSukiSU".to_string(),
-                ],
-            ) {
-                if branch == "ksu" || branch == "mksu" || ksu_dir.ends_with("KernelSU") {
-                    if can_apply_patch(&ksu_patch, &ksu_dir)? && run_patch(&ksu_patch, &ksu_dir)? {
-                        ksu_patch_applied = true;
-                    }
-                }
-            }
-        }
-    }
-
     fs::remove_dir_all(&temp_dir)?;
-    Ok(ksu_patch_applied)
+    Ok(())
 }
 
 fn apply_bbg_overlay(
@@ -680,12 +655,19 @@ pub fn handle_build(
 
     let mut feature_suffixes = Vec::new();
     if apply_susfs {
-        let susfs = proj
-            .susfs
-            .as_ref()
-            .ok_or_else(|| anyhow!("Project {} does not define a SuSFS source", project_key))?;
-        let _ = apply_susfs_overlay(&kernel_source_path, susfs, &branch)?;
-        feature_suffixes.push("susfs".to_string());
+        if branch == "resukisu" || branch == "sukisuultra" {
+            let susfs = proj
+                .susfs
+                .as_ref()
+                .ok_or_else(|| anyhow!("Project {} does not define a SuSFS source", project_key))?;
+            apply_susfs_overlay(&kernel_source_path, susfs)?;
+            feature_suffixes.push("susfs".to_string());
+        } else {
+            println!(
+                "Skipping SuSFS for branch '{}': SuSFS is only enabled for ReSukiSU builds.",
+                branch
+            );
+        }
     }
 
     if apply_bbg {

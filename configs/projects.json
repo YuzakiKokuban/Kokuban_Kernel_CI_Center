@@ -79,8 +79,8 @@
     "anykernel_branch": "sun",
     "zip_name_prefix": "S25_Kernel",
     "susfs": {
-      "repo": "https://github.com/cctv18/susfs4oki.git",
-      "branch": "oki-android15-6.6",
+      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
+      "branch": "gki-android15-6.6",
       "patch_path": "kernel_patches/50_add_susfs_in_gki-android15-6.6.patch",
       "fs_patch_dir": "kernel_patches/fs",
       "include_linux_patch_dir": "kernel_patches/include/linux",
@@ -270,8 +270,8 @@
     "anykernel_branch": "canoe",
     "zip_name_prefix": "Mi17_Kernel",
     "susfs": {
-      "repo": "https://github.com/cctv18/susfs4oki.git",
-      "branch": "oki-android16-6.12",
+      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
+      "branch": "gki-android16-6.12",
       "patch_path": "kernel_patches/50_add_susfs_in_gki-android16-6.12.patch",
       "fs_patch_dir": "kernel_patches/fs",
       "include_linux_patch_dir": "kernel_patches/include/linux",
