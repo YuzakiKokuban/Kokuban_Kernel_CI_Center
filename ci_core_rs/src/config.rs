@@ -30,7 +30,6 @@ pub struct SusfsConfig {
     pub patch_path: String,
     pub fs_patch_dir: Option<String>,
     pub include_linux_patch_dir: Option<String>,
-    pub ksu_patch_path: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -48,18 +47,6 @@ pub struct GlobalConfig {
 pub type ProjectsMap = HashMap<String, serde_json::Value>;
 
 pub const KSU_CONFIG_JSON: &str = r#"{
-    "ksu": {
-        "repo": "https://github.com/tiann/KernelSU.git",
-        "branch": "main",
-        "setup_url": "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh",
-        "setup_args": ["main"]
-    },
-    "mksu": {
-        "repo": "https://github.com/5ec1cff/KernelSU.git",
-        "branch": "main",
-        "setup_url": "https://raw.githubusercontent.com/5ec1cff/KernelSU/main/kernel/setup.sh",
-        "setup_args": ["main"]
-    },
     "resukisu": {
         "repo": "https://github.com/ReSukiSU/ReSukiSU.git",
         "branch": "main",

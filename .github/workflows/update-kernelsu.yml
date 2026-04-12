@@ -11,7 +11,7 @@ on:
         description: 'Variant (KernelSU Type)'
         required: true
         type: choice
-        options: [resukisu, mksu, ksu]
+        options: [resukisu]
       commit_id:
         description: 'Commit Short Hash (Optional, defaults to latest)'
         required: false
@@ -39,25 +39,8 @@ jobs:
           set -euo pipefail
 
           if [ "${{ inputs.commit_id }}" == "latest" ]; then
-            case "${{ inputs.branch }}" in
-              ksu)
-                repo="https://github.com/tiann/KernelSU.git"
-                branch="main"
-                ;;
-              mksu)
-                repo="https://github.com/5ec1cff/KernelSU.git"
-                branch="main"
-                ;;
-              resukisu)
-                repo="https://github.com/ReSukiSU/ReSukiSU.git"
-                branch="main"
-                ;;
-              *)
-                echo "Unsupported KernelSU variant: ${{ inputs.branch }}"
-                exit 1
-                ;;
-            esac
-
+            repo="https://github.com/ReSukiSU/ReSukiSU.git"
+            branch="main"
             echo "COMMIT_ID=$(git ls-remote \"$repo\" \"$branch\" | cut -c1-7)" >> "$GITHUB_ENV"
           else
             echo "COMMIT_ID=${{ inputs.commit_id }}" >> "$GITHUB_ENV"

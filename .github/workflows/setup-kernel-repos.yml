@@ -38,3 +38,20 @@ jobs:
             --token "${{ secrets.GH_TOKEN }}" \
             --commit-message "${{ inputs.commit_message }}" \
             --readme-language "${{ inputs.readme_language }}"
+
+      - name: Delete Legacy KSU Branches
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          jq -r 'to_entries[] | select(.key | startswith("_") | not) | .value.repo' configs/projects.json | while read -r repo; do
+            for legacy_branch in ksu mksu; do
+              echo "Deleting ${legacy_branch} from ${repo} if it exists..."
+              gh api \
+                --method DELETE \
+                "repos/${repo}/git/refs/heads/${legacy_branch}" \
+                --silent \
+                || true
+            done
+          done

@@ -238,20 +238,26 @@ fn handle_matrix(project_key: &str, _token: Option<String>) -> Result<()> {
     let proj: ProjectConfig = serde_json::from_value(proj_val.clone())?;
 
     let raw_supported = proj.supported_ksu.unwrap_or_default();
-    let mut branches = vec!["main".to_string()];
+    let mut include = vec![HashMap::from([
+        ("branch".to_string(), "main".to_string()),
+        ("ksu_variant".to_string(), "default".to_string()),
+    ])];
 
-    for x in raw_supported {
-        if x != "sukisuultra" {
-            branches.push(x);
+    for variant in raw_supported {
+        let normalized = variant.replace("sukisuultra", "resukisu");
+        let entry = if normalized == "resukisu" {
+            HashMap::from([
+                ("branch".to_string(), "resukisu".to_string()),
+                ("ksu_variant".to_string(), "default".to_string()),
+            ])
         } else {
-            branches.push("resukisu".to_string());
-        }
+            HashMap::from([
+                ("branch".to_string(), "main".to_string()),
+                ("ksu_variant".to_string(), normalized),
+            ])
+        };
+        include.push(entry);
     }
-
-    let include: Vec<HashMap<String, String>> = branches
-        .into_iter()
-        .map(|b| HashMap::from([("branch".to_string(), b)]))
-        .collect();
 
     let matrix = HashMap::from([("include", include)]);
     let json_matrix = serde_json::to_string(&matrix)?;
@@ -372,7 +378,7 @@ fn handle_setup(
         )?;
 
         let readme_content = process_readme(&readme_tpl, &proj, &repo_url, &readme_language);
-        let target_branches = vec!["main", "ksu", "mksu", "resukisu"];
+        let target_branches = vec!["main", "resukisu"];
 
         let remote_out =
             run_cmd(&["git", "branch", "-r"], Some(&target_dir), true)?.unwrap_or_default();
@@ -466,6 +472,17 @@ fn handle_setup(
             }
         }
 
+        for legacy_branch in ["ksu", "mksu"] {
+            if remote_branches.contains(&legacy_branch) {
+                println!("Removing legacy branch: {}", legacy_branch);
+                let _ = run_cmd(
+                    &["git", "push", "origin", "--delete", legacy_branch],
+                    Some(&target_dir),
+                    false,
+                );
+            }
+        }
+
         if let Some(t) = &token {
             let child = Command::new("gh")
                 .args(&["secret", "set", "CI_TOKEN"])
@@ -545,6 +562,8 @@ fn handle_watch() -> Result<()> {
     };
 
     track_data.remove("sukisuultra");
+    track_data.remove("ksu");
+    track_data.remove("mksu");
     let projects_map = load_projects()?;
     let mut update_matrix = Vec::new();
 

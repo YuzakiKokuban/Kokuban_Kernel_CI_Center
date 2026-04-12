@@ -83,8 +83,7 @@
       "branch": "gki-android15-6.6",
       "patch_path": "kernel_patches/50_add_susfs_in_gki-android15-6.6.patch",
       "fs_patch_dir": "kernel_patches/fs",
-      "include_linux_patch_dir": "kernel_patches/include/linux",
-      "ksu_patch_path": "kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch"
+      "include_linux_patch_dir": "kernel_patches/include/linux"
     },
     "bbg": {
       "setup_url": "https://github.com/cctv18/Baseband-guard/raw/master/setup.sh"
@@ -274,8 +273,7 @@
       "branch": "gki-android16-6.12",
       "patch_path": "kernel_patches/50_add_susfs_in_gki-android16-6.12.patch",
       "fs_patch_dir": "kernel_patches/fs",
-      "include_linux_patch_dir": "kernel_patches/include/linux",
-      "ksu_patch_path": "kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch"
+      "include_linux_patch_dir": "kernel_patches/include/linux"
     },
     "bbg": {
       "setup_url": "https://github.com/cctv18/Baseband-guard/raw/master/setup.sh"
