@@ -139,31 +139,57 @@ fn copy_dir_files(source: &Path, dest: &Path) -> Result<()> {
     Ok(())
 }
 
+fn stage_patch_in_cwd(patch_file: &Path, cwd: &Path) -> Result<PathBuf> {
+    let file_name = patch_file
+        .file_name()
+        .ok_or_else(|| anyhow!("Invalid patch file path: {:?}", patch_file))?;
+    let staged_patch = cwd.join(file_name);
+    fs::copy(patch_file, &staged_patch)?;
+    Ok(staged_patch)
+}
+
+fn cleanup_staged_patch(staged_patch: &Path, original_patch: &Path) {
+    if staged_patch != original_patch {
+        let _ = fs::remove_file(staged_patch);
+    }
+}
+
+fn run_patch_command(patch_file: &Path, cwd: &Path, dry_run: bool) -> Result<bool> {
+    let staged_patch = stage_patch_in_cwd(patch_file, cwd)?;
+    let result = (|| {
+        let patch_name = staged_patch
+            .file_name()
+            .ok_or_else(|| anyhow!("Invalid staged patch path: {:?}", staged_patch))?;
+
+        let mut command = std::process::Command::new("patch");
+        command.arg("-p1").arg("-N").arg("-F").arg("3");
+        if dry_run {
+            command.arg("--dry-run");
+        }
+        let status = command
+            .arg("-i")
+            .arg(patch_name)
+            .current_dir(cwd)
+            .status()?;
+        Ok(status.success())
+    })();
+    cleanup_staged_patch(&staged_patch, patch_file);
+    result
+}
+
 fn can_apply_patch(patch_file: &Path, cwd: &Path) -> Result<bool> {
-    let status = std::process::Command::new("patch")
-        .arg("-p1")
-        .arg("-N")
-        .arg("-F")
-        .arg("3")
-        .arg("--dry-run")
-        .arg("-i")
-        .arg(patch_file)
-        .current_dir(cwd)
-        .status()?;
-    Ok(status.success())
+    run_patch_command(patch_file, cwd, true)
 }
 
 fn run_patch(patch_file: &Path, cwd: &Path) -> Result<bool> {
-    let status = std::process::Command::new("patch")
-        .arg("-p1")
-        .arg("-N")
-        .arg("-F")
-        .arg("3")
-        .arg("-i")
-        .arg(patch_file)
-        .current_dir(cwd)
-        .status()?;
-    Ok(status.success())
+    run_patch_command(patch_file, cwd, false)
+}
+
+fn apply_patch_once(patch_file: &Path, cwd: &Path) -> Result<bool> {
+    if can_apply_patch(patch_file, cwd)? {
+        return run_patch(patch_file, cwd);
+    }
+    Ok(false)
 }
 
 fn apply_patch_with_fallbacks(
@@ -171,15 +197,13 @@ fn apply_patch_with_fallbacks(
     kernel_source_path: &Path,
     fallback_dirs: &[String],
 ) -> Result<()> {
-    if can_apply_patch(patch_file, kernel_source_path)?
-        && run_patch(patch_file, kernel_source_path)?
-    {
+    if apply_patch_once(patch_file, kernel_source_path)? {
         return Ok(());
     }
 
     for fallback in fallback_dirs {
         let cwd = kernel_source_path.join(fallback);
-        if cwd.is_dir() && can_apply_patch(patch_file, &cwd)? && run_patch(patch_file, &cwd)? {
+        if cwd.is_dir() && apply_patch_once(patch_file, &cwd)? {
             return Ok(());
         }
     }
