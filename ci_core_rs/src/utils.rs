@@ -5,8 +5,8 @@ use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::thread; // 新增
-use std::time::Duration; // 新增
+use std::thread;
+use std::time::Duration;
 
 use crate::config::{GlobalConfig, ProjectConfig, ProjectsMap};
 
@@ -37,6 +37,30 @@ pub fn load_projects() -> Result<ProjectsMap> {
     let content = fs::read_to_string(&path)
         .with_context(|| format!("Failed to read projects.json at {:?}", path))?;
     serde_json::from_str(&content).context("Failed to parse projects.json")
+}
+
+pub fn load_project(project_key: &str) -> Result<ProjectConfig> {
+    let projects = load_projects()?;
+    let proj_val = projects
+        .get(project_key)
+        .ok_or_else(|| anyhow!("Project not found: {}", project_key))?;
+    serde_json::from_value(proj_val.clone()).context("Failed to parse project config")
+}
+
+pub fn normalize_variant_name(variant: &str) -> String {
+    variant.replace("sukisuultra", "resukisu")
+}
+
+pub fn variant_suffix(variant: &str) -> String {
+    match normalize_variant_name(variant).as_str() {
+        "main" | "lkm" => "LKM".to_string(),
+        "resukisu" => "ReSuki".to_string(),
+        _ => variant.to_uppercase(),
+    }
+}
+
+pub fn is_resukisu_variant(variant: &str) -> bool {
+    normalize_variant_name(variant) == "resukisu"
 }
 
 pub fn save_json<T: serde::Serialize>(path: &Path, data: &T) -> Result<()> {

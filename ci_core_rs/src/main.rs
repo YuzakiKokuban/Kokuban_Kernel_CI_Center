@@ -2,7 +2,7 @@ mod build;
 mod config;
 mod utils;
 
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use chrono::Local;
 use clap::{Parser, Subcommand};
 use config::{KSU_CONFIG_JSON, KsuConfigItem, ProjectConfig};
@@ -181,11 +181,7 @@ fn main() -> Result<()> {
 }
 
 fn handle_parse(project_key: &str) -> Result<()> {
-    let projects = load_projects()?;
-    let proj_val = projects
-        .get(project_key)
-        .ok_or_else(|| anyhow!("Project not found"))?;
-    let proj: ProjectConfig = serde_json::from_value(proj_val.clone())?;
+    let proj = load_project(project_key)?;
 
     set_github_env("PROJECT_REPO", &proj.repo)?;
     set_github_env("PROJECT_DEFCONFIG", &proj.defconfig)?;
@@ -195,20 +191,11 @@ fn handle_parse(project_key: &str) -> Result<()> {
 }
 
 fn handle_meta(project_key: &str, branch: &str) -> Result<()> {
-    let projects = load_projects()?;
-    let proj_val = projects
-        .get(project_key)
-        .ok_or_else(|| anyhow!("Project not found"))?;
-    let proj: ProjectConfig = serde_json::from_value(proj_val.clone())?;
+    let proj = load_project(project_key)?;
 
     let zip_prefix = proj.zip_name_prefix.as_deref().unwrap_or("Kernel");
     let localversion_base = &proj.localversion_base;
-
-    let variant_suffix = match branch {
-        "main" | "lkm" => "LKM".to_string(),
-        "resukisu" | "sukisuultra" => "ReSuki".to_string(),
-        _ => branch.to_uppercase(),
-    };
+    let variant_suffix = variant_suffix(branch);
 
     let date_str = Local::now().format("%Y%m%d-%H%M").to_string();
 
@@ -229,11 +216,7 @@ fn handle_meta(project_key: &str, branch: &str) -> Result<()> {
 }
 
 fn handle_matrix(project_key: &str, _token: Option<String>) -> Result<()> {
-    let projects = load_projects()?;
-    let proj_val = projects
-        .get(project_key)
-        .ok_or_else(|| anyhow!("Project not found"))?;
-    let proj: ProjectConfig = serde_json::from_value(proj_val.clone())?;
+    let proj = load_project(project_key)?;
 
     let raw_supported = proj.supported_ksu.unwrap_or_default();
     let mut include = vec![HashMap::from([
@@ -242,7 +225,7 @@ fn handle_matrix(project_key: &str, _token: Option<String>) -> Result<()> {
     ])];
 
     for variant in raw_supported {
-        let normalized = variant.replace("sukisuultra", "resukisu");
+        let normalized = normalize_variant_name(&variant);
         let entry = if normalized == "resukisu" {
             HashMap::from([
                 ("branch".to_string(), "resukisu".to_string()),
@@ -529,21 +512,46 @@ fn process_readme(template: &str, proj: &ProjectConfig, repo_url: &str, lang: &s
         .replace("__PROJECT_REPO__", repo_url)
         .replace("__LOCALVERSION_BASE__", &proj.localversion_base);
 
-    if lang == "zh-CN" {
-        let re = regex::Regex::new(r"(?s).*?").unwrap();
-        content = re.replace_all(&content, "").to_string();
-    } else if lang == "en-US" {
-        let re = regex::Regex::new(r"(?s).*?").unwrap();
-        content = re.replace_all(&content, "").to_string();
-    }
+    let normalize_lang = lang.to_ascii_lowercase();
+    let selected = match normalize_lang.as_str() {
+        "zh" | "zh-cn" => render_readme_language(&content, "ZH"),
+        "en" | "en-us" => render_readme_language(&content, "EN"),
+        _ => strip_readme_markers(&content),
+    };
 
+    selected.trim().to_string()
+}
+
+fn render_readme_language(content: &str, marker: &str) -> String {
+    let section = extract_readme_section(content, marker).unwrap_or_default();
+    let footer = content
+        .split_once("<!-- END-EN -->")
+        .map(|(_, tail)| tail.trim())
+        .unwrap_or_default();
+
+    if footer.is_empty() {
+        section
+    } else if section.is_empty() {
+        footer.to_string()
+    } else {
+        format!("{section}\n\n{footer}")
+    }
+}
+
+fn extract_readme_section(content: &str, marker: &str) -> Option<String> {
+    let begin = format!("<!-- BEGIN-{marker} -->");
+    let end = format!("<!-- END-{marker} -->");
+    let (_, rest) = content.split_once(&begin)?;
+    let (section, _) = rest.split_once(&end)?;
+    Some(section.trim().to_string())
+}
+
+fn strip_readme_markers(content: &str) -> String {
     content
-        .replace("", "")
-        .replace("", "")
-        .replace("", "")
-        .replace("", "")
-        .trim()
-        .to_string()
+        .replace("<!-- BEGIN-ZH -->", "")
+        .replace("<!-- END-ZH -->", "")
+        .replace("<!-- BEGIN-EN -->", "")
+        .replace("<!-- END-EN -->", "")
 }
 
 fn handle_watch() -> Result<()> {
@@ -585,7 +593,7 @@ fn handle_watch() -> Result<()> {
                 let supported = p.watch_upstream_variants.clone().unwrap_or_default();
                 let normalized_supported: Vec<String> = supported
                     .into_iter()
-                    .map(|x| x.replace("sukisuultra", "resukisu"))
+                    .map(|x| normalize_variant_name(&x))
                     .collect();
 
                 if normalized_supported.contains(&variant) {
@@ -627,13 +635,9 @@ fn handle_update(
     variant: String,
     commit_id: String,
 ) -> Result<()> {
-    let projects = load_projects()?;
-    let proj_val = projects
-        .get(&project_key)
-        .ok_or_else(|| anyhow!("Project not found"))?;
-    let proj: ProjectConfig = serde_json::from_value(proj_val.clone())?;
+    let proj = load_project(&project_key)?;
 
-    let normalized_variant = variant.replace("sukisuultra", "resukisu");
+    let normalized_variant = normalize_variant_name(&variant);
     let repo_url = proj.repo;
     let target_dir = PathBuf::from("temp_kernel");
 

@@ -7,7 +7,10 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
 use crate::config::{BbgConfig, ProjectConfig, SusfsConfig};
-use crate::utils::{handle_notify, load_projects, run_cmd, run_cmd_with_env, set_github_output};
+use crate::utils::{
+    handle_notify, is_resukisu_variant, load_project, run_cmd, run_cmd_with_env, set_github_output,
+    variant_suffix,
+};
 
 fn command_exists(command: &str) -> bool {
     std::process::Command::new(command)
@@ -420,6 +423,99 @@ fn apply_sm8850_localversion(
     Ok(())
 }
 
+fn uses_file_localversion(proj: &ProjectConfig) -> bool {
+    proj.version_method.as_deref().unwrap_or("param") == "file"
+}
+
+fn run_make_targets(
+    kernel_source_path: &Path,
+    build_env: &HashMap<String, String>,
+    make_args: &[&str],
+    targets: &[&str],
+    source_setup_env: bool,
+) -> Result<()> {
+    if source_setup_env {
+        let mut cmd_str = "source ./_setup_env.sh 2>/dev/null || true && make".to_string();
+        for target in targets {
+            cmd_str.push(' ');
+            cmd_str.push_str(target);
+        }
+        for arg in make_args {
+            cmd_str.push_str(&format!(" '{}'", arg));
+        }
+        run_cmd_with_env(
+            &["bash", "-c", &cmd_str],
+            Some(kernel_source_path),
+            build_env,
+        )
+    } else {
+        let mut cmd = vec!["make"];
+        cmd.extend_from_slice(make_args);
+        cmd.extend_from_slice(targets);
+        run_cmd_with_env(&cmd, Some(kernel_source_path), build_env)
+    }
+}
+
+fn capture_make_output(
+    kernel_source_path: &Path,
+    target: &str,
+    source_setup_env: bool,
+) -> Result<String> {
+    let output = if source_setup_env {
+        let cmd = format!(
+            "source ./_setup_env.sh 2>/dev/null || true && make {}",
+            target
+        );
+        run_cmd(&["bash", "-c", &cmd], Some(kernel_source_path), true)?
+    } else {
+        run_cmd(&["make", target], Some(kernel_source_path), true)?
+    };
+
+    Ok(output
+        .unwrap_or_else(|| "unknown".to_string())
+        .trim()
+        .to_string())
+}
+
+fn update_kconfig_file(path: &Path, entries: &[(&str, &str)]) -> Result<()> {
+    if !path.exists() {
+        return Ok(());
+    }
+
+    let mut content = fs::read_to_string(path).unwrap_or_default();
+    for (key, value) in entries {
+        content = upsert_kconfig_entry(&content, key, value);
+    }
+    fs::write(path, content)?;
+    Ok(())
+}
+
+fn prepare_sm8850_build(
+    kernel_source_path: &Path,
+    proj: &ProjectConfig,
+    enable_ksu: bool,
+) -> Result<()> {
+    let build_config_path = kernel_source_path.join("build.config.gki");
+    if build_config_path.exists() {
+        let content = fs::read_to_string(&build_config_path).unwrap_or_default();
+        fs::write(&build_config_path, content.replace("check_defconfig", ""))?;
+    }
+
+    let defconfig_file = kernel_source_path.join(format!("arch/arm64/configs/{}", proj.defconfig));
+    let mut entries = vec![
+        ("CONFIG_RUST", "y"),
+        ("CONFIG_ANDROID_BINDER_IPC_RUST", "m"),
+        ("CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE", "y"),
+        ("CONFIG_HEADERS_INSTALL", "n"),
+        ("CONFIG_TMPFS_XATTR", "y"),
+        ("CONFIG_TMPFS_POSIX_ACL", "y"),
+    ];
+    if enable_ksu {
+        entries.push(("CONFIG_KSU", "y"));
+    }
+    update_kconfig_file(&defconfig_file, &entries)
+}
+
 pub fn handle_build(
     project_key: String,
     branch: String,
@@ -430,11 +526,7 @@ pub fn handle_build(
     apply_susfs: bool,
     apply_bbg: bool,
 ) -> Result<()> {
-    let projects = load_projects()?;
-    let proj_val = projects
-        .get(&project_key)
-        .ok_or_else(|| anyhow!("Project not found"))?;
-    let proj: ProjectConfig = serde_json::from_value(proj_val.clone())?;
+    let proj = load_project(&project_key)?;
 
     let kernel_source_path = PathBuf::from("kernel_source");
     if !kernel_source_path.exists() {
@@ -442,6 +534,7 @@ pub fn handle_build(
     }
 
     let target_soc_str = project_key.split('_').nth(1).unwrap_or("unknown");
+    let is_sm8850 = target_soc_str == "sm8850";
 
     let wrapper_dir = env::current_dir()?.join(".compiler_wrappers");
     let _ = fs::create_dir_all(&wrapper_dir);
@@ -546,7 +639,7 @@ pub fn handle_build(
     );
 
     let mut kcflags = "-O2 -pipe -Wno-error -D__ANDROID_COMMON_KERNEL__".to_string();
-    if target_soc_str == "sm8850" {
+    if is_sm8850 {
         if let Ok(common_real_path) = fs::canonicalize(&kernel_source_path) {
             if let Some(root_real_path) = common_real_path.parent() {
                 kcflags = format!(
@@ -633,7 +726,7 @@ pub fn handle_build(
         .unwrap_or("main");
 
     let setup_url = match branch.as_str() {
-        "resukisu" => Some((
+        _ if is_resukisu_variant(&branch) => Some((
             "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh",
             resukisu_setup_arg,
         )),
@@ -647,7 +740,7 @@ pub fn handle_build(
 
     let mut feature_suffixes = Vec::new();
     if apply_susfs {
-        if branch == "resukisu" || branch == "sukisuultra" {
+        if is_resukisu_variant(&branch) {
             let susfs = proj
                 .susfs
                 .as_ref()
@@ -667,20 +760,7 @@ pub fn handle_build(
         feature_suffixes.push("bbg".to_string());
     }
 
-    let kernel_version_cmd = if target_soc_str == "sm8850" {
-        vec![
-            "bash",
-            "-c",
-            "source ./_setup_env.sh 2>/dev/null || true && make kernelversion",
-        ]
-    } else {
-        vec!["make", "kernelversion"]
-    };
-
-    let kernel_version = run_cmd(&kernel_version_cmd, Some(&kernel_source_path), true)?
-        .unwrap_or_else(|| "unknown".to_string())
-        .trim()
-        .to_string();
+    let kernel_version = capture_make_output(&kernel_source_path, "kernelversion", is_sm8850)?;
 
     let short_sha = run_cmd(
         &["git", "rev-parse", "--short=12", "HEAD"],
@@ -730,21 +810,17 @@ pub fn handle_build(
     build_env.insert("LD".to_string(), "ld.lld".to_string());
     build_env.insert("HOSTLD".to_string(), "ld.lld".to_string());
 
-    let variant_suffix = match branch.as_str() {
-        "main" | "lkm" => "LKM".to_string(),
-        "resukisu" | "sukisuultra" => "ReSuki".to_string(),
-        _ => branch.to_uppercase(),
-    };
+    let build_variant_suffix = variant_suffix(&branch);
 
     let mut localversion = if let Some(ref custom) = custom_localversion {
         let custom = custom.trim();
-        if target_soc_str == "sm8850" {
+        if is_sm8850 {
             format!("-{}", custom.trim_start_matches('-'))
         } else {
             custom.to_string()
         }
     } else {
-        format!("{}-{}", proj.localversion_base, variant_suffix)
+        format!("{}-{}", proj.localversion_base, build_variant_suffix)
     };
 
     if target_soc_str == "sm8750" {
@@ -763,9 +839,16 @@ pub fn handle_build(
         );
     }
 
-    if target_soc_str == "sm8850" {
+    if is_sm8850 {
         if custom_localversion.is_none() {
-            localversion = format!("{}-g{}-4k", proj.localversion_base, short_sha);
+            if project_key == "mi17_sm8850" {
+                localversion = format!(
+                    "{}-{}-g{}-4k",
+                    proj.localversion_base, build_variant_suffix, short_sha
+                );
+            } else {
+                localversion = format!("{}-g{}-4k", proj.localversion_base, short_sha);
+            }
         }
         let _ = fs::write(kernel_source_path.join(".scmversion"), "");
         make_args.push("LOCALVERSION_AUTO=n");
@@ -773,38 +856,11 @@ pub fn handle_build(
         apply_sm8850_localversion(&kernel_source_path, &proj.defconfig, &localversion)?;
     }
 
-    if target_soc_str == "sm8850" {
-        let build_config_path = kernel_source_path.join("build.config.gki");
-        if build_config_path.exists() {
-            let content = fs::read_to_string(&build_config_path).unwrap_or_default();
-            let _ = fs::write(&build_config_path, content.replace("check_defconfig", ""));
-        }
-
-        let defconfig_file =
-            kernel_source_path.join(format!("arch/arm64/configs/{}", proj.defconfig));
-        if defconfig_file.exists() {
-            let mut defconfig_content = fs::read_to_string(&defconfig_file).unwrap_or_default();
-            defconfig_content = upsert_kconfig_entry(&defconfig_content, "CONFIG_RUST", "y");
-            defconfig_content =
-                upsert_kconfig_entry(&defconfig_content, "CONFIG_ANDROID_BINDER_IPC_RUST", "m");
-            defconfig_content = upsert_kconfig_entry(
-                &defconfig_content,
-                "CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE",
-                "y",
-            );
-            defconfig_content =
-                upsert_kconfig_entry(&defconfig_content, "CONFIG_HEADERS_INSTALL", "n");
-            defconfig_content = upsert_kconfig_entry(&defconfig_content, "CONFIG_TMPFS_XATTR", "y");
-            defconfig_content =
-                upsert_kconfig_entry(&defconfig_content, "CONFIG_TMPFS_POSIX_ACL", "y");
-            if setup_url.is_some() {
-                defconfig_content = upsert_kconfig_entry(&defconfig_content, "CONFIG_KSU", "y");
-            }
-            let _ = fs::write(&defconfig_file, defconfig_content);
-        }
+    if is_sm8850 {
+        prepare_sm8850_build(&kernel_source_path, &proj, setup_url.is_some())?;
     }
 
-    if target_soc_str == "sm8850" {
+    if is_sm8850 {
         println!("Testing Environment and rust_is_available.sh...");
         let mut cmd = std::process::Command::new("bash");
         cmd.arg("-c").arg("source ./_setup_env.sh 2>/dev/null || true && echo '=== Toolchain Versions ===' && $CC --version | head -n1 && $RUSTC -V && bindgen --version && pahole --version && echo '==========================' && sh scripts/rust_is_available.sh -v");
@@ -821,25 +877,13 @@ pub fn handle_build(
         }
     }
 
-    if target_soc_str == "sm8850" {
-        let mut cmd_str = format!(
-            "source ./_setup_env.sh 2>/dev/null || true && make {}",
-            proj.defconfig
-        );
-        for arg in &make_args {
-            cmd_str.push_str(&format!(" '{}'", arg));
-        }
-        run_cmd_with_env(
-            &["bash", "-c", &cmd_str],
-            Some(&kernel_source_path),
-            &build_env,
-        )?;
-    } else {
-        let mut defconfig_cmd = vec!["make"];
-        defconfig_cmd.extend_from_slice(&make_args);
-        defconfig_cmd.push(&proj.defconfig);
-        run_cmd_with_env(&defconfig_cmd, Some(&kernel_source_path), &build_env)?;
-    }
+    run_make_targets(
+        &kernel_source_path,
+        &build_env,
+        &make_args,
+        &[&proj.defconfig],
+        is_sm8850,
+    )?;
 
     let mut disable_configs = vec!["TRIM_UNUSED_KSYMS"];
     if let Some(disables) = &proj.disable_security {
@@ -910,25 +954,15 @@ pub fn handle_build(
         }
     }
 
-    if target_soc_str == "sm8850" {
-        let mut cmd_str =
-            "source ./_setup_env.sh 2>/dev/null || true && make olddefconfig".to_string();
-        for arg in &make_args {
-            cmd_str.push_str(&format!(" '{}'", arg));
-        }
-        run_cmd_with_env(
-            &["bash", "-c", &cmd_str],
-            Some(&kernel_source_path),
-            &build_env,
-        )?;
-    } else {
-        let mut olddefconfig_cmd = vec!["make"];
-        olddefconfig_cmd.extend_from_slice(&make_args);
-        olddefconfig_cmd.push("olddefconfig");
-        run_cmd_with_env(&olddefconfig_cmd, Some(&kernel_source_path), &build_env)?;
-    }
+    run_make_targets(
+        &kernel_source_path,
+        &build_env,
+        &make_args,
+        &["olddefconfig"],
+        is_sm8850,
+    )?;
 
-    if custom_localversion.is_some() && target_soc_str != "sm8850" {
+    if custom_localversion.is_some() && !is_sm8850 {
         let _ = fs::write(kernel_source_path.join(".scmversion"), "");
         make_args.push("LOCALVERSION_AUTO=n");
         build_env.insert("LOCALVERSION_AUTO".to_string(), "n".to_string());
@@ -936,8 +970,8 @@ pub fn handle_build(
 
     let localversion_arg = format!("LOCALVERSION={}", localversion);
 
-    if target_soc_str != "sm8850" {
-        if proj.version_method.as_deref().unwrap_or("param") == "file" {
+    if !is_sm8850 {
+        if uses_file_localversion(&proj) {
             let _ = fs::write(
                 kernel_source_path.join("localversion"),
                 localversion.clone(),
@@ -947,7 +981,7 @@ pub fn handle_build(
             build_env.insert("LOCALVERSION".to_string(), localversion.clone());
         }
     } else {
-        if proj.version_method.as_deref().unwrap_or("param") == "file" {
+        if uses_file_localversion(&proj) {
             let _ = fs::write(kernel_source_path.join("localversion"), "");
         }
         make_args.push("LOCALVERSION=");
@@ -957,7 +991,7 @@ pub fn handle_build(
     let threads = run_cmd(&["nproc"], None, true)?.unwrap().trim().to_string();
     let jobs = format!("-j{}", threads);
 
-    if target_soc_str == "sm8850" {
+    if is_sm8850 {
         let mut cmd_str = format!(
             "source ./_setup_env.sh 2>/dev/null || true && make {} Image",
             jobs
@@ -971,15 +1005,12 @@ pub fn handle_build(
             &build_env,
         )?;
     } else {
-        let mut build_cmd = vec!["make", &jobs, "Image"];
-        if target_soc_str != "sm8850" {
-            build_cmd.push("modules");
-        }
+        let mut build_cmd = vec!["make", &jobs, "Image", "modules"];
         build_cmd.extend_from_slice(&make_args);
         run_cmd_with_env(&build_cmd, Some(&kernel_source_path), &build_env)?;
     }
 
-    if proj.version_method.as_deref().unwrap_or("param") == "file" {
+    if uses_file_localversion(&proj) {
         fs::write(kernel_source_path.join("localversion"), "")?;
     }
 
@@ -1050,11 +1081,11 @@ pub fn handle_build(
     if do_release {
         let release_tag = format!(
             "{}-{}{}-{}",
-            zip_prefix, variant_suffix, feature_suffix, date_str
+            zip_prefix, build_variant_suffix, feature_suffix, date_str
         );
         let release_title = format!(
             "{} {}{} Build ({})",
-            zip_prefix, variant_suffix, feature_suffix, date_str
+            zip_prefix, build_variant_suffix, feature_suffix, date_str
         );
 
         if Path::new(&final_zip_name).exists() {
