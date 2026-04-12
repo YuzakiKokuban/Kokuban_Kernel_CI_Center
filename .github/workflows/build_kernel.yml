@@ -35,11 +35,6 @@ on:
         type: string
         required: false
         default: ''
-      custom_build_time:
-        description: 'Custom Build Time Override'
-        type: string
-        required: false
-        default: ''
       resukisu_setup_arg:
         description: 'ReSukiSU setup.sh argument override'
         type: string
@@ -72,9 +67,6 @@ on:
       custom_localversion:
         type: string
         default: ''
-      custom_build_time:
-        type: string
-        default: ''
       resukisu_setup_arg:
         type: string
         default: ''
@@ -103,7 +95,6 @@ jobs:
             variant="default"
             release="true"
             custom_localversion=""
-            custom_build_time=""
             resukisu_setup_arg=""
             apply_susfs="${{ github.event.client_payload.apply_susfs }}"
             apply_bbg="${{ github.event.client_payload.apply_bbg }}"
@@ -119,7 +110,6 @@ jobs:
             variant="${{ inputs.ksu_variant }}"
             release="${{ inputs.do_release }}"
             custom_localversion="${{ inputs.custom_localversion }}"
-            custom_build_time="${{ inputs.custom_build_time }}"
             resukisu_setup_arg="${{ inputs.resukisu_setup_arg }}"
             apply_susfs="${{ inputs.apply_susfs }}"
             apply_bbg="${{ inputs.apply_bbg }}"
@@ -141,7 +131,6 @@ jobs:
             echo "VARIANT=$resolved_variant"
             echo "DO_RELEASE=$release"
             echo "CUSTOM_LOCALVERSION=$custom_localversion"
-            echo "CUSTOM_BUILD_TIME=$custom_build_time"
             echo "RESUKISU_SETUP_ARG=$resukisu_setup_arg"
             echo "APPLY_SUSFS=$apply_susfs"
             echo "APPLY_BBG=$apply_bbg"
@@ -188,9 +177,6 @@ jobs:
           ARGS=(--project ${{ env.PROJECT }} --branch ${{ env.VARIANT }} --do-release ${{ env.DO_RELEASE }})
           if [ -n "${{ env.CUSTOM_LOCALVERSION }}" ]; then
             ARGS+=("--custom-localversion=${{ env.CUSTOM_LOCALVERSION }}")
-          fi
-          if [ -n "${{ env.CUSTOM_BUILD_TIME }}" ]; then
-            ARGS+=("--custom-build-time=${{ env.CUSTOM_BUILD_TIME }}")
           fi
           if [ -n "${{ env.RESUKISU_SETUP_ARG }}" ]; then
             ARGS+=("--resukisu-setup-arg=${{ env.RESUKISU_SETUP_ARG }}")

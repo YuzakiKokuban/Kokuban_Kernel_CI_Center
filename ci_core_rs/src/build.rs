@@ -427,53 +427,6 @@ fn uses_file_localversion(proj: &ProjectConfig) -> bool {
     proj.version_method.as_deref().unwrap_or("param") == "file"
 }
 
-fn default_hkt_build_timestamp() -> Result<String> {
-    let hkt = FixedOffset::east_opt(8 * 3600).ok_or_else(|| anyhow!("Invalid HKT offset"))?;
-    Ok(Utc::now()
-        .with_timezone(&hkt)
-        .format("%a %b %e %H:%M:%S HKT %Y")
-        .to_string())
-}
-
-fn apply_build_timestamp_overrides(
-    build_env: &mut HashMap<String, String>,
-    custom_build_time: Option<&str>,
-) -> Result<()> {
-    let custom_time = custom_build_time
-        .map(str::trim)
-        .filter(|value| !value.is_empty());
-
-    if let Some(custom_time) = custom_time {
-        if custom_time.starts_with('#') {
-            let parts: Vec<&str> = custom_time.splitn(2, ' ').collect();
-            if parts.len() == 2 {
-                build_env.insert(
-                    "KBUILD_BUILD_VERSION".to_string(),
-                    parts[0].replace('#', ""),
-                );
-                build_env.insert("KBUILD_BUILD_TIMESTAMP".to_string(), parts[1].to_string());
-            } else {
-                build_env.insert(
-                    "KBUILD_BUILD_TIMESTAMP".to_string(),
-                    custom_time.to_string(),
-                );
-            }
-        } else {
-            build_env.insert(
-                "KBUILD_BUILD_TIMESTAMP".to_string(),
-                custom_time.to_string(),
-            );
-        }
-    } else {
-        build_env.insert(
-            "KBUILD_BUILD_TIMESTAMP".to_string(),
-            default_hkt_build_timestamp()?,
-        );
-    }
-
-    Ok(())
-}
-
 fn run_make_targets(
     kernel_source_path: &Path,
     build_env: &HashMap<String, String>,
@@ -568,7 +521,6 @@ pub fn handle_build(
     branch: String,
     do_release: bool,
     custom_localversion: Option<String>,
-    custom_build_time: Option<String>,
     resukisu_setup_arg: Option<String>,
     apply_susfs: bool,
     apply_bbg: bool,
@@ -684,6 +636,7 @@ pub fn handle_build(
         "CROSS_COMPILE_COMPAT".to_string(),
         "arm-linux-gnueabi-".to_string(),
     );
+    build_env.insert("TZ".to_string(), "Asia/Hong_Kong".to_string());
 
     let mut kcflags = "-O2 -pipe -Wno-error -D__ANDROID_COMMON_KERNEL__".to_string();
     if is_sm8850 {
@@ -705,7 +658,6 @@ pub fn handle_build(
         build_env.insert("KBUILD_GENDWARFKSYMS_STABLE".to_string(), "1".to_string());
         build_env.insert("KBUILD_BUILD_USER".to_string(), "build-user".to_string());
         build_env.insert("KBUILD_BUILD_HOST".to_string(), "build-host".to_string());
-        build_env.insert("TZ".to_string(), "Asia/Hong_Kong".to_string());
         build_env.insert("LC_ALL".to_string(), "C".to_string());
     }
 
@@ -748,8 +700,6 @@ pub fn handle_build(
             format!("{}{}", sysroot_flag, ldflags),
         );
     }
-
-    apply_build_timestamp_overrides(&mut build_env, custom_build_time.as_deref())?;
 
     let resukisu_setup_arg = resukisu_setup_arg
         .as_deref()

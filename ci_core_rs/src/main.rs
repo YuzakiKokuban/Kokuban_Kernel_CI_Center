@@ -98,8 +98,6 @@ enum Commands {
         #[arg(long, allow_hyphen_values = true)]
         custom_localversion: Option<String>,
         #[arg(long, allow_hyphen_values = true)]
-        custom_build_time: Option<String>,
-        #[arg(long, allow_hyphen_values = true)]
         resukisu_setup_arg: Option<String>,
         #[arg(long, action = clap::ArgAction::Set)]
         apply_susfs: bool,
@@ -160,7 +158,6 @@ fn main() -> Result<()> {
             branch,
             do_release,
             custom_localversion,
-            custom_build_time,
             resukisu_setup_arg,
             apply_susfs,
             apply_bbg,
@@ -169,7 +166,6 @@ fn main() -> Result<()> {
             branch,
             do_release,
             custom_localversion,
-            custom_build_time,
             resukisu_setup_arg,
             apply_susfs,
             apply_bbg,
