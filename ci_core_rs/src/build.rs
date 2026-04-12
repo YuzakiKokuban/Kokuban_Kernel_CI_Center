@@ -1,5 +1,5 @@
 use anyhow::{Result, anyhow};
-use chrono::Local;
+use chrono::{FixedOffset, Utc};
 use std::collections::HashMap;
 use std::env;
 use std::fs;
@@ -427,6 +427,53 @@ fn uses_file_localversion(proj: &ProjectConfig) -> bool {
     proj.version_method.as_deref().unwrap_or("param") == "file"
 }
 
+fn default_hkt_build_timestamp() -> Result<String> {
+    let hkt = FixedOffset::east_opt(8 * 3600).ok_or_else(|| anyhow!("Invalid HKT offset"))?;
+    Ok(Utc::now()
+        .with_timezone(&hkt)
+        .format("%a %b %e %H:%M:%S HKT %Y")
+        .to_string())
+}
+
+fn apply_build_timestamp_overrides(
+    build_env: &mut HashMap<String, String>,
+    custom_build_time: Option<&str>,
+) -> Result<()> {
+    let custom_time = custom_build_time
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+
+    if let Some(custom_time) = custom_time {
+        if custom_time.starts_with('#') {
+            let parts: Vec<&str> = custom_time.splitn(2, ' ').collect();
+            if parts.len() == 2 {
+                build_env.insert(
+                    "KBUILD_BUILD_VERSION".to_string(),
+                    parts[0].replace('#', ""),
+                );
+                build_env.insert("KBUILD_BUILD_TIMESTAMP".to_string(), parts[1].to_string());
+            } else {
+                build_env.insert(
+                    "KBUILD_BUILD_TIMESTAMP".to_string(),
+                    custom_time.to_string(),
+                );
+            }
+        } else {
+            build_env.insert(
+                "KBUILD_BUILD_TIMESTAMP".to_string(),
+                custom_time.to_string(),
+            );
+        }
+    } else {
+        build_env.insert(
+            "KBUILD_BUILD_TIMESTAMP".to_string(),
+            default_hkt_build_timestamp()?,
+        );
+    }
+
+    Ok(())
+}
+
 fn run_make_targets(
     kernel_source_path: &Path,
     build_env: &HashMap<String, String>,
@@ -658,7 +705,7 @@ pub fn handle_build(
         build_env.insert("KBUILD_GENDWARFKSYMS_STABLE".to_string(), "1".to_string());
         build_env.insert("KBUILD_BUILD_USER".to_string(), "build-user".to_string());
         build_env.insert("KBUILD_BUILD_HOST".to_string(), "build-host".to_string());
-        build_env.insert("TZ".to_string(), "UTC".to_string());
+        build_env.insert("TZ".to_string(), "Asia/Hong_Kong".to_string());
         build_env.insert("LC_ALL".to_string(), "C".to_string());
     }
 
@@ -702,22 +749,7 @@ pub fn handle_build(
         );
     }
 
-    if let Some(ref custom_time) = custom_build_time {
-        if custom_time.starts_with('#') {
-            let parts: Vec<&str> = custom_time.splitn(2, ' ').collect();
-            if parts.len() == 2 {
-                build_env.insert(
-                    "KBUILD_BUILD_VERSION".to_string(),
-                    parts[0].replace("#", ""),
-                );
-                build_env.insert("KBUILD_BUILD_TIMESTAMP".to_string(), parts[1].to_string());
-            } else {
-                build_env.insert("KBUILD_BUILD_TIMESTAMP".to_string(), custom_time.clone());
-            }
-        } else {
-            build_env.insert("KBUILD_BUILD_TIMESTAMP".to_string(), custom_time.clone());
-        }
-    }
+    apply_build_timestamp_overrides(&mut build_env, custom_build_time.as_deref())?;
 
     let resukisu_setup_arg = resukisu_setup_arg
         .as_deref()
@@ -1037,7 +1069,11 @@ pub fn handle_build(
 
     fs::copy(image_path, "AnyKernel3/Image")?;
 
-    let date_str = Local::now().format("%Y%m%d-%H%M").to_string();
+    let hkt = FixedOffset::east_opt(8 * 3600).ok_or_else(|| anyhow!("Invalid HKT offset"))?;
+    let date_str = Utc::now()
+        .with_timezone(&hkt)
+        .format("%Y%m%d-%H%M")
+        .to_string();
     let zip_prefix = proj.zip_name_prefix.as_deref().unwrap_or("Kernel");
     let feature_suffix = if feature_suffixes.is_empty() {
         String::new()
