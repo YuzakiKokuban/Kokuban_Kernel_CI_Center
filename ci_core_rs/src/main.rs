@@ -569,11 +569,7 @@ fn handle_watch() -> Result<()> {
                     continue;
                 }
                 let p: ProjectConfig = serde_json::from_value(p_val.clone())?;
-                let supported = p
-                    .watch_upstream_variants
-                    .clone()
-                    .or(p.supported_ksu.clone())
-                    .unwrap_or_default();
+                let supported = p.watch_upstream_variants.clone().unwrap_or_default();
                 let normalized_supported: Vec<String> = supported
                     .into_iter()
                     .map(|x| x.replace("sukisuultra", "resukisu"))
