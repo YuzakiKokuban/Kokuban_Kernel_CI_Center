@@ -6,7 +6,7 @@ use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
-use crate::config::ProjectConfig;
+use crate::config::{BbgConfig, ProjectConfig, SusfsConfig};
 use crate::utils::{handle_notify, load_projects, run_cmd, run_cmd_with_env, set_github_output};
 
 fn command_exists(command: &str) -> bool {
@@ -70,6 +70,312 @@ fn upsert_kconfig_entry(content: &str, key: &str, value: &str) -> String {
     lines.join("\n") + "\n"
 }
 
+fn truncate_to_len(input: &str, max_len: usize) -> String {
+    input.chars().take(max_len).collect()
+}
+
+fn build_sm8850_localversion(base: &str, short_sha: &str, kernel_version: &str) -> Result<String> {
+    const UNAME_MAX_VISIBLE_LEN: usize = 63;
+
+    let normalized_base = if base.trim().is_empty() {
+        "-Kokuban".to_string()
+    } else {
+        format!("-{}", base.trim().trim_start_matches('-'))
+    };
+    let commit_suffix = format!("-g{}-4k", short_sha);
+
+    if kernel_version.len() >= UNAME_MAX_VISIBLE_LEN {
+        return Err(anyhow!(
+            "kernelversion is too long for uname limit: {}",
+            kernel_version
+        ));
+    }
+
+    let max_localversion_len = UNAME_MAX_VISIBLE_LEN.saturating_sub(kernel_version.len());
+    if commit_suffix.len() > max_localversion_len {
+        return Err(anyhow!(
+            "Not enough uname budget for sm8850 localversion suffix {}",
+            commit_suffix
+        ));
+    }
+
+    let max_base_len = max_localversion_len - commit_suffix.len();
+    let truncated_base = truncate_to_len(&normalized_base, max_base_len);
+
+    Ok(format!("{}{}", truncated_base, commit_suffix))
+}
+
+fn find_first_existing_path(base: &Path, candidates: &[String]) -> Option<PathBuf> {
+    candidates
+        .iter()
+        .map(|candidate| base.join(candidate))
+        .find(|path| path.exists())
+}
+
+fn find_first_existing_dir(base: &Path, candidates: &[String]) -> Option<PathBuf> {
+    candidates
+        .iter()
+        .map(|candidate| base.join(candidate))
+        .find(|path| path.is_dir())
+}
+
+fn copy_dir_files(source: &Path, dest: &Path) -> Result<()> {
+    if !source.is_dir() {
+        return Err(anyhow!("Source directory not found: {:?}", source));
+    }
+
+    fs::create_dir_all(dest)?;
+    for entry in fs::read_dir(source)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_file() {
+            let file_name = path
+                .file_name()
+                .ok_or_else(|| anyhow!("Invalid file path: {:?}", path))?;
+            fs::copy(&path, dest.join(file_name))?;
+        }
+    }
+
+    Ok(())
+}
+
+fn can_apply_patch(patch_file: &Path, cwd: &Path) -> Result<bool> {
+    let status = std::process::Command::new("patch")
+        .arg("-p1")
+        .arg("-N")
+        .arg("-F")
+        .arg("3")
+        .arg("--dry-run")
+        .arg("-i")
+        .arg(patch_file)
+        .current_dir(cwd)
+        .status()?;
+    Ok(status.success())
+}
+
+fn run_patch(patch_file: &Path, cwd: &Path) -> Result<bool> {
+    let status = std::process::Command::new("patch")
+        .arg("-p1")
+        .arg("-N")
+        .arg("-F")
+        .arg("3")
+        .arg("-i")
+        .arg(patch_file)
+        .current_dir(cwd)
+        .status()?;
+    Ok(status.success())
+}
+
+fn apply_patch_with_fallbacks(
+    patch_file: &Path,
+    kernel_source_path: &Path,
+    fallback_dirs: &[String],
+) -> Result<()> {
+    if can_apply_patch(patch_file, kernel_source_path)?
+        && run_patch(patch_file, kernel_source_path)?
+    {
+        return Ok(());
+    }
+
+    for fallback in fallback_dirs {
+        let cwd = kernel_source_path.join(fallback);
+        if cwd.is_dir() && can_apply_patch(patch_file, &cwd)? && run_patch(patch_file, &cwd)? {
+            return Ok(());
+        }
+    }
+
+    Err(anyhow!("Failed to apply patch {:?}", patch_file))
+}
+
+fn ensure_bbg_lsm(content: &str) -> String {
+    let mut lines = Vec::new();
+    let mut in_lsm_block = false;
+
+    for line in content.lines() {
+        let trimmed = line.trim_start();
+        if trimmed.starts_with("config LSM") {
+            in_lsm_block = true;
+        } else if in_lsm_block
+            && !trimmed.is_empty()
+            && !line.starts_with(' ')
+            && !line.starts_with('\t')
+            && !trimmed.starts_with("help")
+        {
+            in_lsm_block = false;
+        }
+
+        if in_lsm_block && trimmed.starts_with("default") && line.contains("selinux") {
+            if line.contains("baseband_guard") {
+                lines.push(line.to_string());
+            } else {
+                lines.push(line.replacen("selinux", "selinux,baseband_guard", 1));
+            }
+            continue;
+        }
+
+        lines.push(line.to_string());
+    }
+
+    lines.join("\n") + "\n"
+}
+
+fn apply_susfs_overlay(
+    kernel_source_path: &Path,
+    susfs: &SusfsConfig,
+    branch: &str,
+) -> Result<bool> {
+    let temp_dir = kernel_source_path.join(".susfs_workspace");
+    if temp_dir.exists() {
+        fs::remove_dir_all(&temp_dir)?;
+    }
+
+    run_cmd(
+        &[
+            "git",
+            "clone",
+            "--depth=1",
+            "--branch",
+            &susfs.branch,
+            &susfs.repo,
+            temp_dir
+                .to_str()
+                .ok_or_else(|| anyhow!("Invalid temp path"))?,
+        ],
+        None,
+        false,
+    )?;
+
+    let patch_path = temp_dir.join(&susfs.patch_path);
+    if !patch_path.exists() {
+        fs::remove_dir_all(&temp_dir)?;
+        return Err(anyhow!("SuSFS patch not found: {:?}", patch_path));
+    }
+
+    let fs_source = temp_dir.join(susfs.fs_patch_dir.as_deref().unwrap_or("kernel_patches/fs"));
+    let fs_target = find_first_existing_dir(
+        kernel_source_path,
+        &[
+            "common/fs".to_string(),
+            "kernel_platform/common/fs".to_string(),
+            "fs".to_string(),
+        ],
+    )
+    .ok_or_else(|| anyhow!("Could not locate kernel fs directory for SuSFS"))?;
+    copy_dir_files(&fs_source, &fs_target)?;
+
+    let include_source = temp_dir.join(
+        susfs
+            .include_linux_patch_dir
+            .as_deref()
+            .unwrap_or("kernel_patches/include/linux"),
+    );
+    let include_target = find_first_existing_dir(
+        kernel_source_path,
+        &[
+            "common/include/linux".to_string(),
+            "kernel_platform/common/include/linux".to_string(),
+            "include/linux".to_string(),
+        ],
+    )
+    .ok_or_else(|| anyhow!("Could not locate kernel include/linux directory for SuSFS"))?;
+    copy_dir_files(&include_source, &include_target)?;
+
+    apply_patch_with_fallbacks(
+        &patch_path,
+        kernel_source_path,
+        &["common".to_string(), "kernel_platform/common".to_string()],
+    )?;
+
+    let mut ksu_patch_applied = false;
+    if let Some(ksu_patch_path) = &susfs.ksu_patch_path {
+        let ksu_patch = temp_dir.join(ksu_patch_path);
+        if ksu_patch.exists() {
+            if let Some(ksu_dir) = find_first_existing_dir(
+                kernel_source_path,
+                &[
+                    "KernelSU".to_string(),
+                    "KernelSU-Next".to_string(),
+                    "ReSukiSU".to_string(),
+                ],
+            ) {
+                if branch == "ksu" || branch == "mksu" || ksu_dir.ends_with("KernelSU") {
+                    if can_apply_patch(&ksu_patch, &ksu_dir)? && run_patch(&ksu_patch, &ksu_dir)? {
+                        ksu_patch_applied = true;
+                    }
+                }
+            }
+        }
+    }
+
+    fs::remove_dir_all(&temp_dir)?;
+    Ok(ksu_patch_applied)
+}
+
+fn apply_bbg_overlay(
+    kernel_source_path: &Path,
+    proj: &ProjectConfig,
+    bbg: Option<&BbgConfig>,
+) -> Result<()> {
+    let defconfig_path = find_first_existing_path(
+        kernel_source_path,
+        &[
+            format!("arch/arm64/configs/{}", proj.defconfig),
+            format!("common/arch/arm64/configs/{}", proj.defconfig),
+            format!("kernel_platform/arch/arm64/configs/{}", proj.defconfig),
+            format!(
+                "kernel_platform/common/arch/arm64/configs/{}",
+                proj.defconfig
+            ),
+        ],
+    )
+    .ok_or_else(|| anyhow!("Could not locate defconfig for BBG"))?;
+    let defconfig_content = fs::read_to_string(&defconfig_path).unwrap_or_default();
+    fs::write(
+        &defconfig_path,
+        upsert_kconfig_entry(&defconfig_content, "CONFIG_BBG", "y"),
+    )?;
+
+    let common_root = find_first_existing_dir(
+        kernel_source_path,
+        &[
+            "common".to_string(),
+            "kernel_platform/common".to_string(),
+            ".".to_string(),
+        ],
+    )
+    .ok_or_else(|| anyhow!("Could not locate common source root for BBG"))?;
+
+    let setup_url = bbg
+        .and_then(|cfg| cfg.setup_url.as_deref())
+        .unwrap_or("https://github.com/cctv18/Baseband-guard/raw/master/setup.sh");
+    let cmd = format!("curl -LSs '{}' | bash", setup_url);
+    run_cmd(&["bash", "-c", &cmd], Some(&common_root), false)?;
+
+    let security_kconfig = find_first_existing_path(
+        &common_root,
+        &[
+            "security/Kconfig".to_string(),
+            "../security/Kconfig".to_string(),
+        ],
+    )
+    .or_else(|| {
+        find_first_existing_path(
+            kernel_source_path,
+            &[
+                "common/security/Kconfig".to_string(),
+                "kernel_platform/common/security/Kconfig".to_string(),
+                "security/Kconfig".to_string(),
+            ],
+        )
+    })
+    .ok_or_else(|| anyhow!("Could not locate security/Kconfig for BBG"))?;
+
+    let security_content = fs::read_to_string(&security_kconfig).unwrap_or_default();
+    fs::write(&security_kconfig, ensure_bbg_lsm(&security_content))?;
+
+    Ok(())
+}
+
 fn apply_sm8850_localversion(
     kernel_source_path: &Path,
     defconfig_name: &str,
@@ -122,6 +428,8 @@ pub fn handle_build(
     custom_localversion: Option<String>,
     custom_build_time: Option<String>,
     resukisu_setup_arg: Option<String>,
+    apply_susfs: bool,
+    apply_bbg: bool,
 ) -> Result<()> {
     let projects = load_projects()?;
     let proj_val = projects
@@ -346,6 +654,21 @@ pub fn handle_build(
         run_cmd(&["bash", "-c", &cmd], Some(&kernel_source_path), false)?;
     }
 
+    let mut feature_suffixes = Vec::new();
+    if apply_susfs {
+        let susfs = proj
+            .susfs
+            .as_ref()
+            .ok_or_else(|| anyhow!("Project {} does not define a SuSFS source", project_key))?;
+        let _ = apply_susfs_overlay(&kernel_source_path, susfs, &branch)?;
+        feature_suffixes.push("susfs".to_string());
+    }
+
+    if apply_bbg {
+        apply_bbg_overlay(&kernel_source_path, &proj, proj.bbg.as_ref())?;
+        feature_suffixes.push("bbg".to_string());
+    }
+
     let kernel_version_cmd = if target_soc_str == "sm8850" {
         vec![
             "bash",
@@ -429,9 +752,20 @@ pub fn handle_build(
     };
 
     if target_soc_str == "sm8850" {
-        if custom_localversion.is_none() {
-            localversion = format!("{}-g{}-4k", proj.localversion_base, short_sha);
-        }
+        let sm8850_base = custom_localversion
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .unwrap_or(&proj.localversion_base);
+        localversion = build_sm8850_localversion(sm8850_base, &short_sha, &kernel_version)?;
+
+        println!(
+            "sm8850 uname release: {}{} (len={})",
+            kernel_version,
+            localversion,
+            kernel_version.len() + localversion.len()
+        );
+
         let _ = fs::write(kernel_source_path.join(".scmversion"), "");
         make_args.push("LOCALVERSION_AUTO=n");
         build_env.insert("LOCALVERSION_AUTO".to_string(), "n".to_string());
@@ -673,11 +1007,16 @@ pub fn handle_build(
 
     let date_str = Local::now().format("%Y%m%d-%H%M").to_string();
     let zip_prefix = proj.zip_name_prefix.as_deref().unwrap_or("Kernel");
+    let feature_suffix = if feature_suffixes.is_empty() {
+        String::new()
+    } else {
+        format!("-{}", feature_suffixes.join("-"))
+    };
 
     let clean_localversion = localversion.trim_start_matches('-');
     let final_zip_name = format!(
-        "{}-{}-{}-{}.zip",
-        zip_prefix, kernel_version, clean_localversion, date_str
+        "{}-{}-{}{}-{}.zip",
+        zip_prefix, kernel_version, clean_localversion, feature_suffix, date_str
     );
 
     run_cmd(
@@ -708,8 +1047,14 @@ pub fn handle_build(
     )?;
 
     if do_release {
-        let release_tag = format!("{}-{}-{}", zip_prefix, variant_suffix, date_str);
-        let release_title = format!("{} {} Build ({})", zip_prefix, variant_suffix, date_str);
+        let release_tag = format!(
+            "{}-{}{}-{}",
+            zip_prefix, variant_suffix, feature_suffix, date_str
+        );
+        let release_title = format!(
+            "{} {}{} Build ({})",
+            zip_prefix, variant_suffix, feature_suffix, date_str
+        );
 
         if Path::new(&final_zip_name).exists() {
             run_cmd(

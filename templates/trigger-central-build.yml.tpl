@@ -16,5 +16,7 @@ jobs:
           client-payload: >-
             {
               "project": "__PROJECT_KEY__",
-              "branch": "${{ github.ref_name }}"
+              "branch": "${{ github.ref_name }}",
+              "apply_susfs": true,
+              "apply_bbg": true
             }

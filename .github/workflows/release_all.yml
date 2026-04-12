@@ -40,4 +40,6 @@ jobs:
       project: ${{ inputs.project }}
       branch: ${{ matrix.branch }}
       do_release: true
+      apply_susfs: true
+      apply_bbg: true
     secrets: inherit

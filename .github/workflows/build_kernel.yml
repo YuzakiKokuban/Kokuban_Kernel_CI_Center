@@ -47,6 +47,14 @@ on:
         type: string
         required: false
         default: ''
+      apply_susfs:
+        description: 'Apply SuSFS dynamically during build'
+        type: boolean
+        default: true
+      apply_bbg:
+        description: 'Apply Baseband Guard dynamically during build'
+        type: boolean
+        default: true
   repository_dispatch:
     types: [build-kernel]
   workflow_call:
@@ -72,6 +80,12 @@ on:
       resukisu_setup_arg:
         type: string
         default: ''
+      apply_susfs:
+        type: boolean
+        default: true
+      apply_bbg:
+        type: boolean
+        default: true
 
 jobs:
   build:
@@ -93,6 +107,14 @@ jobs:
             custom_localversion=""
             custom_build_time=""
             resukisu_setup_arg=""
+            apply_susfs="${{ github.event.client_payload.apply_susfs }}"
+            apply_bbg="${{ github.event.client_payload.apply_bbg }}"
+            if [ -z "$apply_susfs" ]; then
+              apply_susfs="true"
+            fi
+            if [ -z "$apply_bbg" ]; then
+              apply_bbg="true"
+            fi
           else
             project="${{ inputs.project }}"
             branch="${{ inputs.branch }}"
@@ -101,6 +123,8 @@ jobs:
             custom_localversion="${{ inputs.custom_localversion }}"
             custom_build_time="${{ inputs.custom_build_time }}"
             resukisu_setup_arg="${{ inputs.resukisu_setup_arg }}"
+            apply_susfs="${{ inputs.apply_susfs }}"
+            apply_bbg="${{ inputs.apply_bbg }}"
           fi
 
           if [ "$variant" = "default" ] || [ -z "$variant" ]; then
@@ -121,6 +145,8 @@ jobs:
             echo "CUSTOM_LOCALVERSION=$custom_localversion"
             echo "CUSTOM_BUILD_TIME=$custom_build_time"
             echo "RESUKISU_SETUP_ARG=$resukisu_setup_arg"
+            echo "APPLY_SUSFS=$apply_susfs"
+            echo "APPLY_BBG=$apply_bbg"
             echo "ARTIFACT_NAME=$artifact_name"
           } >> "$GITHUB_ENV"
 
@@ -171,6 +197,8 @@ jobs:
           if [ -n "${{ env.RESUKISU_SETUP_ARG }}" ]; then
             ARGS+=("--resukisu-setup-arg=${{ env.RESUKISU_SETUP_ARG }}")
           fi
+          ARGS+=("--apply-susfs" "${{ env.APPLY_SUSFS }}")
+          ARGS+=("--apply-bbg" "${{ env.APPLY_BBG }}")
           ./kokuban_ci_core build "${ARGS[@]}"
 
       - name: Collect Build Artifacts

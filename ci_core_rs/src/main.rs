@@ -101,6 +101,10 @@ enum Commands {
         custom_build_time: Option<String>,
         #[arg(long, allow_hyphen_values = true)]
         resukisu_setup_arg: Option<String>,
+        #[arg(long, action = clap::ArgAction::Set)]
+        apply_susfs: bool,
+        #[arg(long, action = clap::ArgAction::Set)]
+        apply_bbg: bool,
     },
     CollectArtifacts {
         #[arg(long, default_value = "build_artifacts")]
@@ -158,6 +162,8 @@ fn main() -> Result<()> {
             custom_localversion,
             custom_build_time,
             resukisu_setup_arg,
+            apply_susfs,
+            apply_bbg,
         } => build::handle_build(
             project,
             branch,
@@ -165,6 +171,8 @@ fn main() -> Result<()> {
             custom_localversion,
             custom_build_time,
             resukisu_setup_arg,
+            apply_susfs,
+            apply_bbg,
         ),
         Commands::CollectArtifacts { artifact_dir } => {
             build::handle_collect_artifacts(artifact_dir)
@@ -300,6 +308,9 @@ fn handle_add(
         extra_host_env: None,
         disable_security: None,
         readme_placeholders: Some(placeholders),
+        susfs: None,
+        bbg: None,
+        watch_upstream_variants: None,
     };
 
     projects.insert(key, serde_json::to_value(new_proj)?);
@@ -558,7 +569,11 @@ fn handle_watch() -> Result<()> {
                     continue;
                 }
                 let p: ProjectConfig = serde_json::from_value(p_val.clone())?;
-                let supported = p.supported_ksu.unwrap_or_default();
+                let supported = p
+                    .watch_upstream_variants
+                    .clone()
+                    .or(p.supported_ksu.clone())
+                    .unwrap_or_default();
                 let normalized_supported: Vec<String> = supported
                     .into_iter()
                     .map(|x| x.replace("sukisuultra", "resukisu"))
