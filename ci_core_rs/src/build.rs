@@ -378,11 +378,7 @@ fn apply_bbg_overlay(
     Ok(())
 }
 
-fn apply_sm8850_localversion(
-    kernel_source_path: &Path,
-    defconfig_name: &str,
-    localversion: &str,
-) -> Result<()> {
+fn patch_setlocalversion_remove_dirty(kernel_source_path: &Path) -> Result<()> {
     let setlocalversion_path = kernel_source_path.join("scripts/setlocalversion");
     if setlocalversion_path.exists() {
         let mut content = fs::read_to_string(&setlocalversion_path).unwrap_or_default();
@@ -402,6 +398,23 @@ fn apply_sm8850_localversion(
                 content.push('\n');
             }
         }
+
+        fs::write(&setlocalversion_path, content)?;
+    }
+
+    Ok(())
+}
+
+fn apply_sm8850_localversion(
+    kernel_source_path: &Path,
+    defconfig_name: &str,
+    localversion: &str,
+) -> Result<()> {
+    patch_setlocalversion_remove_dirty(kernel_source_path)?;
+
+    let setlocalversion_path = kernel_source_path.join("scripts/setlocalversion");
+    if setlocalversion_path.exists() {
+        let mut content = fs::read_to_string(&setlocalversion_path).unwrap_or_default();
 
         content = content.replace("${scm_version}", "");
         fs::write(&setlocalversion_path, content)?;
@@ -943,6 +956,10 @@ pub fn handle_build(
         &["olddefconfig"],
         is_sm8850,
     )?;
+
+    if !is_sm8850 {
+        patch_setlocalversion_remove_dirty(&kernel_source_path)?;
+    }
 
     if custom_localversion.is_some() && !is_sm8850 {
         let _ = fs::write(kernel_source_path.join(".scmversion"), "");
