@@ -158,6 +158,9 @@
     "bbg": {
       "setup_url": "https://github.com/cctv18/Baseband-guard/raw/master/setup.sh"
     },
+    "watch_upstream_variants": [
+      "resukisu"
+    ],
     "disable_security": [
       "UH",
       "RKP",
