@@ -125,7 +125,7 @@
   },
   "s24_sm8650": {
     "repo": "YuzakiKokuban/android_kernel_samsung_sm8650",
-    "defconfig": "pineapple_gki_defconfig",
+    "defconfig": "defconfig",
     "localversion_base": "-android14-Kokuban-Elysia-CYL1",
     "supported_ksu": [
       "resukisu"
@@ -148,6 +148,16 @@
     "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
     "anykernel_branch": "pineapple",
     "zip_name_prefix": "S24_Snapdragon_kernel",
+    "susfs": {
+      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
+      "branch": "gki-android14-6.1",
+      "patch_path": "kernel_patches/50_add_susfs_in_gki-android14-6.1.patch",
+      "fs_patch_dir": "kernel_patches/fs",
+      "include_linux_patch_dir": "kernel_patches/include/linux"
+    },
+    "bbg": {
+      "setup_url": "https://github.com/cctv18/Baseband-guard/raw/master/setup.sh"
+    },
     "disable_security": [
       "UH",
       "RKP",
