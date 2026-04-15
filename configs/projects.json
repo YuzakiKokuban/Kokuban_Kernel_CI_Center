@@ -82,7 +82,7 @@
       "include_linux_patch_dir": "kernel_patches/include/linux"
     },
     "bbg": {
-      "setup_url": "https://github.com/cctv18/Baseband-guard/raw/master/setup.sh"
+      "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
     },
     "watch_upstream_variants": [
       "resukisu"
@@ -90,8 +90,8 @@
   },
   "s23_sm8550": {
     "repo": "YuzakiKokuban/android_kernel_samsung_sm8550_S23",
-    "defconfig": "kalama_gki_defconfig",
-    "localversion_base": "-android13-Kokuban-Firefly-EYI7",
+    "defconfig": "defconfig",
+    "localversion_base": "-android13-Kokuban-Firefly-EZB6",
     "lto": "thin",
     "supported_ksu": [
       "resukisu"
@@ -114,6 +114,19 @@
     "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
     "anykernel_branch": "kalama",
     "zip_name_prefix": "S23_kernel",
+    "susfs": {
+      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
+      "branch": "gki-android13-5.15",
+      "patch_path": "kernel_patches/50_add_susfs_in_gki-android13-5.15.patch",
+      "fs_patch_dir": "kernel_patches/fs",
+      "include_linux_patch_dir": "kernel_patches/include/linux"
+    },
+    "bbg": {
+      "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
+    },
+    "watch_upstream_variants": [
+      "resukisu"
+    ],
     "disable_security": [
       "UH",
       "RKP",
@@ -156,7 +169,7 @@
       "include_linux_patch_dir": "kernel_patches/include/linux"
     },
     "bbg": {
-      "setup_url": "https://github.com/cctv18/Baseband-guard/raw/master/setup.sh"
+      "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
     },
     "watch_upstream_variants": [
       "resukisu"
@@ -273,7 +286,7 @@
       "include_linux_patch_dir": "kernel_patches/include/linux"
     },
     "bbg": {
-      "setup_url": "https://github.com/cctv18/Baseband-guard/raw/master/setup.sh"
+      "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
     },
     "watch_upstream_variants": [
       "resukisu"

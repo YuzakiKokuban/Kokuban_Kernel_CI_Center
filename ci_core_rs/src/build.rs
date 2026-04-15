@@ -349,7 +349,7 @@ fn apply_bbg_overlay(
 
     let setup_url = bbg
         .and_then(|cfg| cfg.setup_url.as_deref())
-        .unwrap_or("https://github.com/cctv18/Baseband-guard/raw/master/setup.sh");
+        .unwrap_or("https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh");
     let cmd = format!("curl -LSs '{}' | bash", setup_url);
     run_cmd(&["bash", "-c", &cmd], Some(&common_root), false)?;
 
