@@ -6,11 +6,14 @@ use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
-use crate::config::{BbgConfig, ProjectConfig, SusfsConfig};
+use crate::config::{AnyKernelConfig, BbgConfig, ProjectConfig, SusfsConfig};
 use crate::utils::{
-    handle_notify, is_resukisu_variant, load_project, run_cmd, run_cmd_with_env, set_github_output,
-    variant_suffix,
+    handle_notify, is_resukisu_variant, load_anykernel_config, load_project, run_cmd,
+    run_cmd_with_env, set_github_output, variant_suffix,
 };
+
+const ANYKERNEL_REPO: &str = "https://github.com/osm0sis/AnyKernel3.git";
+const ANYKERNEL_BRANCH: &str = "master";
 
 fn command_exists(command: &str) -> bool {
     std::process::Command::new(command)
@@ -120,6 +123,237 @@ fn find_first_existing_dir(base: &Path, candidates: &[String]) -> Option<PathBuf
         .iter()
         .map(|candidate| base.join(candidate))
         .find(|path| path.is_dir())
+}
+
+fn ak3_bool_flag(value: bool) -> &'static str {
+    if value { "1" } else { "0" }
+}
+
+fn ak3_action_comment(action: &str) -> &'static str {
+    match action {
+        "split_boot" => {
+            "use split_boot to skip ramdisk unpack, e.g. for devices with init_boot ramdisk"
+        }
+        "dump_boot" => {
+            "unpack ramdisk since it is the new first stage init ramdisk where overlay.d must go"
+        }
+        "flash_boot" => {
+            "use flash_boot to skip ramdisk repack, e.g. for devices with init_boot ramdisk"
+        }
+        "write_boot" => "use write_boot to repack ramdisk, e.g. for devices with init_boot ramdisk",
+        _ => "",
+    }
+}
+
+fn replace_between_markers(
+    content: &str,
+    start_marker: &str,
+    end_marker: &str,
+    replacement: &str,
+) -> Result<String> {
+    let start = content
+        .find(start_marker)
+        .ok_or_else(|| anyhow!("Marker not found in anykernel.sh: {}", start_marker))?
+        + start_marker.len();
+    let end = content[start..]
+        .find(end_marker)
+        .ok_or_else(|| anyhow!("Marker not found in anykernel.sh: {}", end_marker))?
+        + start;
+
+    Ok(format!(
+        "{}{}{}",
+        &content[..start],
+        replacement,
+        &content[end..]
+    ))
+}
+
+fn replace_line_with_prefix(content: &str, prefix: &str, replacement: &str) -> Result<String> {
+    let mut found = false;
+    let mut lines = Vec::new();
+
+    for line in content.lines() {
+        if !found && line.starts_with(prefix) {
+            lines.push(replacement.to_string());
+            found = true;
+        } else {
+            lines.push(line.to_string());
+        }
+    }
+
+    if !found {
+        return Err(anyhow!("Line prefix not found in anykernel.sh: {}", prefix));
+    }
+
+    Ok(lines.join("\n") + "\n")
+}
+
+fn render_anykernel_properties(config: &AnyKernelConfig) -> String {
+    let mut lines = vec![
+        format!("kernel.string={}", config.kernel_string),
+        format!("do.devicecheck={}", ak3_bool_flag(config.device_check)),
+        format!("do.modules={}", ak3_bool_flag(config.modules)),
+        format!("do.systemless={}", ak3_bool_flag(config.systemless)),
+        format!("do.cleanup={}", ak3_bool_flag(config.cleanup)),
+        format!(
+            "do.cleanuponabort={}",
+            ak3_bool_flag(config.cleanup_on_abort)
+        ),
+    ];
+
+    for (idx, device_name) in config.device_names.iter().enumerate() {
+        lines.push(format!("device.name{}={}", idx + 1, device_name));
+    }
+
+    lines.push(format!(
+        "supported.versions={}",
+        config.supported_versions.as_deref().unwrap_or("")
+    ));
+    lines.push(format!(
+        "supported.patchlevels={}",
+        config.supported_patchlevels.as_deref().unwrap_or("")
+    ));
+    lines.push(format!(
+        "supported.vendorpatchlevels={}",
+        config.supported_vendorpatchlevels.as_deref().unwrap_or("")
+    ));
+
+    lines.join("\n") + "\n"
+}
+
+fn render_anykernel_boot_section_body(config: &AnyKernelConfig) -> String {
+    let mut lines = Vec::new();
+    if let Some(action) = config.boot_setup.as_deref() {
+        lines.push(format!("{}; # {}", action, ak3_action_comment(action)));
+    }
+
+    lines.push(String::new());
+
+    if let Some(action) = config.boot_finalize.as_deref() {
+        lines.push(format!("{}; # {}", action, ak3_action_comment(action)));
+    }
+
+    lines.join("\n")
+}
+
+fn apply_anykernel_config(anykernel_dir: &Path, config: &AnyKernelConfig) -> Result<()> {
+    let anykernel_path = anykernel_dir.join("anykernel.sh");
+    let mut anykernel_sh = fs::read_to_string(&anykernel_path)?;
+
+    anykernel_sh = replace_between_markers(
+        &anykernel_sh,
+        "properties() { '\n",
+        "'; } # end properties",
+        &render_anykernel_properties(config),
+    )?;
+    anykernel_sh =
+        replace_line_with_prefix(&anykernel_sh, "BLOCK=", &format!("BLOCK={};", config.block))?;
+    anykernel_sh = replace_line_with_prefix(
+        &anykernel_sh,
+        "IS_SLOT_DEVICE=",
+        &format!("IS_SLOT_DEVICE={};", ak3_bool_flag(config.is_slot_device)),
+    )?;
+    anykernel_sh = replace_line_with_prefix(
+        &anykernel_sh,
+        "RAMDISK_COMPRESSION=",
+        &format!(
+            "RAMDISK_COMPRESSION={};",
+            config.ramdisk_compression.as_deref().unwrap_or("auto")
+        ),
+    )?;
+    anykernel_sh = replace_line_with_prefix(
+        &anykernel_sh,
+        "PATCH_VBMETA_FLAG=",
+        &format!(
+            "PATCH_VBMETA_FLAG={};",
+            config.patch_vbmeta_flag.as_deref().unwrap_or("auto")
+        ),
+    )?;
+    anykernel_sh = replace_between_markers(
+        &anykernel_sh,
+        "# boot install\n",
+        "## end boot install",
+        &format!("{}\n", render_anykernel_boot_section_body(config)),
+    )?;
+
+    fs::write(anykernel_path, anykernel_sh)?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn applies_anykernel_config_to_upstream_template() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let temp_dir = std::env::temp_dir().join(format!("ak3-config-test-{unique}"));
+        fs::create_dir_all(&temp_dir).unwrap();
+
+        let template = r#"properties() { '
+kernel.string=ExampleKernel by osm0sis @ xda-developers
+do.devicecheck=1
+do.modules=0
+do.systemless=1
+do.cleanup=1
+do.cleanuponabort=0
+device.name1=maguro
+supported.versions=
+supported.patchlevels=
+supported.vendorpatchlevels=
+'; } # end properties
+
+# boot shell variables
+BLOCK=/dev/block/platform/omap/omap_hsmmc.0/by-name/boot;
+IS_SLOT_DEVICE=0;
+RAMDISK_COMPRESSION=auto;
+PATCH_VBMETA_FLAG=auto;
+
+# boot install
+dump_boot; # use split_boot to skip ramdisk unpack, e.g. for devices with init_boot ramdisk
+backup_file init.rc;
+write_boot; # use flash_boot to skip ramdisk repack, e.g. for devices with init_boot ramdisk
+## end boot install
+"#;
+        fs::write(temp_dir.join("anykernel.sh"), template).unwrap();
+
+        let config = AnyKernelConfig {
+            kernel_string: "S23-Knox-Disabled-Kernel-Kokuban".to_string(),
+            device_check: true,
+            modules: false,
+            systemless: true,
+            cleanup: true,
+            cleanup_on_abort: false,
+            device_names: vec!["dm3q".to_string(), "dm2q".to_string(), "dm1q".to_string()],
+            supported_versions: Some(String::new()),
+            supported_patchlevels: Some(String::new()),
+            supported_vendorpatchlevels: Some(String::new()),
+            block: "/dev/block/by-name/boot".to_string(),
+            is_slot_device: false,
+            ramdisk_compression: Some("auto".to_string()),
+            patch_vbmeta_flag: Some("auto".to_string()),
+            boot_setup: Some("split_boot".to_string()),
+            boot_finalize: Some("flash_boot".to_string()),
+        };
+
+        apply_anykernel_config(&temp_dir, &config).unwrap();
+        let rendered = fs::read_to_string(temp_dir.join("anykernel.sh")).unwrap();
+
+        assert!(rendered.contains("kernel.string=S23-Knox-Disabled-Kernel-Kokuban"));
+        assert!(rendered.contains("device.name1=dm3q"));
+        assert!(rendered.contains("device.name3=dm1q"));
+        assert!(rendered.contains("BLOCK=/dev/block/by-name/boot;"));
+        assert!(rendered.contains("split_boot; # use split_boot to skip ramdisk unpack"));
+        assert!(rendered.contains("flash_boot; # use flash_boot to skip ramdisk repack"));
+        assert!(!rendered.contains("backup_file init.rc;"));
+        assert!(!rendered.contains("ExampleKernel by osm0sis"));
+
+        fs::remove_dir_all(&temp_dir).unwrap();
+    }
 }
 
 fn copy_dir_files(source: &Path, dest: &Path) -> Result<()> {
@@ -1013,21 +1247,27 @@ pub fn handle_build(
         fs::write(kernel_source_path.join("localversion"), "")?;
     }
 
-    let ak3_repo = proj
-        .anykernel_repo
-        .as_deref()
-        .unwrap_or("https://github.com/YuzakiKokuban/AnyKernel3.git");
-    let ak3_branch = proj.anykernel_branch.as_deref().unwrap_or("master");
-
     if Path::new("AnyKernel3").exists() {
         fs::remove_dir_all("AnyKernel3")?;
     }
 
     run_cmd(
-        &["git", "clone", ak3_repo, "-b", ak3_branch, "AnyKernel3"],
+        &[
+            "git",
+            "clone",
+            ANYKERNEL_REPO,
+            "-b",
+            ANYKERNEL_BRANCH,
+            "AnyKernel3",
+        ],
         None,
         false,
     )?;
+
+    if let Some(config_key) = proj.anykernel_config.as_deref() {
+        let anykernel_config = load_anykernel_config(config_key)?;
+        apply_anykernel_config(Path::new("AnyKernel3"), &anykernel_config)?;
+    }
 
     let image_path = kernel_source_path.join("out/arch/arm64/boot/Image");
     if !image_path.exists() {

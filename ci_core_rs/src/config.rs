@@ -11,8 +11,7 @@ pub struct ProjectConfig {
     pub toolchain_urls: Option<Vec<String>>,
     pub toolchain_path_prefix: Option<String>,
     pub toolchain_path_exports: Option<Vec<String>>,
-    pub anykernel_repo: Option<String>,
-    pub anykernel_branch: Option<String>,
+    pub anykernel_config: Option<String>,
     pub zip_name_prefix: Option<String>,
     pub version_method: Option<String>,
     pub extra_host_env: Option<bool>,
@@ -45,6 +44,27 @@ pub struct GlobalConfig {
 }
 
 pub type ProjectsMap = HashMap<String, serde_json::Value>;
+pub type AnyKernelConfigMap = HashMap<String, AnyKernelConfig>;
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct AnyKernelConfig {
+    pub kernel_string: String,
+    pub device_check: bool,
+    pub modules: bool,
+    pub systemless: bool,
+    pub cleanup: bool,
+    pub cleanup_on_abort: bool,
+    pub device_names: Vec<String>,
+    pub supported_versions: Option<String>,
+    pub supported_patchlevels: Option<String>,
+    pub supported_vendorpatchlevels: Option<String>,
+    pub block: String,
+    pub is_slot_device: bool,
+    pub ramdisk_compression: Option<String>,
+    pub patch_vbmeta_flag: Option<String>,
+    pub boot_setup: Option<String>,
+    pub boot_finalize: Option<String>,
+}
 
 pub const KSU_CONFIG_JSON: &str = r#"{
     "resukisu": {

@@ -1,0 +1,163 @@
+{
+  "kalama_z": {
+    "kernel_string": "Z5-Kokuban-Kernel",
+    "device_check": false,
+    "modules": false,
+    "systemless": true,
+    "cleanup": true,
+    "cleanup_on_abort": false,
+    "device_names": [
+      "",
+      "",
+      ""
+    ],
+    "supported_versions": "",
+    "supported_patchlevels": "",
+    "supported_vendorpatchlevels": "",
+    "block": "/dev/block/by-name/boot",
+    "is_slot_device": false,
+    "ramdisk_compression": "auto",
+    "patch_vbmeta_flag": "auto",
+    "boot_setup": "split_boot",
+    "boot_finalize": "flash_boot"
+  },
+  "sun": {
+    "kernel_string": "S25-Kokuban-Kernel",
+    "device_check": true,
+    "modules": false,
+    "systemless": false,
+    "cleanup": true,
+    "cleanup_on_abort": false,
+    "device_names": [
+      "pa3q",
+      "pa2q",
+      "pa1q"
+    ],
+    "supported_versions": "",
+    "supported_patchlevels": "",
+    "supported_vendorpatchlevels": "",
+    "block": "/dev/block/by-name/boot",
+    "is_slot_device": true,
+    "ramdisk_compression": "auto",
+    "patch_vbmeta_flag": "auto",
+    "boot_setup": "split_boot",
+    "boot_finalize": "flash_boot"
+  },
+  "kalama": {
+    "kernel_string": "S23-Knox-Disabled-Kernel-Kokuban",
+    "device_check": true,
+    "modules": false,
+    "systemless": true,
+    "cleanup": true,
+    "cleanup_on_abort": false,
+    "device_names": [
+      "dm3q",
+      "dm2q",
+      "dm1q"
+    ],
+    "supported_versions": "",
+    "supported_patchlevels": "",
+    "supported_vendorpatchlevels": "",
+    "block": "/dev/block/by-name/boot",
+    "is_slot_device": false,
+    "ramdisk_compression": "auto",
+    "patch_vbmeta_flag": "auto",
+    "boot_setup": "split_boot",
+    "boot_finalize": "flash_boot"
+  },
+  "pineapple": {
+    "kernel_string": "S24-Snapdragon-Kokuban-Kernel",
+    "device_check": true,
+    "modules": false,
+    "systemless": true,
+    "cleanup": true,
+    "cleanup_on_abort": false,
+    "device_names": [
+      "e3q",
+      "e2q",
+      "e1q",
+      "q6q",
+      "b6q"
+    ],
+    "supported_versions": "",
+    "supported_patchlevels": "",
+    "supported_vendorpatchlevels": "",
+    "block": "/dev/block/by-name/boot",
+    "is_slot_device": false,
+    "ramdisk_compression": "auto",
+    "patch_vbmeta_flag": "auto",
+    "boot_setup": "split_boot",
+    "boot_finalize": "flash_boot"
+  },
+  "mt6989": {
+    "kernel_string": "TabS10-KernelSU-AnyKernel3-Kokuban-Exusiai",
+    "device_check": false,
+    "modules": false,
+    "systemless": true,
+    "cleanup": true,
+    "cleanup_on_abort": false,
+    "device_names": [
+      "e3q",
+      "e2q",
+      "e1q",
+      "q6q",
+      "b6q"
+    ],
+    "supported_versions": "",
+    "supported_patchlevels": "",
+    "supported_vendorpatchlevels": "",
+    "block": "/dev/block/by-name/boot",
+    "is_slot_device": false,
+    "ramdisk_compression": "auto",
+    "patch_vbmeta_flag": "auto",
+    "boot_setup": "split_boot",
+    "boot_finalize": "flash_boot"
+  },
+  "pineapple_z": {
+    "kernel_string": "Z6-Kokuban-Kernel",
+    "device_check": true,
+    "modules": false,
+    "systemless": true,
+    "cleanup": true,
+    "cleanup_on_abort": false,
+    "device_names": [
+      "e3q",
+      "e2q",
+      "e1q",
+      "q6q",
+      "b6q"
+    ],
+    "supported_versions": "",
+    "supported_patchlevels": "",
+    "supported_vendorpatchlevels": "",
+    "block": "/dev/block/by-name/boot",
+    "is_slot_device": false,
+    "ramdisk_compression": "auto",
+    "patch_vbmeta_flag": "auto",
+    "boot_setup": "split_boot",
+    "boot_finalize": "flash_boot"
+  },
+  "canoe": {
+    "kernel_string": "Xiaomi17-Kokuban-Kernel",
+    "device_check": true,
+    "modules": false,
+    "systemless": false,
+    "cleanup": true,
+    "cleanup_on_abort": false,
+    "device_names": [
+      "nezha",
+      "popsicle",
+      "pandora",
+      "pudding"
+    ],
+    "supported_versions": "",
+    "supported_patchlevels": "",
+    "supported_vendorpatchlevels": "",
+    "block": "/dev/block/by-name/boot",
+    "is_slot_device": true,
+    "ramdisk_compression": "auto",
+    "patch_vbmeta_flag": "auto",
+    "boot_setup": "split_boot",
+    "boot_finalize": "flash_boot"
+  }
+}

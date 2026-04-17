@@ -53,13 +53,8 @@ enum Commands {
         device_cn: String,
         #[arg(long, default_value = "Unknown Device")]
         device_en: String,
-        #[arg(
-            long,
-            default_value = "https://github.com/YuzakiKokuban/AnyKernel3.git"
-        )]
-        ak3_repo: String,
-        #[arg(long, default_value = "master")]
-        ak3_branch: String,
+        #[arg(long)]
+        ak3_config: Option<String>,
         #[arg(long, default_value = "Kernel")]
         zip_name: String,
         #[arg(long, default_value = "")]
@@ -124,8 +119,7 @@ fn main() -> Result<()> {
             localversion,
             device_cn,
             device_en,
-            ak3_repo,
-            ak3_branch,
+            ak3_config,
             zip_name,
             toolchain_prefix,
         } => handle_add(
@@ -135,8 +129,7 @@ fn main() -> Result<()> {
             localversion,
             device_cn,
             device_en,
-            ak3_repo,
-            ak3_branch,
+            ak3_config,
             zip_name,
             toolchain_prefix,
         ),
@@ -256,8 +249,7 @@ fn handle_add(
     localversion: String,
     device_cn: String,
     device_en: String,
-    ak3_repo: String,
-    ak3_branch: String,
+    ak3_config: Option<String>,
     zip_name: String,
     toolchain_prefix: String,
 ) -> Result<()> {
@@ -280,8 +272,7 @@ fn handle_add(
             Some(toolchain_prefix)
         },
         toolchain_path_exports: None,
-        anykernel_repo: Some(ak3_repo),
-        anykernel_branch: Some(ak3_branch),
+        anykernel_config: ak3_config,
         zip_name_prefix: Some(zip_name),
         version_method: None,
         extra_host_env: None,

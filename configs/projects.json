@@ -26,8 +26,7 @@
       "build-tools/linux-x86/bin",
       "clang/host/linux-x86/clang-r450784e/bin"
     ],
-    "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
-    "anykernel_branch": "kalama_z",
+    "anykernel_config": "kalama_z",
     "zip_name_prefix": "Z5_Kernel",
     "disable_security": [
       "UH",
@@ -71,8 +70,7 @@
       "clang-tools/linux-x86/bin",
       "kernel-build-tools/linux-x86/bin"
     ],
-    "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
-    "anykernel_branch": "sun",
+    "anykernel_config": "sun",
     "zip_name_prefix": "S25_Kernel",
     "susfs": {
       "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
@@ -111,8 +109,7 @@
       "build-tools/path/linux-x86",
       "clang/host/linux-x86/clang-r450784e/bin"
     ],
-    "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
-    "anykernel_branch": "kalama",
+    "anykernel_config": "kalama",
     "zip_name_prefix": "S23_kernel",
     "susfs": {
       "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
@@ -158,8 +155,7 @@
       "clang/host/linux-x86/clang-r487747c/bin",
       "kernel-build-tools/linux-x86/bin"
     ],
-    "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
-    "anykernel_branch": "pineapple",
+    "anykernel_config": "pineapple",
     "zip_name_prefix": "S24_Snapdragon_kernel",
     "susfs": {
       "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
@@ -212,8 +208,7 @@
       "build-tools/path/linux-x86",
       "clang/host/linux-x86/clang-r487747c/bin"
     ],
-    "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
-    "anykernel_branch": "mt6989",
+    "anykernel_config": "mt6989",
     "zip_name_prefix": "TabS10_kernel"
   },
   "z6_sm8650": {
@@ -236,8 +231,7 @@
       "clang-tools/linux-x86/bin",
       "kernel-build-tools/linux-x86/bin"
     ],
-    "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
-    "anykernel_branch": "pineapple_z",
+    "anykernel_config": "pineapple_z",
     "zip_name_prefix": "Z6_Kernel",
     "version_method": "param",
     "extra_host_env": false,
@@ -275,8 +269,7 @@
       "bindgen-cli-x86_64-unknown-linux-gnu"
     ],
     "lto": "none",
-    "anykernel_repo": "https://github.com/YuzakiKokuban/AnyKernel3.git",
-    "anykernel_branch": "canoe",
+    "anykernel_config": "canoe",
     "zip_name_prefix": "Mi17_Kernel",
     "susfs": {
       "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",

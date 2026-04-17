@@ -8,7 +8,9 @@ use std::process::{Command, Stdio};
 use std::thread;
 use std::time::Duration;
 
-use crate::config::{GlobalConfig, ProjectConfig, ProjectsMap};
+use crate::config::{
+    AnyKernelConfig, AnyKernelConfigMap, GlobalConfig, ProjectConfig, ProjectsMap,
+};
 
 pub fn get_root_dir() -> PathBuf {
     env::var("CI_CENTRAL_ROOT")
@@ -18,6 +20,10 @@ pub fn get_root_dir() -> PathBuf {
 
 pub fn get_config_path() -> PathBuf {
     get_root_dir().join("configs/projects.json")
+}
+
+pub fn get_anykernel_config_path() -> PathBuf {
+    get_root_dir().join("configs/anykernel_configs.json")
 }
 
 pub fn get_upstream_path() -> PathBuf {
@@ -45,6 +51,21 @@ pub fn load_project(project_key: &str) -> Result<ProjectConfig> {
         .get(project_key)
         .ok_or_else(|| anyhow!("Project not found: {}", project_key))?;
     serde_json::from_value(proj_val.clone()).context("Failed to parse project config")
+}
+
+pub fn load_anykernel_configs() -> Result<AnyKernelConfigMap> {
+    let path = get_anykernel_config_path();
+    let content = fs::read_to_string(&path)
+        .with_context(|| format!("Failed to read anykernel_configs.json at {:?}", path))?;
+    serde_json::from_str(&content).context("Failed to parse anykernel_configs.json")
+}
+
+pub fn load_anykernel_config(config_key: &str) -> Result<AnyKernelConfig> {
+    let configs = load_anykernel_configs()?;
+    configs
+        .get(config_key)
+        .cloned()
+        .ok_or_else(|| anyhow!("AnyKernel config not found: {}", config_key))
 }
 
 pub fn normalize_variant_name(variant: &str) -> String {
