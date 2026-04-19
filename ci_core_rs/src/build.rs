@@ -12,7 +12,7 @@ use crate::utils::{
     run_cmd_with_env, set_github_output, variant_suffix,
 };
 
-const ANYKERNEL_REPO: &str = "https://github.com/osm0sis/AnyKernel3.git";
+const ANYKERNEL_REPO: &str = "https://github.com/YuzakiKokuban/AnyKernel3.git";
 const ANYKERNEL_BRANCH: &str = "master";
 
 fn command_exists(command: &str) -> bool {
