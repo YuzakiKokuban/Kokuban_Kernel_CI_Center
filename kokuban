@@ -1,0 +1,180 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+CORE_DIR="$SCRIPT_DIR/ci_core_rs"
+CORE_BIN="${KOKUBAN_CORE:-$CORE_DIR/target/release/kokuban_ci_core}"
+
+usage() {
+  cat <<'EOF'
+Kokuban local CLI
+
+Usage:
+  ./kokuban list
+  ./kokuban features [project]
+  ./kokuban validate
+  ./kokuban doctor
+  ./kokuban config <show|path|set>
+  ./kokuban cache <status|clean|prune> [...]
+  ./kokuban toolchain checksums [project]
+  ./kokuban preset <list|set|show|remove> [...]
+  ./kokuban run <preset> [extra local options...]
+  ./kokuban plan <project> [branch] [variant] [local options...]
+  ./kokuban build <project> [branch] [variant] [local options...]
+  ./kokuban local [local options...]
+  ./kokuban core [core options...]
+
+Common local options:
+  --local-root <dir>    Use a custom cache/workspace root
+  --offline             Use existing local caches only
+  --no-fetch            Do not fetch kernel source updates
+  --clean               Remove untracked kernel source files before building
+  --dry-run             Print the build plan without touching source or caches
+  --force-lock          Remove an existing lock for this project before building
+  --with-susfs          Enable SuSFS (default)
+  --no-susfs            Disable SuSFS
+  --with-bbg            Enable Baseband Guard (default)
+  --no-bbg              Disable Baseband Guard
+EOF
+}
+
+need_command() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+bool_value() {
+  local value
+  value="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')"
+  case "$value" in
+    1|true|yes|on) echo "true" ;;
+    0|false|no|off) echo "false" ;;
+    *)
+      echo "Invalid boolean value: $1" >&2
+      exit 1
+      ;;
+  esac
+}
+
+ensure_core() {
+  if [ -n "${KOKUBAN_CORE:-}" ]; then
+    return
+  fi
+
+  if ! need_command cargo; then
+    echo "cargo is required. Install Rust first: https://rustup.rs/" >&2
+    exit 1
+  fi
+
+  local needs_build=0
+  if [ ! -x "$CORE_BIN" ]; then
+    needs_build=1
+  elif find "$CORE_DIR/src" "$CORE_DIR/Cargo.toml" "$CORE_DIR/Cargo.lock" -newer "$CORE_BIN" -print -quit | grep -q .; then
+    needs_build=1
+  fi
+
+  if [ "$needs_build" -eq 1 ]; then
+    echo "Building kokuban_ci_core release binary..."
+    cargo build --release --manifest-path "$CORE_DIR/Cargo.toml"
+  fi
+}
+
+core() {
+  ensure_core
+  CI_CENTRAL_ROOT="$SCRIPT_DIR" "$CORE_BIN" "$@"
+}
+
+normalize_local_args() {
+  local args=()
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --with-susfs|--susfs)
+        args+=(--apply-susfs true)
+        ;;
+      --no-susfs)
+        args+=(--apply-susfs false)
+        ;;
+      --susfs=*|--apply-susfs=*)
+        args+=(--apply-susfs "$(bool_value "${1#*=}")")
+        ;;
+      --apply-susfs)
+        args+=(--apply-susfs "$(bool_value "${2:?Missing value for --apply-susfs}")")
+        shift
+        ;;
+      --with-bbg|--bbg)
+        args+=(--apply-bbg true)
+        ;;
+      --no-bbg)
+        args+=(--apply-bbg false)
+        ;;
+      --bbg=*|--apply-bbg=*)
+        args+=(--apply-bbg "$(bool_value "${1#*=}")")
+        ;;
+      --apply-bbg)
+        args+=(--apply-bbg "$(bool_value "${2:?Missing value for --apply-bbg}")")
+        shift
+        ;;
+      *)
+        args+=("$1")
+        ;;
+    esac
+    shift
+  done
+
+  printf '%s\0' "${args[@]}"
+}
+
+run_local() {
+  local args=()
+  while IFS= read -r -d '' arg; do
+    args+=("$arg")
+  done < <(normalize_local_args "$@")
+  core local "${args[@]}"
+}
+
+run_build() {
+  if [ "$#" -lt 1 ]; then
+    echo "Missing project." >&2
+    usage >&2
+    exit 1
+  fi
+
+  local project="$1"
+  local branch="main"
+  local variant="default"
+  shift
+
+  if [ "$#" -gt 0 ] && [[ "$1" != -* ]]; then
+    branch="$1"
+    shift
+  fi
+  if [ "$#" -gt 0 ] && [[ "$1" != -* ]]; then
+    variant="$1"
+    shift
+  fi
+
+  run_local --project "$project" --branch "$branch" --variant "$variant" "$@"
+}
+
+main() {
+  local command="${1:-help}"
+  if [ "$#" -gt 0 ]; then
+    shift
+  fi
+
+  case "$command" in
+    help|-h|--help) usage ;;
+    list|projects) core projects ;;
+    core) core "$@" ;;
+    local) run_local "$@" ;;
+    build) run_build "$@" ;;
+    plan) run_build "$@" --dry-run ;;
+    doctor|features|validate|cache|config|preset|run|toolchain) core "$command" "$@" ;;
+    *)
+      echo "Unknown command: $command" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+}
+
+main "$@"

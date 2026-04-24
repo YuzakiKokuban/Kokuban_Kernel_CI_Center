@@ -1,8 +1,9 @@
 use anyhow::{Context, Result, anyhow};
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::env;
-use std::fs::{self, OpenOptions};
-use std::io::Write;
+use std::fs::{self, File, OpenOptions};
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::thread;
@@ -13,9 +14,19 @@ use crate::config::{
 };
 
 pub fn get_root_dir() -> PathBuf {
-    env::var("CI_CENTRAL_ROOT")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("."))
+    if let Ok(path) = env::var("CI_CENTRAL_ROOT") {
+        return PathBuf::from(path);
+    }
+
+    if let Ok(current_dir) = env::current_dir() {
+        for candidate in current_dir.ancestors() {
+            if candidate.join("configs/projects.json").is_file() {
+                return candidate.to_path_buf();
+            }
+        }
+    }
+
+    PathBuf::from(".")
 }
 
 pub fn get_config_path() -> PathBuf {
@@ -36,6 +47,56 @@ pub fn get_workspace_dir() -> PathBuf {
 
 pub fn get_template_path(name: &str) -> PathBuf {
     get_root_dir().join("templates").join(name)
+}
+
+pub fn command_exists(command: &str) -> bool {
+    Command::new("sh")
+        .arg("-c")
+        .arg(format!("command -v {command} >/dev/null 2>&1"))
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false)
+}
+
+pub fn env_flag(name: &str) -> bool {
+    env::var(name)
+        .map(|value| {
+            matches!(
+                value.to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes" | "on"
+            )
+        })
+        .unwrap_or(false)
+}
+
+pub fn url_file_name(url: &str) -> Result<String> {
+    url.rsplit('/')
+        .next()
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .map(ToOwned::to_owned)
+        .ok_or_else(|| anyhow!("Could not determine filename from URL: {}", url))
+}
+
+pub fn cache_file_name(url: &str) -> Result<String> {
+    let digest = Sha256::digest(url.as_bytes());
+    Ok(format!("{:x}-{}", digest, url_file_name(url)?))
+}
+
+pub fn file_sha256(path: &Path) -> Result<String> {
+    let mut file = File::open(path)?;
+    let mut hasher = Sha256::new();
+    let mut buffer = [0_u8; 1024 * 1024];
+
+    loop {
+        let len = file.read(&mut buffer)?;
+        if len == 0 {
+            break;
+        }
+        hasher.update(&buffer[..len]);
+    }
+
+    Ok(format!("{:x}", hasher.finalize()))
 }
 
 pub fn load_projects() -> Result<ProjectsMap> {
@@ -157,6 +218,41 @@ pub fn run_cmd_with_env(
         return Err(anyhow!("Command failed: {:?}", cmd));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn unique_temp_path(name: &str) -> PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        env::temp_dir().join(format!("{name}-{unique}"))
+    }
+
+    #[test]
+    fn cache_file_name_is_stable_and_keeps_filename() {
+        let name = cache_file_name("https://example.com/toolchain.tar.gz").unwrap();
+        assert!(name.ends_with("-toolchain.tar.gz"));
+        assert_eq!(
+            name,
+            cache_file_name("https://example.com/toolchain.tar.gz").unwrap()
+        );
+    }
+
+    #[test]
+    fn file_sha256_hashes_file_content() {
+        let path = unique_temp_path("kokuban-sha-test");
+        fs::write(&path, b"abc").unwrap();
+        assert_eq!(
+            file_sha256(&path).unwrap(),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+        fs::remove_file(path).unwrap();
+    }
 }
 
 pub fn handle_notify(tag_name: String) -> Result<()> {

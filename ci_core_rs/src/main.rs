@@ -1,11 +1,15 @@
+mod admin;
 mod build;
 mod config;
+mod local;
+mod settings;
 mod utils;
 
 use anyhow::Result;
 use chrono::Local;
 use clap::{Parser, Subcommand};
 use config::{KSU_CONFIG_JSON, KsuConfigItem, ProjectConfig};
+use local::LocalBuildOptions;
 use std::collections::HashMap;
 use std::env;
 use std::fs::{self, OpenOptions};
@@ -24,6 +28,33 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    Doctor,
+    Projects,
+    Config {
+        #[command(subcommand)]
+        command: ConfigCommands,
+    },
+    Preset {
+        #[command(subcommand)]
+        command: PresetCommands,
+    },
+    Run {
+        name: String,
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        extra_args: Vec<String>,
+    },
+    Features {
+        project: Option<String>,
+    },
+    Validate,
+    Cache {
+        #[command(subcommand)]
+        command: CacheCommands,
+    },
+    Toolchain {
+        #[command(subcommand)]
+        command: ToolchainCommands,
+    },
     Parse {
         #[arg(long)]
         project: String,
@@ -99,9 +130,106 @@ enum Commands {
         #[arg(long, action = clap::ArgAction::Set)]
         apply_bbg: bool,
     },
+    Local {
+        #[arg(long)]
+        project: String,
+        #[arg(long, default_value = "main")]
+        branch: String,
+        #[arg(long, default_value = "default")]
+        variant: String,
+        #[arg(long, action = clap::ArgAction::Set, default_value_t = false)]
+        do_release: bool,
+        #[arg(long, allow_hyphen_values = true)]
+        custom_localversion: Option<String>,
+        #[arg(long, allow_hyphen_values = true)]
+        resukisu_setup_arg: Option<String>,
+        #[arg(long, action = clap::ArgAction::Set)]
+        apply_susfs: Option<bool>,
+        #[arg(long, action = clap::ArgAction::SetTrue)]
+        with_susfs: bool,
+        #[arg(long, action = clap::ArgAction::SetTrue)]
+        no_susfs: bool,
+        #[arg(long, action = clap::ArgAction::Set)]
+        apply_bbg: Option<bool>,
+        #[arg(long, action = clap::ArgAction::SetTrue)]
+        with_bbg: bool,
+        #[arg(long, action = clap::ArgAction::SetTrue)]
+        no_bbg: bool,
+        #[arg(long)]
+        local_root: Option<PathBuf>,
+        #[arg(long, action = clap::ArgAction::SetTrue)]
+        offline: bool,
+        #[arg(long, action = clap::ArgAction::SetTrue)]
+        no_fetch: bool,
+        #[arg(long, action = clap::ArgAction::SetTrue)]
+        clean: bool,
+        #[arg(long, action = clap::ArgAction::SetTrue)]
+        dry_run: bool,
+        #[arg(long, action = clap::ArgAction::SetTrue)]
+        force_lock: bool,
+    },
     CollectArtifacts {
         #[arg(long, default_value = "build_artifacts")]
         artifact_dir: String,
+    },
+}
+
+#[derive(Subcommand)]
+enum ToolchainCommands {
+    Checksums {
+        project: Option<String>,
+        #[arg(long)]
+        local_root: Option<PathBuf>,
+    },
+}
+
+#[derive(Subcommand)]
+enum ConfigCommands {
+    Show,
+    Path,
+    Set { key: String, value: String },
+}
+
+#[derive(Subcommand)]
+enum PresetCommands {
+    List,
+    Set {
+        name: String,
+        project: String,
+        #[arg(default_value = "main")]
+        branch: String,
+        #[arg(default_value = "default")]
+        variant: String,
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Show {
+        name: String,
+    },
+    Remove {
+        name: String,
+    },
+}
+
+#[derive(Subcommand)]
+enum CacheCommands {
+    Status {
+        #[arg(long)]
+        local_root: Option<PathBuf>,
+    },
+    Clean {
+        target: String,
+        project: Option<String>,
+        #[arg(long)]
+        local_root: Option<PathBuf>,
+    },
+    Prune {
+        #[arg(long, default_value_t = 5)]
+        keep_artifacts: usize,
+        #[arg(long)]
+        older_than_days: Option<i64>,
+        #[arg(long)]
+        local_root: Option<PathBuf>,
     },
 }
 
@@ -109,6 +237,47 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
+        Commands::Doctor => admin::handle_doctor(),
+        Commands::Projects => admin::handle_projects(),
+        Commands::Config { command } => match command {
+            ConfigCommands::Show => admin::handle_config_show(),
+            ConfigCommands::Path => admin::handle_config_path(),
+            ConfigCommands::Set { key, value } => admin::handle_config_set(key, value),
+        },
+        Commands::Preset { command } => match command {
+            PresetCommands::List => admin::handle_preset_list(),
+            PresetCommands::Set {
+                name,
+                project,
+                branch,
+                variant,
+                args,
+            } => admin::handle_preset_set(name, project, branch, variant, args),
+            PresetCommands::Show { name } => admin::handle_preset_show(name),
+            PresetCommands::Remove { name } => admin::handle_preset_remove(name),
+        },
+        Commands::Run { name, extra_args } => admin::handle_run_preset(name, extra_args),
+        Commands::Features { project } => admin::handle_features(project),
+        Commands::Validate => admin::handle_validate(),
+        Commands::Cache { command } => match command {
+            CacheCommands::Status { local_root } => admin::handle_cache_status(local_root),
+            CacheCommands::Clean {
+                target,
+                project,
+                local_root,
+            } => admin::handle_cache_clean(target, project, local_root),
+            CacheCommands::Prune {
+                keep_artifacts,
+                older_than_days,
+                local_root,
+            } => admin::handle_cache_prune(keep_artifacts, older_than_days, local_root),
+        },
+        Commands::Toolchain { command } => match command {
+            ToolchainCommands::Checksums {
+                project,
+                local_root,
+            } => admin::handle_toolchain_checksums(project, local_root),
+        },
         Commands::Parse { project } => handle_parse(&project),
         Commands::Meta { project, branch } => handle_meta(&project, &branch),
         Commands::Matrix { project, token } => handle_matrix(&project, token),
@@ -163,6 +332,58 @@ fn main() -> Result<()> {
             apply_susfs,
             apply_bbg,
         ),
+        Commands::Local {
+            project,
+            branch,
+            variant,
+            do_release,
+            custom_localversion,
+            resukisu_setup_arg,
+            apply_susfs,
+            with_susfs,
+            no_susfs,
+            apply_bbg,
+            with_bbg,
+            no_bbg,
+            local_root,
+            offline,
+            no_fetch,
+            clean,
+            dry_run,
+            force_lock,
+        } => {
+            let settings = settings::load_settings()?;
+            let resolved_susfs = if no_susfs {
+                false
+            } else if with_susfs {
+                true
+            } else {
+                apply_susfs.unwrap_or(settings.apply_susfs)
+            };
+            let resolved_bbg = if no_bbg {
+                false
+            } else if with_bbg {
+                true
+            } else {
+                apply_bbg.unwrap_or(settings.apply_bbg)
+            };
+            local::handle_local_build(LocalBuildOptions {
+                project,
+                branch,
+                variant,
+                do_release,
+                custom_localversion,
+                resukisu_setup_arg,
+                apply_susfs: resolved_susfs,
+                apply_bbg: resolved_bbg,
+                local_root: local_root.or(settings.local_root),
+                offline,
+                no_fetch,
+                clean,
+                dry_run,
+                force_lock,
+            })
+        }
         Commands::CollectArtifacts { artifact_dir } => {
             build::handle_collect_artifacts(artifact_dir)
         }
@@ -266,6 +487,7 @@ fn handle_add(
         lto: None,
         supported_ksu: Some(vec!["resukisu".to_string()]),
         toolchain_urls: None,
+        toolchain_sha256: None,
         toolchain_path_prefix: if toolchain_prefix.is_empty() {
             None
         } else {

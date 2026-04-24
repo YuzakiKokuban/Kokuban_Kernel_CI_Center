@@ -1,0 +1,7 @@
+ci_core_rs/target
+.git
+kernel_workspace
+kernel_source
+AnyKernel3
+toolchain_download
+*.zip

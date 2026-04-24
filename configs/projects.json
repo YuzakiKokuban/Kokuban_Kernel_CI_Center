@@ -28,6 +28,16 @@
     ],
     "anykernel_config": "kalama_z",
     "zip_name_prefix": "Z5_Kernel",
+    "susfs": {
+      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
+      "branch": "gki-android13-5.15",
+      "patch_path": "kernel_patches/50_add_susfs_in_gki-android13-5.15.patch",
+      "fs_patch_dir": "kernel_patches/fs",
+      "include_linux_patch_dir": "kernel_patches/include/linux"
+    },
+    "bbg": {
+      "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
+    },
     "disable_security": [
       "UH",
       "RKP",
@@ -209,7 +219,17 @@
       "clang/host/linux-x86/clang-r487747c/bin"
     ],
     "anykernel_config": "mt6989",
-    "zip_name_prefix": "TabS10_kernel"
+    "zip_name_prefix": "TabS10_kernel",
+    "susfs": {
+      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
+      "branch": "gki-android14-6.1",
+      "patch_path": "kernel_patches/50_add_susfs_in_gki-android14-6.1.patch",
+      "fs_patch_dir": "kernel_patches/fs",
+      "include_linux_patch_dir": "kernel_patches/include/linux"
+    },
+    "bbg": {
+      "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
+    }
   },
   "z6_sm8650": {
     "repo": "YuzakiKokuban/android_kernel_samsung_sm8650_Z6",
@@ -246,6 +266,16 @@
     "readme_placeholders": {
       "DEVICE_NAME_CN": "三星 Galaxy Z6 系列",
       "DEVICE_NAME_EN": "Samsung Galaxy Z6 Series"
+    },
+    "susfs": {
+      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
+      "branch": "gki-android14-6.1",
+      "patch_path": "kernel_patches/50_add_susfs_in_gki-android14-6.1.patch",
+      "fs_patch_dir": "kernel_patches/fs",
+      "include_linux_patch_dir": "kernel_patches/include/linux"
+    },
+    "bbg": {
+      "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
     }
   },
   "mi17_sm8850": {

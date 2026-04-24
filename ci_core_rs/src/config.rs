@@ -9,6 +9,7 @@ pub struct ProjectConfig {
     pub lto: Option<String>,
     pub supported_ksu: Option<Vec<String>>,
     pub toolchain_urls: Option<Vec<String>>,
+    pub toolchain_sha256: Option<HashMap<String, String>>,
     pub toolchain_path_prefix: Option<String>,
     pub toolchain_path_exports: Option<Vec<String>>,
     pub anykernel_config: Option<String>,

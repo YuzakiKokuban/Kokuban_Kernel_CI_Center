@@ -1,0 +1,20 @@
+{
+  "name": "Kokuban Kernel CI Center",
+  "build": {
+    "dockerfile": "../Dockerfile",
+    "context": ".."
+  },
+  "workspaceFolder": "/workspace",
+  "mounts": [
+    "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached"
+  ],
+  "postCreateCommand": "cargo build --manifest-path ci_core_rs/Cargo.toml",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "timonwong.shellcheck"
+      ]
+    }
+  }
+}

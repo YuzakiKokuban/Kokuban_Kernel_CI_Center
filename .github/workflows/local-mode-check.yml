@@ -1,0 +1,50 @@
+name: Local Mode Check
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  rust-and-wrapper:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+      - name: Rust format
+        run: cargo fmt --manifest-path ci_core_rs/Cargo.toml --check
+
+      - name: Rust check
+        run: cargo check --manifest-path ci_core_rs/Cargo.toml
+
+      - name: Rust tests
+        run: cargo test --manifest-path ci_core_rs/Cargo.toml
+
+      - name: Wrapper tests
+        run: |
+          ./scripts/check-shell.sh
+          ./scripts/test-kokuban-cli.sh
+
+      - name: Kokuban validation
+        run: |
+          ./kokuban validate
+          ./kokuban plan s23_sm8550 main default --no-susfs --no-bbg
+
+  docker-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build local image
+        run: docker build -t kokuban-local .
+
+      - name: Smoke test in container
+        run: |
+          docker run --rm -v "$PWD":/workspace kokuban-local ./kokuban validate
+          docker run --rm -v "$PWD":/workspace kokuban-local ./kokuban plan s23_sm8550 main default --no-susfs --no-bbg

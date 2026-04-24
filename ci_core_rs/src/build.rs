@@ -8,18 +8,238 @@ use std::path::{Path, PathBuf};
 
 use crate::config::{AnyKernelConfig, BbgConfig, ProjectConfig, SusfsConfig};
 use crate::utils::{
-    handle_notify, is_resukisu_variant, load_anykernel_config, load_project, run_cmd,
-    run_cmd_with_env, set_github_output, variant_suffix,
+    cache_file_name, command_exists, env_flag, file_sha256, handle_notify, is_resukisu_variant,
+    load_anykernel_config, load_project, run_cmd, run_cmd_with_env, set_github_output,
+    url_file_name, variant_suffix,
 };
 
 const ANYKERNEL_REPO: &str = "https://github.com/YuzakiKokuban/AnyKernel3.git";
 const ANYKERNEL_BRANCH: &str = "master";
 
-fn command_exists(command: &str) -> bool {
-    std::process::Command::new(command)
-        .arg("-V")
-        .output()
-        .is_ok()
+fn verify_toolchain_checksum(
+    url: &str,
+    path: &Path,
+    checksums: Option<&HashMap<String, String>>,
+) -> Result<()> {
+    let Some(expected) = checksums.and_then(|items| items.get(url)) else {
+        return Ok(());
+    };
+
+    let actual = file_sha256(path)?;
+    if !actual.eq_ignore_ascii_case(expected) {
+        return Err(anyhow!(
+            "Toolchain checksum mismatch for {}\nexpected: {}\nactual:   {}",
+            url,
+            expected,
+            actual
+        ));
+    }
+
+    Ok(())
+}
+
+fn toolchain_paths_ready(toolchain_base: &Path, proj: &ProjectConfig) -> bool {
+    if let Some(exports) = &proj.toolchain_path_exports {
+        return exports
+            .iter()
+            .all(|export| toolchain_base.join(export).exists());
+    }
+
+    !proj
+        .toolchain_path_prefix
+        .as_deref()
+        .unwrap_or("")
+        .is_empty()
+        && toolchain_base.join("bin").exists()
+}
+
+fn download_toolchains(
+    urls: &[String],
+    tc_download_dir: &Path,
+    cache_dir: Option<&Path>,
+    offline: bool,
+    checksums: Option<&HashMap<String, String>>,
+) -> Result<()> {
+    if tc_download_dir.exists() {
+        fs::remove_dir_all(tc_download_dir)?;
+    }
+    fs::create_dir_all(tc_download_dir)?;
+
+    for url in urls {
+        let file_name = url_file_name(url)?;
+        let download_path = tc_download_dir.join(&file_name);
+
+        if let Some(cache_dir) = cache_dir {
+            fs::create_dir_all(cache_dir)?;
+            let cache_path = cache_dir.join(cache_file_name(url)?);
+
+            if cache_path.exists() {
+                verify_toolchain_checksum(url, &cache_path, checksums)?;
+                println!("Using cached toolchain package: {}", file_name);
+                fs::copy(cache_path, download_path)?;
+                continue;
+            }
+
+            if offline {
+                return Err(anyhow!(
+                    "Toolchain package is missing from cache while offline: {}",
+                    url
+                ));
+            }
+
+            println!("Downloading toolchain from {}...", url);
+            let cache_file_name = cache_path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or("toolchain");
+            let tmp_path = cache_path.with_file_name(format!(
+                "{}.tmp-{}",
+                cache_file_name,
+                std::process::id()
+            ));
+            let _ = fs::remove_file(&tmp_path);
+            let tmp_path_str = tmp_path
+                .to_str()
+                .ok_or_else(|| anyhow!("Invalid toolchain cache path"))?;
+            let download_result = (|| {
+                run_cmd(&["wget", "-q", "-O", tmp_path_str, url], None, false)?;
+                verify_toolchain_checksum(url, &tmp_path, checksums)?;
+                fs::rename(&tmp_path, &cache_path)?;
+                Ok(())
+            })();
+            if let Err(err) = download_result {
+                let _ = fs::remove_file(&tmp_path);
+                return Err(err);
+            }
+            fs::copy(cache_path, download_path)?;
+        } else {
+            if offline {
+                return Err(anyhow!(
+                    "Toolchain cache is disabled and offline mode cannot download: {}",
+                    url
+                ));
+            }
+
+            println!("Downloading toolchain from {}...", url);
+            let download_path_str = download_path
+                .to_str()
+                .ok_or_else(|| anyhow!("Invalid toolchain download path"))?;
+            run_cmd(&["wget", "-q", "-O", download_path_str, url], None, false)?;
+            verify_toolchain_checksum(url, &download_path, checksums)?;
+        }
+    }
+
+    Ok(())
+}
+
+fn prepare_anykernel_cache(cache_dir: &Path, offline: bool) -> Result<()> {
+    if !cache_dir.join(".git").exists() {
+        if offline {
+            return Err(anyhow!(
+                "AnyKernel3 cache is missing while offline: {}",
+                cache_dir.display()
+            ));
+        }
+        fs::create_dir_all(
+            cache_dir
+                .parent()
+                .ok_or_else(|| anyhow!("Invalid AnyKernel3 cache path"))?,
+        )?;
+        run_cmd(
+            &[
+                "git",
+                "clone",
+                ANYKERNEL_REPO,
+                "-b",
+                ANYKERNEL_BRANCH,
+                cache_dir
+                    .to_str()
+                    .ok_or_else(|| anyhow!("Invalid AnyKernel3 cache path"))?,
+            ],
+            None,
+            false,
+        )?;
+    } else if !offline {
+        run_cmd(
+            &["git", "fetch", "--tags", "--prune", "origin"],
+            Some(cache_dir),
+            false,
+        )?;
+    }
+
+    run_cmd(
+        &["git", "checkout", "--force", ANYKERNEL_BRANCH],
+        Some(cache_dir),
+        false,
+    )?;
+
+    if !offline {
+        let remote_branch = format!("origin/{ANYKERNEL_BRANCH}");
+        run_cmd(
+            &["git", "reset", "--hard", &remote_branch],
+            Some(cache_dir),
+            false,
+        )?;
+    } else {
+        run_cmd(&["git", "reset", "--hard", "HEAD"], Some(cache_dir), false)?;
+    }
+
+    run_cmd(&["git", "clean", "-ffdx"], Some(cache_dir), false)?;
+    Ok(())
+}
+
+fn prepare_anykernel_worktree(target_dir: &Path, offline: bool) -> Result<()> {
+    if target_dir.exists() {
+        fs::remove_dir_all(target_dir)?;
+    }
+
+    if let Ok(cache_dir) = env::var("KOKUBAN_ANYKERNEL_CACHE_DIR") {
+        let cache_dir = PathBuf::from(cache_dir);
+        prepare_anykernel_cache(&cache_dir, offline)?;
+        run_cmd(
+            &[
+                "git",
+                "clone",
+                "--shared",
+                cache_dir
+                    .to_str()
+                    .ok_or_else(|| anyhow!("Invalid AnyKernel3 cache path"))?,
+                target_dir
+                    .to_str()
+                    .ok_or_else(|| anyhow!("Invalid AnyKernel3 target path"))?,
+            ],
+            None,
+            false,
+        )?;
+        run_cmd(
+            &["git", "checkout", "--force", ANYKERNEL_BRANCH],
+            Some(target_dir),
+            false,
+        )?;
+    } else {
+        if offline {
+            return Err(anyhow!(
+                "KOKUBAN_ANYKERNEL_CACHE_DIR is required for offline AnyKernel3 setup"
+            ));
+        }
+
+        run_cmd(
+            &[
+                "git",
+                "clone",
+                ANYKERNEL_REPO,
+                "-b",
+                ANYKERNEL_BRANCH,
+                target_dir
+                    .to_str()
+                    .ok_or_else(|| anyhow!("Invalid AnyKernel3 target path"))?,
+            ],
+            None,
+            false,
+        )?;
+    }
+
+    Ok(())
 }
 
 fn create_compiler_wrapper(
@@ -804,20 +1024,27 @@ pub fn handle_build(
     let cc_arg = format!("CC={}", cc_cmd);
     let hostcc_arg = format!("HOSTCC={}", cc_cmd);
 
+    let toolchain_prefix = proj.toolchain_path_prefix.as_deref().unwrap_or("");
+    let toolchain_base = env::current_dir()?.join(toolchain_prefix);
+    let offline = env_flag("KOKUBAN_OFFLINE");
+    let reuse_toolchains = env_flag("KOKUBAN_REUSE_TOOLCHAINS");
+
     if let Some(urls) = &proj.toolchain_urls {
         let tc_download_dir = PathBuf::from("toolchain_download");
+        let cache_dir = env::var_os("KOKUBAN_DOWNLOAD_CACHE_DIR").map(PathBuf::from);
 
-        if tc_download_dir.exists() {
-            fs::remove_dir_all(&tc_download_dir)?;
-        }
-        fs::create_dir_all(&tc_download_dir)?;
+        if reuse_toolchains && toolchain_paths_ready(&toolchain_base, &proj) {
+            println!("Reusing existing toolchain at {}", toolchain_base.display());
+        } else {
+            download_toolchains(
+                urls,
+                &tc_download_dir,
+                cache_dir.as_deref(),
+                offline,
+                proj.toolchain_sha256.as_ref(),
+            )?;
 
-        for url in urls {
-            println!("Downloading toolchain from {}...", url);
-            run_cmd(&["wget", "-q", url], Some(&tc_download_dir), false)?;
-        }
-
-        let extract_script = r#"
+            let extract_script = r#"
             set -e
             if ls *.tar.gz.[0-9]* 1> /dev/null 2>&1; then
                 cat *.tar.gz.* | tar -zxf - --warning=no-unknown-keyword -C ..
@@ -845,17 +1072,15 @@ pub fn handle_build(
             chmod +x ../bindgen-cli-*/bindgen 2>/dev/null || true
         "#;
 
-        run_cmd(
-            &["bash", "-c", extract_script],
-            Some(&tc_download_dir),
-            false,
-        )?;
+            run_cmd(
+                &["bash", "-c", extract_script],
+                Some(&tc_download_dir),
+                false,
+            )?;
 
-        fs::remove_dir_all(tc_download_dir)?;
+            fs::remove_dir_all(tc_download_dir)?;
+        }
     }
-
-    let toolchain_prefix = proj.toolchain_path_prefix.as_deref().unwrap_or("");
-    let toolchain_base = env::current_dir()?.join(toolchain_prefix);
 
     let mut build_env = HashMap::new();
     let current_path = env::var("PATH").unwrap_or_default();
@@ -1247,22 +1472,7 @@ pub fn handle_build(
         fs::write(kernel_source_path.join("localversion"), "")?;
     }
 
-    if Path::new("AnyKernel3").exists() {
-        fs::remove_dir_all("AnyKernel3")?;
-    }
-
-    run_cmd(
-        &[
-            "git",
-            "clone",
-            ANYKERNEL_REPO,
-            "-b",
-            ANYKERNEL_BRANCH,
-            "AnyKernel3",
-        ],
-        None,
-        false,
-    )?;
+    prepare_anykernel_worktree(Path::new("AnyKernel3"), offline)?;
 
     if let Some(config_key) = proj.anykernel_config.as_deref() {
         let anykernel_config = load_anykernel_config(config_key)?;
