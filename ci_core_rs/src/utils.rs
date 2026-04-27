@@ -78,9 +78,23 @@ pub fn url_file_name(url: &str) -> Result<String> {
         .ok_or_else(|| anyhow!("Could not determine filename from URL: {}", url))
 }
 
+fn lower_hex(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut output = String::with_capacity(bytes.len() * 2);
+    for &byte in bytes {
+        output.push(HEX[(byte >> 4) as usize] as char);
+        output.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+    output
+}
+
 pub fn cache_file_name(url: &str) -> Result<String> {
     let digest = Sha256::digest(url.as_bytes());
-    Ok(format!("{:x}-{}", digest, url_file_name(url)?))
+    Ok(format!(
+        "{}-{}",
+        lower_hex(digest.as_ref()),
+        url_file_name(url)?
+    ))
 }
 
 pub fn file_sha256(path: &Path) -> Result<String> {
@@ -96,7 +110,8 @@ pub fn file_sha256(path: &Path) -> Result<String> {
         hasher.update(&buffer[..len]);
     }
 
-    Ok(format!("{:x}", hasher.finalize()))
+    let digest = hasher.finalize();
+    Ok(lower_hex(digest.as_ref()))
 }
 
 pub fn load_projects() -> Result<ProjectsMap> {
@@ -236,7 +251,10 @@ mod tests {
     #[test]
     fn cache_file_name_is_stable_and_keeps_filename() {
         let name = cache_file_name("https://example.com/toolchain.tar.gz").unwrap();
-        assert!(name.ends_with("-toolchain.tar.gz"));
+        assert_eq!(
+            name,
+            "74caec161bcb4f71d8eb363cf7709f7e2132a464e2ef488b473eec8f0ce43249-toolchain.tar.gz"
+        );
         assert_eq!(
             name,
             cache_file_name("https://example.com/toolchain.tar.gz").unwrap()
