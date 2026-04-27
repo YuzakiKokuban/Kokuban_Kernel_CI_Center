@@ -44,7 +44,7 @@
     "boot_finalize": "flash_boot"
   },
   "kalama": {
-    "kernel_string": "S23-Knox-Disabled-Kernel-Kokuban",
+    "kernel_string": "S23-Kokuban-Kernel",
     "device_check": true,
     "modules": false,
     "systemless": true,
@@ -54,6 +54,28 @@
       "dm3q",
       "dm2q",
       "dm1q"
+    ],
+    "supported_versions": "",
+    "supported_patchlevels": "",
+    "supported_vendorpatchlevels": "",
+    "block": "/dev/block/by-name/boot",
+    "is_slot_device": false,
+    "ramdisk_compression": "auto",
+    "patch_vbmeta_flag": "auto",
+    "boot_setup": "split_boot",
+    "boot_finalize": "flash_boot"
+  },
+  "kalama_tabs9": {
+    "kernel_string": "TabS9-Kokuban-Kernel",
+    "device_check": false,
+    "modules": false,
+    "systemless": true,
+    "cleanup": true,
+    "cleanup_on_abort": false,
+    "device_names": [
+      "",
+      "",
+      ""
     ],
     "supported_versions": "",
     "supported_patchlevels": "",

@@ -143,6 +143,53 @@
       "FIVE"
     ]
   },
+  "tabs9_sm8550": {
+    "repo": "YuzakiKokuban/android_kernel_samsung_sm8550_TabS9",
+    "defconfig": "defconfig",
+    "localversion_base": "-android13-Kokuban-Hutao-DZA1",
+    "lto": "thin",
+    "supported_ksu": [
+      "resukisu"
+    ],
+    "readme_placeholders": {
+      "DEVICE_NAME_CN": "三星 Galaxy Tab S9 系列",
+      "DEVICE_NAME_EN": "Samsung Galaxy Tab S9 Series"
+    },
+    "toolchain_urls": [
+      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8550_S23/releases/download/toolchain/toolchain_part_aa.tar.gz",
+      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8550_S23/releases/download/toolchain/toolchain_part_ab.tar.gz",
+      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8550_S23/releases/download/toolchain/toolchain_part_ac.tar.gz"
+    ],
+    "toolchain_path_prefix": "prebuilts",
+    "toolchain_path_exports": [
+      "build-tools/linux-x86/bin",
+      "build-tools/path/linux-x86",
+      "clang/host/linux-x86/clang-r450784e/bin"
+    ],
+    "anykernel_config": "kalama_tabs9",
+    "zip_name_prefix": "TabS9_kernel",
+    "susfs": {
+      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
+      "branch": "gki-android13-5.15",
+      "patch_path": "kernel_patches/50_add_susfs_in_gki-android13-5.15.patch",
+      "fs_patch_dir": "kernel_patches/fs",
+      "include_linux_patch_dir": "kernel_patches/include/linux"
+    },
+    "bbg": {
+      "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
+    },
+    "watch_upstream_variants": [
+      "resukisu"
+    ],
+    "disable_security": [
+      "UH",
+      "RKP",
+      "KDP",
+      "SECURITY_DEFEX",
+      "INTEGRITY",
+      "FIVE"
+    ]
+  },
   "s24_sm8650": {
     "repo": "YuzakiKokuban/android_kernel_samsung_sm8650",
     "defconfig": "defconfig",
@@ -191,8 +238,8 @@
   },
   "tabs10_mt6989": {
     "repo": "YuzakiKokuban/android_kernel_samsung_mt6989_TabS10",
-    "defconfig": "mt6989_defconfig",
-    "localversion_base": "-android14-Kokuban-Exusiai-CYI6",
+    "defconfig": "defconfig",
+    "localversion_base": "-android14-Kokuban-Exusiai-CZB5",
     "supported_ksu": [
       "resukisu"
     ],
