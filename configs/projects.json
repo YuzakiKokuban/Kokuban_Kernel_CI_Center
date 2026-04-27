@@ -276,7 +276,10 @@
     },
     "bbg": {
       "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
-    }
+    },
+    "watch_upstream_variants": [
+      "resukisu"
+    ]
   },
   "z6_sm8650": {
     "repo": "YuzakiKokuban/android_kernel_samsung_sm8650_Z6",
