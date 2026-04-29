@@ -44,5 +44,4 @@ jobs:
       apply_susfs: true
       apply_bbg: true
       apply_rekernel: true
-      apply_zram: true
     secrets: inherit

@@ -43,12 +43,6 @@
       "branch": "main",
       "patch_script": "Integrate/patches.sh"
     },
-    "zram": {
-      "repo": "https://github.com/zzh20188/GKI_KernelSU_SUSFS.git",
-      "branch": "dev",
-      "source_dir": "zram",
-      "apply_script": "apply_lz4_neon.sh"
-    },
     "disable_security": [
       "UH",
       "RKP",
@@ -107,12 +101,6 @@
       "repo": "https://github.com/Sakion-Team/Re-Kernel.git",
       "branch": "main",
       "patch_script": "Integrate/patches.sh"
-    },
-    "zram": {
-      "repo": "https://github.com/zzh20188/GKI_KernelSU_SUSFS.git",
-      "branch": "dev",
-      "source_dir": "zram",
-      "apply_script": "apply_lz4_neon.sh"
     }
   },
   "s23_sm8550": {
@@ -154,12 +142,6 @@
       "repo": "https://github.com/Sakion-Team/Re-Kernel.git",
       "branch": "main",
       "patch_script": "Integrate/patches.sh"
-    },
-    "zram": {
-      "repo": "https://github.com/zzh20188/GKI_KernelSU_SUSFS.git",
-      "branch": "dev",
-      "source_dir": "zram",
-      "apply_script": "apply_lz4_neon.sh"
     },
     "disable_security": [
       "UH",
@@ -210,12 +192,6 @@
       "branch": "main",
       "patch_script": "Integrate/patches.sh"
     },
-    "zram": {
-      "repo": "https://github.com/zzh20188/GKI_KernelSU_SUSFS.git",
-      "branch": "dev",
-      "source_dir": "zram",
-      "apply_script": "apply_lz4_neon.sh"
-    },
     "disable_security": [
       "UH",
       "RKP",
@@ -263,12 +239,6 @@
       "repo": "https://github.com/Sakion-Team/Re-Kernel.git",
       "branch": "main",
       "patch_script": "Integrate/patches.sh"
-    },
-    "zram": {
-      "repo": "https://github.com/zzh20188/GKI_KernelSU_SUSFS.git",
-      "branch": "dev",
-      "source_dir": "zram",
-      "apply_script": "apply_lz4_neon.sh"
     },
     "disable_security": [
       "UH",
@@ -324,12 +294,6 @@
       "repo": "https://github.com/Sakion-Team/Re-Kernel.git",
       "branch": "main",
       "patch_script": "Integrate/patches.sh"
-    },
-    "zram": {
-      "repo": "https://github.com/zzh20188/GKI_KernelSU_SUSFS.git",
-      "branch": "dev",
-      "source_dir": "zram",
-      "apply_script": "apply_lz4_neon.sh"
     }
   },
   "z6_sm8650": {
@@ -382,12 +346,6 @@
       "repo": "https://github.com/Sakion-Team/Re-Kernel.git",
       "branch": "main",
       "patch_script": "Integrate/patches.sh"
-    },
-    "zram": {
-      "repo": "https://github.com/zzh20188/GKI_KernelSU_SUSFS.git",
-      "branch": "dev",
-      "source_dir": "zram",
-      "apply_script": "apply_lz4_neon.sh"
     }
   },
   "mi17_sm8850": {
@@ -427,12 +385,6 @@
       "repo": "https://github.com/Sakion-Team/Re-Kernel.git",
       "branch": "main",
       "patch_script": "Integrate/patches.sh"
-    },
-    "zram": {
-      "repo": "https://github.com/zzh20188/GKI_KernelSU_SUSFS.git",
-      "branch": "dev",
-      "source_dir": "zram",
-      "apply_script": "apply_lz4_neon.sh"
     },
     "readme_placeholders": {
       "DEVICE_NAME_CN": "小米 17 系列",

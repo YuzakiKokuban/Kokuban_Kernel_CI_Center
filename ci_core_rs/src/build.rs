@@ -6,9 +6,7 @@ use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
-use crate::config::{
-    AnyKernelConfig, BbgConfig, ProjectConfig, RekernelConfig, SusfsConfig, ZramConfig,
-};
+use crate::config::{AnyKernelConfig, BbgConfig, ProjectConfig, RekernelConfig, SusfsConfig};
 use crate::utils::{
     cache_file_name, command_exists, env_flag, file_sha256, handle_notify, is_resukisu_variant,
     load_anykernel_config, load_project, run_cmd, run_cmd_with_env, set_github_output,
@@ -20,10 +18,6 @@ const ANYKERNEL_BRANCH: &str = "master";
 const REKERNEL_REPO: &str = "https://github.com/Sakion-Team/Re-Kernel.git";
 const REKERNEL_BRANCH: &str = "main";
 const REKERNEL_PATCH_SCRIPT: &str = "Integrate/patches.sh";
-const ZRAM_REPO: &str = "https://github.com/zzh20188/GKI_KernelSU_SUSFS.git";
-const ZRAM_BRANCH: &str = "dev";
-const ZRAM_SOURCE_DIR: &str = "zram";
-const ZRAM_APPLY_SCRIPT: &str = "apply_lz4_neon.sh";
 
 fn verify_toolchain_checksum(
     url: &str,
@@ -605,71 +599,6 @@ fn copy_dir_files(source: &Path, dest: &Path) -> Result<()> {
     Ok(())
 }
 
-fn copy_dir_recursive(source: &Path, dest: &Path) -> Result<()> {
-    if !source.is_dir() {
-        return Err(anyhow!("Source directory not found: {:?}", source));
-    }
-
-    fs::create_dir_all(dest)?;
-    for entry in fs::read_dir(source)? {
-        let entry = entry?;
-        let path = entry.path();
-        let file_name = path
-            .file_name()
-            .ok_or_else(|| anyhow!("Invalid file path: {:?}", path))?;
-        let target = dest.join(file_name);
-        if path.is_dir() {
-            copy_dir_recursive(&path, &target)?;
-        } else if path.is_file() {
-            fs::copy(&path, &target)?;
-        }
-    }
-
-    Ok(())
-}
-
-fn remove_path_if_exists(path: &Path) -> Result<()> {
-    if !path.exists() {
-        return Ok(());
-    }
-
-    if path.is_dir() && !path.is_symlink() {
-        fs::remove_dir_all(path)?;
-    } else {
-        fs::remove_file(path)?;
-    }
-    Ok(())
-}
-
-fn replace_dir_recursive(source: &Path, dest: &Path) -> Result<()> {
-    remove_path_if_exists(dest)?;
-    copy_dir_recursive(source, dest)
-}
-
-fn replace_dir_entries(source: &Path, dest: &Path) -> Result<()> {
-    if !source.is_dir() {
-        return Err(anyhow!("Source directory not found: {:?}", source));
-    }
-
-    fs::create_dir_all(dest)?;
-    for entry in fs::read_dir(source)? {
-        let entry = entry?;
-        let path = entry.path();
-        let file_name = path
-            .file_name()
-            .ok_or_else(|| anyhow!("Invalid file path: {:?}", path))?;
-        let target = dest.join(file_name);
-        remove_path_if_exists(&target)?;
-        if path.is_dir() {
-            copy_dir_recursive(&path, &target)?;
-        } else if path.is_file() {
-            fs::copy(&path, &target)?;
-        }
-    }
-
-    Ok(())
-}
-
 fn stage_patch_in_cwd(patch_file: &Path, cwd: &Path) -> Result<PathBuf> {
     let file_name = patch_file
         .file_name()
@@ -999,102 +928,6 @@ fn apply_rekernel_overlay(
     result
 }
 
-fn find_zram_source_root(kernel_source_path: &Path) -> Option<PathBuf> {
-    for candidate in [".", "common", "kernel_platform/common"] {
-        let root = kernel_source_path.join(candidate);
-        if root.join("lib").is_dir()
-            && root.join("include/linux").is_dir()
-            && (root.join("crypto").is_dir() || root.join("fs").is_dir())
-        {
-            return Some(root);
-        }
-    }
-
-    None
-}
-
-fn apply_zram_overlay(
-    kernel_source_path: &Path,
-    proj: &ProjectConfig,
-    zram: Option<&ZramConfig>,
-) -> Result<()> {
-    let temp_dir = kernel_source_path.join(".zram_workspace");
-    if temp_dir.exists() {
-        fs::remove_dir_all(&temp_dir)?;
-    }
-
-    let repo = zram
-        .and_then(|cfg| cfg.repo.as_deref())
-        .unwrap_or(ZRAM_REPO);
-    let branch = zram
-        .and_then(|cfg| cfg.branch.as_deref())
-        .unwrap_or(ZRAM_BRANCH);
-    let source_dir = zram
-        .and_then(|cfg| cfg.source_dir.as_deref())
-        .unwrap_or(ZRAM_SOURCE_DIR);
-    let apply_script = zram
-        .and_then(|cfg| cfg.apply_script.as_deref())
-        .unwrap_or(ZRAM_APPLY_SCRIPT);
-
-    let result = (|| {
-        run_cmd(
-            &[
-                "git",
-                "clone",
-                "--depth=1",
-                "--branch",
-                branch,
-                repo,
-                temp_dir
-                    .to_str()
-                    .ok_or_else(|| anyhow!("Invalid zram temp path"))?,
-            ],
-            None,
-            false,
-        )?;
-
-        let source_root = find_zram_source_root(kernel_source_path)
-            .ok_or_else(|| anyhow!("Could not locate kernel source root for zram"))?;
-        let overlay_root = temp_dir.join(source_dir);
-        if !overlay_root.is_dir() {
-            return Err(anyhow!(
-                "zram overlay directory not found: {:?}",
-                overlay_root
-            ));
-        }
-
-        replace_dir_recursive(&overlay_root.join("lz4"), &source_root.join("lib/lz4"))?;
-        replace_dir_entries(
-            &overlay_root.join("include/linux"),
-            &source_root.join("include/linux"),
-        )?;
-
-        let defconfig_path = source_root.join(format!("arch/arm64/configs/{}", proj.defconfig));
-        update_kconfig_file(&defconfig_path, &[("CONFIG_KERNEL_MODE_NEON", "y")])?;
-
-        let script_path = overlay_root.join(apply_script);
-        if !script_path.exists() {
-            return Err(anyhow!("zram apply script not found: {:?}", script_path));
-        }
-        let script_path = fs::canonicalize(&script_path)?;
-        run_cmd(
-            &[
-                "bash",
-                script_path
-                    .to_str()
-                    .ok_or_else(|| anyhow!("Invalid zram apply script path"))?,
-            ],
-            Some(&source_root),
-            false,
-        )?;
-
-        Ok(())
-    })();
-
-    let _ = fs::remove_dir_all(&temp_dir);
-    result
-}
-
 fn patch_setlocalversion_remove_dirty(kernel_source_path: &Path) -> Result<()> {
     let setlocalversion_path = kernel_source_path.join("scripts/setlocalversion");
     if setlocalversion_path.exists() {
@@ -1255,7 +1088,6 @@ pub fn handle_build(
     apply_susfs: bool,
     apply_bbg: bool,
     apply_rekernel: bool,
-    apply_zram: bool,
 ) -> Result<()> {
     let proj = load_project(&project_key)?;
 
@@ -1482,11 +1314,6 @@ pub fn handle_build(
     if apply_rekernel {
         apply_rekernel_overlay(&kernel_source_path, &proj, proj.rekernel.as_ref())?;
         feature_suffixes.push("rekernel".to_string());
-    }
-
-    if apply_zram {
-        apply_zram_overlay(&kernel_source_path, &proj, proj.zram.as_ref())?;
-        feature_suffixes.push("zram".to_string());
     }
 
     let kernel_version = capture_make_output(&kernel_source_path, "kernelversion", is_sm8850)?;

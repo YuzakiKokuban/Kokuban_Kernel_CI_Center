@@ -129,36 +129,12 @@ pub fn handle_features(project: Option<String>) -> Result<()> {
         } else {
             println!("rekernel=missing");
         }
-        if let Some(zram) = proj.zram {
-            println!("zram=enabled");
-            println!(
-                "zram_repo={}",
-                zram.repo.unwrap_or_else(
-                    || "https://github.com/zzh20188/GKI_KernelSU_SUSFS.git".to_string()
-                )
-            );
-            println!(
-                "zram_branch={}",
-                zram.branch.unwrap_or_else(|| "dev".to_string())
-            );
-            println!(
-                "zram_source_dir={}",
-                zram.source_dir.unwrap_or_else(|| "zram".to_string())
-            );
-            println!(
-                "zram_apply_script={}",
-                zram.apply_script
-                    .unwrap_or_else(|| "apply_lz4_neon.sh".to_string())
-            );
-        } else {
-            println!("zram=missing");
-        }
         return Ok(());
     }
 
     for (key, proj) in project_values()? {
         println!(
-            "{}\tsusfs={}\tbbg={}\trekernel={}\tzram={}",
+            "{}\tsusfs={}\tbbg={}\trekernel={}",
             key,
             if proj.susfs.is_some() {
                 "enabled"
@@ -171,11 +147,6 @@ pub fn handle_features(project: Option<String>) -> Result<()> {
                 "missing"
             },
             if proj.rekernel.is_some() {
-                "enabled"
-            } else {
-                "missing"
-            },
-            if proj.zram.is_some() {
                 "enabled"
             } else {
                 "missing"
@@ -231,9 +202,6 @@ pub fn handle_validate() -> Result<()> {
         }
         if proj.rekernel.is_none() {
             errors.push(format!("{key}: missing rekernel"));
-        }
-        if proj.zram.is_none() {
-            errors.push(format!("{key}: missing zram"));
         }
     }
 
@@ -334,7 +302,6 @@ pub fn handle_config_show() -> Result<()> {
     println!("apply_susfs={}", settings.apply_susfs);
     println!("apply_bbg={}", settings.apply_bbg);
     println!("apply_rekernel={}", settings.apply_rekernel);
-    println!("apply_zram={}", settings.apply_zram);
     println!(
         "local_root={}",
         settings

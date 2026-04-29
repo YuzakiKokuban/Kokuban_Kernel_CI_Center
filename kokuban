@@ -37,8 +37,6 @@ Common local options:
   --no-bbg              Disable Baseband Guard
   --with-rekernel       Enable Re-Kernel (default)
   --no-rekernel         Disable Re-Kernel
-  --with-zram           Enable zram LZ4 NEON support (default)
-  --no-zram             Disable zram LZ4 NEON support
 EOF
 }
 
@@ -128,19 +126,6 @@ normalize_local_args() {
         ;;
       --apply-rekernel|--apply-re-kernel)
         args+=(--apply-rekernel "$(bool_value "${2:?Missing value for --apply-rekernel}")")
-        shift
-        ;;
-      --with-zram|--zram)
-        args+=(--apply-zram true)
-        ;;
-      --no-zram)
-        args+=(--apply-zram false)
-        ;;
-      --zram=*|--apply-zram=*)
-        args+=(--apply-zram "$(bool_value "${1#*=}")")
-        ;;
-      --apply-zram)
-        args+=(--apply-zram "$(bool_value "${2:?Missing value for --apply-zram}")")
         shift
         ;;
       *)

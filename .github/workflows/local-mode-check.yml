@@ -34,7 +34,7 @@ jobs:
       - name: Kokuban validation
         run: |
           ./kokuban validate
-          ./kokuban plan s23_sm8550 main default --no-susfs --no-bbg --no-rekernel --no-zram
+          ./kokuban plan s23_sm8550 main default --no-susfs --no-bbg --no-rekernel
 
   docker-smoke:
     runs-on: ubuntu-latest
@@ -47,4 +47,4 @@ jobs:
       - name: Smoke test in container
         run: |
           docker run --rm -v "$PWD":/workspace kokuban-local ./kokuban validate
-          docker run --rm -v "$PWD":/workspace kokuban-local ./kokuban plan s23_sm8550 main default --no-susfs --no-bbg --no-rekernel --no-zram
+          docker run --rm -v "$PWD":/workspace kokuban-local ./kokuban plan s23_sm8550 main default --no-susfs --no-bbg --no-rekernel
