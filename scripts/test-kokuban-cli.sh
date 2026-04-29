@@ -20,18 +20,26 @@ trap 'rm -rf "$tmpdir"' EXIT
 
 export KOKUBAN_CONFIG="$tmpdir/config"
 
-output="$(KOKUBAN_CORE=/bin/echo "$KOKUBAN" build s25_sm8750 resukisu resukisu --no-bbg)"
+output="$(KOKUBAN_CORE=/bin/echo "$KOKUBAN" build s25_sm8750 resukisu resukisu --no-bbg --no-rekernel --no-zram)"
 assert_contains "$output" "local --project s25_sm8750 --branch resukisu --variant resukisu"
 assert_contains "$output" "--apply-bbg false"
+assert_contains "$output" "--apply-rekernel false"
+assert_contains "$output" "--apply-zram false"
 
-output="$(KOKUBAN_CORE=/bin/echo "$KOKUBAN" plan s23_sm8550 main default --no-susfs --no-bbg)"
+output="$(KOKUBAN_CORE=/bin/echo "$KOKUBAN" plan s23_sm8550 main default --no-susfs --no-bbg --no-rekernel --no-zram)"
 assert_contains "$output" "--dry-run"
 assert_contains "$output" "--apply-susfs false"
 assert_contains "$output" "--apply-bbg false"
+assert_contains "$output" "--apply-rekernel false"
+assert_contains "$output" "--apply-zram false"
 
 "$KOKUBAN" config set apply_susfs false >/dev/null
+"$KOKUBAN" config set apply_rekernel false >/dev/null
+"$KOKUBAN" config set apply_zram false >/dev/null
 output="$("$KOKUBAN" plan s23_sm8550)"
 assert_contains "$output" "apply_susfs: false"
+assert_contains "$output" "apply_rekernel: false"
+assert_contains "$output" "apply_zram: false"
 
 "$KOKUBAN" preset set daily s25_sm8750 resukisu resukisu --no-bbg >/dev/null
 output="$("$KOKUBAN" run daily --offline --dry-run)"

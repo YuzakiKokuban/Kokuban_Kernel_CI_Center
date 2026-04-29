@@ -112,7 +112,7 @@
     "boot_finalize": "flash_boot"
   },
   "mt6989": {
-    "kernel_string": "TabS10-KernelSU-AnyKernel3-Kokuban-Exusiai",
+    "kernel_string": "TabS10-Kokuban-Kernel",
     "device_check": false,
     "modules": false,
     "systemless": true,

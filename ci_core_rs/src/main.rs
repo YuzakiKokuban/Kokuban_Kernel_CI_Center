@@ -129,6 +129,10 @@ enum Commands {
         apply_susfs: bool,
         #[arg(long, action = clap::ArgAction::Set)]
         apply_bbg: bool,
+        #[arg(long, action = clap::ArgAction::Set)]
+        apply_rekernel: bool,
+        #[arg(long, action = clap::ArgAction::Set)]
+        apply_zram: bool,
     },
     Local {
         #[arg(long)]
@@ -155,6 +159,18 @@ enum Commands {
         with_bbg: bool,
         #[arg(long, action = clap::ArgAction::SetTrue)]
         no_bbg: bool,
+        #[arg(long, action = clap::ArgAction::Set)]
+        apply_rekernel: Option<bool>,
+        #[arg(long, action = clap::ArgAction::SetTrue)]
+        with_rekernel: bool,
+        #[arg(long, action = clap::ArgAction::SetTrue)]
+        no_rekernel: bool,
+        #[arg(long, action = clap::ArgAction::Set)]
+        apply_zram: Option<bool>,
+        #[arg(long, action = clap::ArgAction::SetTrue)]
+        with_zram: bool,
+        #[arg(long, action = clap::ArgAction::SetTrue)]
+        no_zram: bool,
         #[arg(long)]
         local_root: Option<PathBuf>,
         #[arg(long, action = clap::ArgAction::SetTrue)]
@@ -323,6 +339,8 @@ fn main() -> Result<()> {
             resukisu_setup_arg,
             apply_susfs,
             apply_bbg,
+            apply_rekernel,
+            apply_zram,
         } => build::handle_build(
             project,
             branch,
@@ -331,6 +349,8 @@ fn main() -> Result<()> {
             resukisu_setup_arg,
             apply_susfs,
             apply_bbg,
+            apply_rekernel,
+            apply_zram,
         ),
         Commands::Local {
             project,
@@ -345,6 +365,12 @@ fn main() -> Result<()> {
             apply_bbg,
             with_bbg,
             no_bbg,
+            apply_rekernel,
+            with_rekernel,
+            no_rekernel,
+            apply_zram,
+            with_zram,
+            no_zram,
             local_root,
             offline,
             no_fetch,
@@ -367,6 +393,20 @@ fn main() -> Result<()> {
             } else {
                 apply_bbg.unwrap_or(settings.apply_bbg)
             };
+            let resolved_rekernel = if no_rekernel {
+                false
+            } else if with_rekernel {
+                true
+            } else {
+                apply_rekernel.unwrap_or(settings.apply_rekernel)
+            };
+            let resolved_zram = if no_zram {
+                false
+            } else if with_zram {
+                true
+            } else {
+                apply_zram.unwrap_or(settings.apply_zram)
+            };
             local::handle_local_build(LocalBuildOptions {
                 project,
                 branch,
@@ -376,6 +416,8 @@ fn main() -> Result<()> {
                 resukisu_setup_arg,
                 apply_susfs: resolved_susfs,
                 apply_bbg: resolved_bbg,
+                apply_rekernel: resolved_rekernel,
+                apply_zram: resolved_zram,
                 local_root: local_root.or(settings.local_root),
                 offline,
                 no_fetch,
@@ -502,6 +544,8 @@ fn handle_add(
         readme_placeholders: Some(placeholders),
         susfs: None,
         bbg: None,
+        rekernel: None,
+        zram: None,
         watch_upstream_variants: None,
     };
 
@@ -799,7 +843,11 @@ fn handle_watch() -> Result<()> {
                     continue;
                 }
                 let p: ProjectConfig = serde_json::from_value(p_val.clone())?;
-                let supported = p.watch_upstream_variants.clone().unwrap_or_default();
+                let supported = p
+                    .supported_ksu
+                    .clone()
+                    .or_else(|| p.watch_upstream_variants.clone())
+                    .unwrap_or_default();
                 let normalized_supported: Vec<String> = supported
                     .into_iter()
                     .map(|x| normalize_variant_name(&x))

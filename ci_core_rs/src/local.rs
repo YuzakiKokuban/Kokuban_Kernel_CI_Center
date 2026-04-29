@@ -44,6 +44,8 @@ struct BuildInfo {
     kernel_commit: Option<String>,
     apply_susfs: bool,
     apply_bbg: bool,
+    apply_rekernel: bool,
+    apply_zram: bool,
     local_root: String,
     workspace: String,
     kernel_source: String,
@@ -68,6 +70,8 @@ pub struct LocalBuildOptions {
     pub resukisu_setup_arg: Option<String>,
     pub apply_susfs: bool,
     pub apply_bbg: bool,
+    pub apply_rekernel: bool,
+    pub apply_zram: bool,
     pub local_root: Option<PathBuf>,
     pub offline: bool,
     pub no_fetch: bool,
@@ -415,6 +419,10 @@ fn run_build_command(
         .arg(options.apply_susfs.to_string())
         .arg("--apply-bbg")
         .arg(options.apply_bbg.to_string())
+        .arg("--apply-rekernel")
+        .arg(options.apply_rekernel.to_string())
+        .arg("--apply-zram")
+        .arg(options.apply_zram.to_string())
         .current_dir(run_dir)
         .env("CI_CENTRAL_ROOT", central_root)
         .env("KOKUBAN_REUSE_TOOLCHAINS", "1")
@@ -704,6 +712,8 @@ fn print_plan(
     println!("  release: {}", options.do_release);
     println!("  apply_susfs: {}", options.apply_susfs);
     println!("  apply_bbg: {}", options.apply_bbg);
+    println!("  apply_rekernel: {}", options.apply_rekernel);
+    println!("  apply_zram: {}", options.apply_zram);
     println!("  offline: {}", options.offline);
     println!("  no_fetch: {}", options.no_fetch);
     println!("  clean: {}", options.clean);
@@ -829,6 +839,8 @@ pub fn handle_local_build(options: LocalBuildOptions) -> Result<()> {
         kernel_commit,
         apply_susfs: options.apply_susfs,
         apply_bbg: options.apply_bbg,
+        apply_rekernel: options.apply_rekernel,
+        apply_zram: options.apply_zram,
         local_root: local_root.display().to_string(),
         workspace: run_dir.display().to_string(),
         kernel_source: source_dir.display().to_string(),

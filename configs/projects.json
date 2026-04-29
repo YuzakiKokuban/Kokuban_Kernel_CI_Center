@@ -6,8 +6,8 @@
   },
   "z5_sm8550": {
     "repo": "YuzakiKokuban/android_kernel_samsung_sm8550_Z5",
-    "defconfig": "kalama_gki_defconfig",
-    "localversion_base": "-android13-Kokuban-Mei-FYIA",
+    "defconfig": "defconfig",
+    "localversion_base": "-android13-Kokuban-Mei-FZB2",
     "lto": "thin",
     "supported_ksu": [
       "resukisu"
@@ -37,6 +37,17 @@
     },
     "bbg": {
       "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
+    },
+    "rekernel": {
+      "repo": "https://github.com/Sakion-Team/Re-Kernel.git",
+      "branch": "main",
+      "patch_script": "Integrate/patches.sh"
+    },
+    "zram": {
+      "repo": "https://github.com/zzh20188/GKI_KernelSU_SUSFS.git",
+      "branch": "dev",
+      "source_dir": "zram",
+      "apply_script": "apply_lz4_neon.sh"
     },
     "disable_security": [
       "UH",
@@ -92,9 +103,17 @@
     "bbg": {
       "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
     },
-    "watch_upstream_variants": [
-      "resukisu"
-    ]
+    "rekernel": {
+      "repo": "https://github.com/Sakion-Team/Re-Kernel.git",
+      "branch": "main",
+      "patch_script": "Integrate/patches.sh"
+    },
+    "zram": {
+      "repo": "https://github.com/zzh20188/GKI_KernelSU_SUSFS.git",
+      "branch": "dev",
+      "source_dir": "zram",
+      "apply_script": "apply_lz4_neon.sh"
+    }
   },
   "s23_sm8550": {
     "repo": "YuzakiKokuban/android_kernel_samsung_sm8550_S23",
@@ -131,9 +150,17 @@
     "bbg": {
       "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
     },
-    "watch_upstream_variants": [
-      "resukisu"
-    ],
+    "rekernel": {
+      "repo": "https://github.com/Sakion-Team/Re-Kernel.git",
+      "branch": "main",
+      "patch_script": "Integrate/patches.sh"
+    },
+    "zram": {
+      "repo": "https://github.com/zzh20188/GKI_KernelSU_SUSFS.git",
+      "branch": "dev",
+      "source_dir": "zram",
+      "apply_script": "apply_lz4_neon.sh"
+    },
     "disable_security": [
       "UH",
       "RKP",
@@ -178,9 +205,17 @@
     "bbg": {
       "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
     },
-    "watch_upstream_variants": [
-      "resukisu"
-    ],
+    "rekernel": {
+      "repo": "https://github.com/Sakion-Team/Re-Kernel.git",
+      "branch": "main",
+      "patch_script": "Integrate/patches.sh"
+    },
+    "zram": {
+      "repo": "https://github.com/zzh20188/GKI_KernelSU_SUSFS.git",
+      "branch": "dev",
+      "source_dir": "zram",
+      "apply_script": "apply_lz4_neon.sh"
+    },
     "disable_security": [
       "UH",
       "RKP",
@@ -224,9 +259,17 @@
     "bbg": {
       "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
     },
-    "watch_upstream_variants": [
-      "resukisu"
-    ],
+    "rekernel": {
+      "repo": "https://github.com/Sakion-Team/Re-Kernel.git",
+      "branch": "main",
+      "patch_script": "Integrate/patches.sh"
+    },
+    "zram": {
+      "repo": "https://github.com/zzh20188/GKI_KernelSU_SUSFS.git",
+      "branch": "dev",
+      "source_dir": "zram",
+      "apply_script": "apply_lz4_neon.sh"
+    },
     "disable_security": [
       "UH",
       "RKP",
@@ -277,13 +320,21 @@
     "bbg": {
       "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
     },
-    "watch_upstream_variants": [
-      "resukisu"
-    ]
+    "rekernel": {
+      "repo": "https://github.com/Sakion-Team/Re-Kernel.git",
+      "branch": "main",
+      "patch_script": "Integrate/patches.sh"
+    },
+    "zram": {
+      "repo": "https://github.com/zzh20188/GKI_KernelSU_SUSFS.git",
+      "branch": "dev",
+      "source_dir": "zram",
+      "apply_script": "apply_lz4_neon.sh"
+    }
   },
   "z6_sm8650": {
     "repo": "YuzakiKokuban/android_kernel_samsung_sm8650_Z6",
-    "defconfig": "pineapple_gki_defconfig",
+    "defconfig": "defconfig",
     "localversion_base": "-android14-Kokuban-Cyrene-CYI7",
     "lto": "",
     "supported_ksu": [
@@ -326,6 +377,17 @@
     },
     "bbg": {
       "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
+    },
+    "rekernel": {
+      "repo": "https://github.com/Sakion-Team/Re-Kernel.git",
+      "branch": "main",
+      "patch_script": "Integrate/patches.sh"
+    },
+    "zram": {
+      "repo": "https://github.com/zzh20188/GKI_KernelSU_SUSFS.git",
+      "branch": "dev",
+      "source_dir": "zram",
+      "apply_script": "apply_lz4_neon.sh"
     }
   },
   "mi17_sm8850": {
@@ -361,9 +423,17 @@
     "bbg": {
       "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
     },
-    "watch_upstream_variants": [
-      "resukisu"
-    ],
+    "rekernel": {
+      "repo": "https://github.com/Sakion-Team/Re-Kernel.git",
+      "branch": "main",
+      "patch_script": "Integrate/patches.sh"
+    },
+    "zram": {
+      "repo": "https://github.com/zzh20188/GKI_KernelSU_SUSFS.git",
+      "branch": "dev",
+      "source_dir": "zram",
+      "apply_script": "apply_lz4_neon.sh"
+    },
     "readme_placeholders": {
       "DEVICE_NAME_CN": "小米 17 系列",
       "DEVICE_NAME_EN": "Xiaomi 17 Series"

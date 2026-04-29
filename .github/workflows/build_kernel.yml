@@ -49,6 +49,14 @@ on:
         description: 'Apply Baseband Guard dynamically during build'
         type: boolean
         default: true
+      apply_rekernel:
+        description: 'Apply Re-Kernel dynamically during build'
+        type: boolean
+        default: true
+      apply_zram:
+        description: 'Apply zram LZ4 NEON support dynamically during build'
+        type: boolean
+        default: true
   repository_dispatch:
     types: [build-kernel]
   workflow_call:
@@ -77,6 +85,12 @@ on:
       apply_bbg:
         type: boolean
         default: true
+      apply_rekernel:
+        type: boolean
+        default: true
+      apply_zram:
+        type: boolean
+        default: true
 
 jobs:
   build:
@@ -99,11 +113,19 @@ jobs:
             resukisu_setup_arg=""
             apply_susfs="${{ github.event.client_payload.apply_susfs }}"
             apply_bbg="${{ github.event.client_payload.apply_bbg }}"
+            apply_rekernel="${{ github.event.client_payload.apply_rekernel }}"
+            apply_zram="${{ github.event.client_payload.apply_zram }}"
             if [ -z "$apply_susfs" ]; then
               apply_susfs="true"
             fi
             if [ -z "$apply_bbg" ]; then
               apply_bbg="true"
+            fi
+            if [ -z "$apply_rekernel" ]; then
+              apply_rekernel="true"
+            fi
+            if [ -z "$apply_zram" ]; then
+              apply_zram="true"
             fi
           else
             project="${{ inputs.project }}"
@@ -114,6 +136,8 @@ jobs:
             resukisu_setup_arg="${{ inputs.resukisu_setup_arg }}"
             apply_susfs="${{ inputs.apply_susfs }}"
             apply_bbg="${{ inputs.apply_bbg }}"
+            apply_rekernel="${{ inputs.apply_rekernel }}"
+            apply_zram="${{ inputs.apply_zram }}"
           fi
 
           if [ "$variant" = "default" ] || [ -z "$variant" ]; then
@@ -135,6 +159,8 @@ jobs:
             echo "RESUKISU_SETUP_ARG=$resukisu_setup_arg"
             echo "APPLY_SUSFS=$apply_susfs"
             echo "APPLY_BBG=$apply_bbg"
+            echo "APPLY_REKERNEL=$apply_rekernel"
+            echo "APPLY_ZRAM=$apply_zram"
             echo "ARTIFACT_NAME=$artifact_name"
           } >> "$GITHUB_ENV"
 
@@ -184,6 +210,8 @@ jobs:
           fi
           ARGS+=("--apply-susfs" "${{ env.APPLY_SUSFS }}")
           ARGS+=("--apply-bbg" "${{ env.APPLY_BBG }}")
+          ARGS+=("--apply-rekernel" "${{ env.APPLY_REKERNEL }}")
+          ARGS+=("--apply-zram" "${{ env.APPLY_ZRAM }}")
           ./kokuban_ci_core build "${ARGS[@]}"
 
       - name: Collect Build Artifacts

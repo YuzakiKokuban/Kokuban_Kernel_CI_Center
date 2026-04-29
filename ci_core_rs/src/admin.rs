@@ -108,12 +108,57 @@ pub fn handle_features(project: Option<String>) -> Result<()> {
         } else {
             println!("bbg=missing");
         }
+        if let Some(rekernel) = proj.rekernel {
+            println!("rekernel=enabled");
+            println!(
+                "rekernel_repo={}",
+                rekernel
+                    .repo
+                    .unwrap_or_else(|| "https://github.com/Sakion-Team/Re-Kernel.git".to_string())
+            );
+            println!(
+                "rekernel_branch={}",
+                rekernel.branch.unwrap_or_else(|| "main".to_string())
+            );
+            println!(
+                "rekernel_patch_script={}",
+                rekernel
+                    .patch_script
+                    .unwrap_or_else(|| "Integrate/patches.sh".to_string())
+            );
+        } else {
+            println!("rekernel=missing");
+        }
+        if let Some(zram) = proj.zram {
+            println!("zram=enabled");
+            println!(
+                "zram_repo={}",
+                zram.repo.unwrap_or_else(
+                    || "https://github.com/zzh20188/GKI_KernelSU_SUSFS.git".to_string()
+                )
+            );
+            println!(
+                "zram_branch={}",
+                zram.branch.unwrap_or_else(|| "dev".to_string())
+            );
+            println!(
+                "zram_source_dir={}",
+                zram.source_dir.unwrap_or_else(|| "zram".to_string())
+            );
+            println!(
+                "zram_apply_script={}",
+                zram.apply_script
+                    .unwrap_or_else(|| "apply_lz4_neon.sh".to_string())
+            );
+        } else {
+            println!("zram=missing");
+        }
         return Ok(());
     }
 
     for (key, proj) in project_values()? {
         println!(
-            "{}\tsusfs={}\tbbg={}",
+            "{}\tsusfs={}\tbbg={}\trekernel={}\tzram={}",
             key,
             if proj.susfs.is_some() {
                 "enabled"
@@ -121,6 +166,16 @@ pub fn handle_features(project: Option<String>) -> Result<()> {
                 "missing"
             },
             if proj.bbg.is_some() {
+                "enabled"
+            } else {
+                "missing"
+            },
+            if proj.rekernel.is_some() {
+                "enabled"
+            } else {
+                "missing"
+            },
+            if proj.zram.is_some() {
                 "enabled"
             } else {
                 "missing"
@@ -173,6 +228,12 @@ pub fn handle_validate() -> Result<()> {
         }
         if proj.bbg.is_none() {
             errors.push(format!("{key}: missing bbg"));
+        }
+        if proj.rekernel.is_none() {
+            errors.push(format!("{key}: missing rekernel"));
+        }
+        if proj.zram.is_none() {
+            errors.push(format!("{key}: missing zram"));
         }
     }
 
@@ -272,6 +333,8 @@ pub fn handle_config_show() -> Result<()> {
     println!("config_file={}", settings::config_file()?.display());
     println!("apply_susfs={}", settings.apply_susfs);
     println!("apply_bbg={}", settings.apply_bbg);
+    println!("apply_rekernel={}", settings.apply_rekernel);
+    println!("apply_zram={}", settings.apply_zram);
     println!(
         "local_root={}",
         settings
