@@ -980,6 +980,7 @@ fn apply_rekernel_overlay(
             )?;
         }
 
+        let script_path = fs::canonicalize(&script_path)?;
         run_cmd(
             &[
                 "bash",
@@ -1075,6 +1076,7 @@ fn apply_zram_overlay(
         if !script_path.exists() {
             return Err(anyhow!("zram apply script not found: {:?}", script_path));
         }
+        let script_path = fs::canonicalize(&script_path)?;
         run_cmd(
             &[
                 "bash",
