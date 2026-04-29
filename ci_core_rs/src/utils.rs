@@ -313,10 +313,10 @@ pub fn handle_notify(tag_name: String) -> Result<()> {
     if let Some(chan) = globals.broadcast_channel {
         destinations.push((chan, None));
     }
-    if tag_name.contains("ReSuki") {
-        if let Some(chat) = globals.resukisu_chat_id {
-            destinations.push((chat, globals.resukisu_topic_id));
-        }
+    if tag_name.contains("ReSuki")
+        && let Some(chat) = globals.resukisu_chat_id
+    {
+        destinations.push((chat, globals.resukisu_topic_id));
     }
 
     if destinations.is_empty() {

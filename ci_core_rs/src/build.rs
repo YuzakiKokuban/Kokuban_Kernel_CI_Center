@@ -6,7 +6,7 @@ use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
-use crate::config::{AnyKernelConfig, BbgConfig, ProjectConfig, RekernelConfig, SusfsConfig};
+use crate::config::{AnyKernelConfig, BbgConfig, ProjectConfig, SusfsConfig};
 use crate::utils::{
     cache_file_name, command_exists, env_flag, file_sha256, handle_notify, is_resukisu_variant,
     load_anykernel_config, load_project, run_cmd, run_cmd_with_env, set_github_output,
@@ -15,9 +15,6 @@ use crate::utils::{
 
 const ANYKERNEL_REPO: &str = "https://github.com/YuzakiKokuban/AnyKernel3.git";
 const ANYKERNEL_BRANCH: &str = "master";
-const REKERNEL_REPO: &str = "https://github.com/Sakion-Team/Re-Kernel.git";
-const REKERNEL_BRANCH: &str = "main";
-const REKERNEL_PATCH_SCRIPT: &str = "Integrate/patches.sh";
 
 fn verify_toolchain_checksum(
     url: &str,
@@ -835,99 +832,6 @@ fn apply_bbg_overlay(
     Ok(())
 }
 
-fn find_rekernel_source_root(kernel_source_path: &Path, proj: &ProjectConfig) -> Option<PathBuf> {
-    for candidate in [".", "common", "kernel_platform/common"] {
-        let root = kernel_source_path.join(candidate);
-        if root
-            .join(format!("arch/arm64/configs/{}", proj.defconfig))
-            .exists()
-            && root.join("drivers/Kconfig").exists()
-            && root.join("drivers/Makefile").exists()
-            && root.join("drivers/android/binder.c").exists()
-            && root.join("kernel/signal.c").exists()
-        {
-            return Some(root);
-        }
-    }
-
-    None
-}
-
-fn apply_rekernel_overlay(
-    kernel_source_path: &Path,
-    proj: &ProjectConfig,
-    rekernel: Option<&RekernelConfig>,
-) -> Result<()> {
-    let temp_dir = kernel_source_path.join(".rekernel_workspace");
-    if temp_dir.exists() {
-        fs::remove_dir_all(&temp_dir)?;
-    }
-
-    let repo = rekernel
-        .and_then(|cfg| cfg.repo.as_deref())
-        .unwrap_or(REKERNEL_REPO);
-    let branch = rekernel
-        .and_then(|cfg| cfg.branch.as_deref())
-        .unwrap_or(REKERNEL_BRANCH);
-    let patch_script = rekernel
-        .and_then(|cfg| cfg.patch_script.as_deref())
-        .unwrap_or(REKERNEL_PATCH_SCRIPT);
-
-    let result = (|| {
-        run_cmd(
-            &[
-                "git",
-                "clone",
-                "--depth=1",
-                "--branch",
-                branch,
-                repo,
-                temp_dir
-                    .to_str()
-                    .ok_or_else(|| anyhow!("Invalid Re-Kernel temp path"))?,
-            ],
-            None,
-            false,
-        )?;
-
-        let source_root = find_rekernel_source_root(kernel_source_path, proj)
-            .ok_or_else(|| anyhow!("Could not locate kernel source root for Re-Kernel"))?;
-        let script_path = temp_dir.join(patch_script);
-        if !script_path.exists() {
-            return Err(anyhow!(
-                "Re-Kernel patch script not found: {:?}",
-                script_path
-            ));
-        }
-
-        let defconfig_path = format!("arch/arm64/configs/{}", proj.defconfig);
-        if defconfig_path != "arch/arm64/configs/defconfig" {
-            let script_content = fs::read_to_string(&script_path)?;
-            fs::write(
-                &script_path,
-                script_content.replace("arch/arm64/configs/defconfig", &defconfig_path),
-            )?;
-        }
-
-        let script_path = fs::canonicalize(&script_path)?;
-        run_cmd(
-            &[
-                "bash",
-                script_path
-                    .to_str()
-                    .ok_or_else(|| anyhow!("Invalid Re-Kernel script path"))?,
-            ],
-            Some(&source_root),
-            false,
-        )?;
-
-        Ok(())
-    })();
-
-    let _ = fs::remove_dir_all(&temp_dir);
-    result
-}
-
 fn patch_setlocalversion_remove_dirty(kernel_source_path: &Path) -> Result<()> {
     let setlocalversion_path = kernel_source_path.join("scripts/setlocalversion");
     if setlocalversion_path.exists() {
@@ -1087,7 +991,6 @@ pub fn handle_build(
     resukisu_setup_arg: Option<String>,
     apply_susfs: bool,
     apply_bbg: bool,
-    apply_rekernel: bool,
 ) -> Result<()> {
     let proj = load_project(&project_key)?;
 
@@ -1209,15 +1112,15 @@ pub fn handle_build(
 
     let mut kcflags = "-O2 -pipe -Wno-error -D__ANDROID_COMMON_KERNEL__".to_string();
     if is_sm8850 {
-        if let Ok(common_real_path) = fs::canonicalize(&kernel_source_path) {
-            if let Some(root_real_path) = common_real_path.parent() {
-                kcflags = format!(
-                    "-O2 -pipe -Wno-error -fno-stack-protector -no-canonical-prefixes -D__ANDROID_COMMON_KERNEL__ -fdebug-prefix-map={}=. -fmacro-prefix-map={}=. -ffile-prefix-map={}=.",
-                    root_real_path.display(),
-                    root_real_path.display(),
-                    root_real_path.display()
-                );
-            }
+        if let Ok(common_real_path) = fs::canonicalize(&kernel_source_path)
+            && let Some(root_real_path) = common_real_path.parent()
+        {
+            kcflags = format!(
+                "-O2 -pipe -Wno-error -fno-stack-protector -no-canonical-prefixes -D__ANDROID_COMMON_KERNEL__ -fdebug-prefix-map={}=. -fmacro-prefix-map={}=. -ffile-prefix-map={}=.",
+                root_real_path.display(),
+                root_real_path.display(),
+                root_real_path.display()
+            );
         }
         let libclang_path = toolchain_base.join("lib");
         build_env.insert(
@@ -1309,11 +1212,6 @@ pub fn handle_build(
     if apply_bbg {
         apply_bbg_overlay(&kernel_source_path, &proj, proj.bbg.as_ref())?;
         feature_suffixes.push("bbg".to_string());
-    }
-
-    if apply_rekernel {
-        apply_rekernel_overlay(&kernel_source_path, &proj, proj.rekernel.as_ref())?;
-        feature_suffixes.push("rekernel".to_string());
     }
 
     let kernel_version = capture_make_output(&kernel_source_path, "kernelversion", is_sm8850)?;

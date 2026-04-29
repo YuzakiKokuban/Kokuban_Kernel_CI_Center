@@ -35,8 +35,6 @@ Common local options:
   --no-susfs            Disable SuSFS
   --with-bbg            Enable Baseband Guard (default)
   --no-bbg              Disable Baseband Guard
-  --with-rekernel       Enable Re-Kernel (default)
-  --no-rekernel         Disable Re-Kernel
 EOF
 }
 
@@ -113,19 +111,6 @@ normalize_local_args() {
         ;;
       --apply-bbg)
         args+=(--apply-bbg "$(bool_value "${2:?Missing value for --apply-bbg}")")
-        shift
-        ;;
-      --with-rekernel|--with-re-kernel|--rekernel|--re-kernel)
-        args+=(--apply-rekernel true)
-        ;;
-      --no-rekernel|--no-re-kernel)
-        args+=(--apply-rekernel false)
-        ;;
-      --rekernel=*|--re-kernel=*|--apply-rekernel=*|--apply-re-kernel=*)
-        args+=(--apply-rekernel "$(bool_value "${1#*=}")")
-        ;;
-      --apply-rekernel|--apply-re-kernel)
-        args+=(--apply-rekernel "$(bool_value "${2:?Missing value for --apply-rekernel}")")
         shift
         ;;
       *)

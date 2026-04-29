@@ -108,33 +108,12 @@ pub fn handle_features(project: Option<String>) -> Result<()> {
         } else {
             println!("bbg=missing");
         }
-        if let Some(rekernel) = proj.rekernel {
-            println!("rekernel=enabled");
-            println!(
-                "rekernel_repo={}",
-                rekernel
-                    .repo
-                    .unwrap_or_else(|| "https://github.com/Sakion-Team/Re-Kernel.git".to_string())
-            );
-            println!(
-                "rekernel_branch={}",
-                rekernel.branch.unwrap_or_else(|| "main".to_string())
-            );
-            println!(
-                "rekernel_patch_script={}",
-                rekernel
-                    .patch_script
-                    .unwrap_or_else(|| "Integrate/patches.sh".to_string())
-            );
-        } else {
-            println!("rekernel=missing");
-        }
         return Ok(());
     }
 
     for (key, proj) in project_values()? {
         println!(
-            "{}\tsusfs={}\tbbg={}\trekernel={}",
+            "{}\tsusfs={}\tbbg={}",
             key,
             if proj.susfs.is_some() {
                 "enabled"
@@ -142,11 +121,6 @@ pub fn handle_features(project: Option<String>) -> Result<()> {
                 "missing"
             },
             if proj.bbg.is_some() {
-                "enabled"
-            } else {
-                "missing"
-            },
-            if proj.rekernel.is_some() {
                 "enabled"
             } else {
                 "missing"
@@ -199,9 +173,6 @@ pub fn handle_validate() -> Result<()> {
         }
         if proj.bbg.is_none() {
             errors.push(format!("{key}: missing bbg"));
-        }
-        if proj.rekernel.is_none() {
-            errors.push(format!("{key}: missing rekernel"));
         }
     }
 
@@ -301,7 +272,6 @@ pub fn handle_config_show() -> Result<()> {
     println!("config_file={}", settings::config_file()?.display());
     println!("apply_susfs={}", settings.apply_susfs);
     println!("apply_bbg={}", settings.apply_bbg);
-    println!("apply_rekernel={}", settings.apply_rekernel);
     println!(
         "local_root={}",
         settings
@@ -331,10 +301,10 @@ pub fn handle_preset_list() -> Result<()> {
     let mut names = Vec::new();
     for entry in fs::read_dir(dir)? {
         let entry = entry?;
-        if entry.path().extension().and_then(|ext| ext.to_str()) == Some("json") {
-            if let Some(stem) = entry.path().file_stem().and_then(|stem| stem.to_str()) {
-                names.push(stem.to_string());
-            }
+        if entry.path().extension().and_then(|ext| ext.to_str()) == Some("json")
+            && let Some(stem) = entry.path().file_stem().and_then(|stem| stem.to_str())
+        {
+            names.push(stem.to_string());
         }
     }
     names.sort();

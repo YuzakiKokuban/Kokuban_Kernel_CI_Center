@@ -7,7 +7,7 @@ mod utils;
 
 use anyhow::Result;
 use chrono::Local;
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 use config::{KSU_CONFIG_JSON, KsuConfigItem, ProjectConfig};
 use local::LocalBuildOptions;
 use std::collections::HashMap;
@@ -24,6 +24,28 @@ use crate::utils::*;
 struct Cli {
     #[command(subcommand)]
     command: Commands,
+}
+
+#[derive(Args)]
+struct AddOptions {
+    #[arg(long)]
+    key: String,
+    #[arg(long)]
+    repo: String,
+    #[arg(long)]
+    defconfig: String,
+    #[arg(long)]
+    localversion: String,
+    #[arg(long, default_value = "未知设备")]
+    device_cn: String,
+    #[arg(long, default_value = "Unknown Device")]
+    device_en: String,
+    #[arg(long)]
+    ak3_config: Option<String>,
+    #[arg(long, default_value = "Kernel")]
+    zip_name: String,
+    #[arg(long, default_value = "")]
+    toolchain_prefix: String,
 }
 
 #[derive(Subcommand)]
@@ -71,26 +93,8 @@ enum Commands {
         #[arg(long)]
         token: Option<String>,
     },
-    Add {
-        #[arg(long)]
-        key: String,
-        #[arg(long)]
-        repo: String,
-        #[arg(long)]
-        defconfig: String,
-        #[arg(long)]
-        localversion: String,
-        #[arg(long, default_value = "未知设备")]
-        device_cn: String,
-        #[arg(long, default_value = "Unknown Device")]
-        device_en: String,
-        #[arg(long)]
-        ak3_config: Option<String>,
-        #[arg(long, default_value = "Kernel")]
-        zip_name: String,
-        #[arg(long, default_value = "")]
-        toolchain_prefix: String,
-    },
+    MatrixAll,
+    Add(AddOptions),
     Setup {
         #[arg(long)]
         token: Option<String>,
@@ -129,8 +133,6 @@ enum Commands {
         apply_susfs: bool,
         #[arg(long, action = clap::ArgAction::Set)]
         apply_bbg: bool,
-        #[arg(long, action = clap::ArgAction::Set)]
-        apply_rekernel: bool,
     },
     Local {
         #[arg(long)]
@@ -157,12 +159,6 @@ enum Commands {
         with_bbg: bool,
         #[arg(long, action = clap::ArgAction::SetTrue)]
         no_bbg: bool,
-        #[arg(long, action = clap::ArgAction::Set)]
-        apply_rekernel: Option<bool>,
-        #[arg(long, action = clap::ArgAction::SetTrue)]
-        with_rekernel: bool,
-        #[arg(long, action = clap::ArgAction::SetTrue)]
-        no_rekernel: bool,
         #[arg(long)]
         local_root: Option<PathBuf>,
         #[arg(long, action = clap::ArgAction::SetTrue)]
@@ -289,27 +285,8 @@ fn main() -> Result<()> {
         Commands::Parse { project } => handle_parse(&project),
         Commands::Meta { project, branch } => handle_meta(&project, &branch),
         Commands::Matrix { project, token } => handle_matrix(&project, token),
-        Commands::Add {
-            key,
-            repo,
-            defconfig,
-            localversion,
-            device_cn,
-            device_en,
-            ak3_config,
-            zip_name,
-            toolchain_prefix,
-        } => handle_add(
-            key,
-            repo,
-            defconfig,
-            localversion,
-            device_cn,
-            device_en,
-            ak3_config,
-            zip_name,
-            toolchain_prefix,
-        ),
+        Commands::MatrixAll => handle_matrix_all(),
+        Commands::Add(options) => handle_add(options),
         Commands::Setup {
             token,
             commit_message,
@@ -331,7 +308,6 @@ fn main() -> Result<()> {
             resukisu_setup_arg,
             apply_susfs,
             apply_bbg,
-            apply_rekernel,
         } => build::handle_build(
             project,
             branch,
@@ -340,7 +316,6 @@ fn main() -> Result<()> {
             resukisu_setup_arg,
             apply_susfs,
             apply_bbg,
-            apply_rekernel,
         ),
         Commands::Local {
             project,
@@ -355,9 +330,6 @@ fn main() -> Result<()> {
             apply_bbg,
             with_bbg,
             no_bbg,
-            apply_rekernel,
-            with_rekernel,
-            no_rekernel,
             local_root,
             offline,
             no_fetch,
@@ -380,13 +352,6 @@ fn main() -> Result<()> {
             } else {
                 apply_bbg.unwrap_or(settings.apply_bbg)
             };
-            let resolved_rekernel = if no_rekernel {
-                false
-            } else if with_rekernel {
-                true
-            } else {
-                apply_rekernel.unwrap_or(settings.apply_rekernel)
-            };
             local::handle_local_build(LocalBuildOptions {
                 project,
                 branch,
@@ -396,7 +361,6 @@ fn main() -> Result<()> {
                 resukisu_setup_arg,
                 apply_susfs: resolved_susfs,
                 apply_bbg: resolved_bbg,
-                apply_rekernel: resolved_rekernel,
                 local_root: local_root.or(settings.local_root),
                 offline,
                 no_fetch,
@@ -446,11 +410,13 @@ fn handle_meta(project_key: &str, branch: &str) -> Result<()> {
     Ok(())
 }
 
-fn handle_matrix(project_key: &str, _token: Option<String>) -> Result<()> {
-    let proj = load_project(project_key)?;
-
-    let raw_supported = proj.supported_ksu.unwrap_or_default();
+fn build_project_matrix_entries(
+    project_key: &str,
+    proj: &ProjectConfig,
+) -> Vec<HashMap<String, String>> {
+    let raw_supported = proj.supported_ksu.clone().unwrap_or_default();
     let mut include = vec![HashMap::from([
+        ("project".to_string(), project_key.to_string()),
         ("branch".to_string(), "main".to_string()),
         ("ksu_variant".to_string(), "default".to_string()),
     ])];
@@ -459,16 +425,67 @@ fn handle_matrix(project_key: &str, _token: Option<String>) -> Result<()> {
         let normalized = normalize_variant_name(&variant);
         let entry = if normalized == "resukisu" {
             HashMap::from([
+                ("project".to_string(), project_key.to_string()),
                 ("branch".to_string(), "resukisu".to_string()),
                 ("ksu_variant".to_string(), "default".to_string()),
             ])
         } else {
             HashMap::from([
+                ("project".to_string(), project_key.to_string()),
                 ("branch".to_string(), "main".to_string()),
                 ("ksu_variant".to_string(), normalized),
             ])
         };
         include.push(entry);
+    }
+
+    include
+}
+
+fn handle_matrix(project_key: &str, _token: Option<String>) -> Result<()> {
+    let proj = load_project(project_key)?;
+
+    let include: Vec<HashMap<String, String>> = build_project_matrix_entries(project_key, &proj)
+        .into_iter()
+        .map(|entry| {
+            let mut filtered = HashMap::new();
+            filtered.insert(
+                "branch".to_string(),
+                entry.get("branch").cloned().unwrap_or_default(),
+            );
+            filtered.insert(
+                "ksu_variant".to_string(),
+                entry.get("ksu_variant").cloned().unwrap_or_default(),
+            );
+            filtered
+        })
+        .collect();
+
+    let matrix = HashMap::from([("include", include)]);
+    let json_matrix = serde_json::to_string(&matrix)?;
+
+    if let Ok(path) = env::var("GITHUB_OUTPUT") {
+        let mut file = OpenOptions::new().append(true).create(true).open(path)?;
+        writeln!(file, "matrix={}", json_matrix)?;
+    } else {
+        println!("{}", json_matrix);
+    }
+
+    Ok(())
+}
+
+fn handle_matrix_all() -> Result<()> {
+    let mut include = Vec::new();
+    let projects = load_projects()?;
+    let mut entries: Vec<(String, ProjectConfig)> = projects
+        .into_iter()
+        .filter(|(key, _)| !key.starts_with('_'))
+        .map(|(key, value)| Ok((key, serde_json::from_value(value)?)))
+        .collect::<Result<_>>()?;
+    entries.sort_by(|a, b| a.0.cmp(&b.0));
+
+    for (project_key, proj) in entries {
+        include.extend(build_project_matrix_entries(&project_key, &proj));
     }
 
     let matrix = HashMap::from([("include", include)]);
@@ -484,50 +501,39 @@ fn handle_matrix(project_key: &str, _token: Option<String>) -> Result<()> {
     Ok(())
 }
 
-fn handle_add(
-    key: String,
-    repo: String,
-    defconfig: String,
-    localversion: String,
-    device_cn: String,
-    device_en: String,
-    ak3_config: Option<String>,
-    zip_name: String,
-    toolchain_prefix: String,
-) -> Result<()> {
+fn handle_add(options: AddOptions) -> Result<()> {
     let mut projects = load_projects()?;
 
     let mut placeholders = HashMap::new();
-    placeholders.insert("DEVICE_NAME_CN".to_string(), device_cn);
-    placeholders.insert("DEVICE_NAME_EN".to_string(), device_en);
+    placeholders.insert("DEVICE_NAME_CN".to_string(), options.device_cn);
+    placeholders.insert("DEVICE_NAME_EN".to_string(), options.device_en);
 
     let new_proj = ProjectConfig {
-        repo,
-        defconfig,
-        localversion_base: localversion,
+        repo: options.repo,
+        defconfig: options.defconfig,
+        localversion_base: options.localversion,
         lto: None,
         supported_ksu: Some(vec!["resukisu".to_string()]),
         toolchain_urls: None,
         toolchain_sha256: None,
-        toolchain_path_prefix: if toolchain_prefix.is_empty() {
+        toolchain_path_prefix: if options.toolchain_prefix.is_empty() {
             None
         } else {
-            Some(toolchain_prefix)
+            Some(options.toolchain_prefix)
         },
         toolchain_path_exports: None,
-        anykernel_config: ak3_config,
-        zip_name_prefix: Some(zip_name),
+        anykernel_config: options.ak3_config,
+        zip_name_prefix: Some(options.zip_name),
         version_method: None,
         extra_host_env: None,
         disable_security: None,
         readme_placeholders: Some(placeholders),
         susfs: None,
         bbg: None,
-        rekernel: None,
         watch_upstream_variants: None,
     };
 
-    projects.insert(key, serde_json::to_value(new_proj)?);
+    projects.insert(options.key, serde_json::to_value(new_proj)?);
     save_json(&get_config_path(), &projects)?;
     Ok(())
 }
@@ -693,7 +699,7 @@ fn handle_setup(
 
         if let Some(t) = &token {
             let child = Command::new("gh")
-                .args(&["secret", "set", "CI_TOKEN"])
+                .args(["secret", "set", "CI_TOKEN"])
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
                 .current_dir(&target_dir)

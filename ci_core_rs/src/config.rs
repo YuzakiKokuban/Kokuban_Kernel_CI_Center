@@ -20,7 +20,6 @@ pub struct ProjectConfig {
     pub readme_placeholders: Option<HashMap<String, String>>,
     pub susfs: Option<SusfsConfig>,
     pub bbg: Option<BbgConfig>,
-    pub rekernel: Option<RekernelConfig>,
     pub watch_upstream_variants: Option<Vec<String>>,
 }
 
@@ -36,13 +35,6 @@ pub struct SusfsConfig {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct BbgConfig {
     pub setup_url: Option<String>,
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct RekernelConfig {
-    pub repo: Option<String>,
-    pub branch: Option<String>,
-    pub patch_script: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

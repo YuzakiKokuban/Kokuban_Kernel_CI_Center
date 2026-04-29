@@ -38,11 +38,6 @@
     "bbg": {
       "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
     },
-    "rekernel": {
-      "repo": "https://github.com/Sakion-Team/Re-Kernel.git",
-      "branch": "main",
-      "patch_script": "Integrate/patches.sh"
-    },
     "disable_security": [
       "UH",
       "RKP",
@@ -96,11 +91,6 @@
     },
     "bbg": {
       "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
-    },
-    "rekernel": {
-      "repo": "https://github.com/Sakion-Team/Re-Kernel.git",
-      "branch": "main",
-      "patch_script": "Integrate/patches.sh"
     }
   },
   "s23_sm8550": {
@@ -137,11 +127,6 @@
     },
     "bbg": {
       "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
-    },
-    "rekernel": {
-      "repo": "https://github.com/Sakion-Team/Re-Kernel.git",
-      "branch": "main",
-      "patch_script": "Integrate/patches.sh"
     },
     "disable_security": [
       "UH",
@@ -187,11 +172,6 @@
     "bbg": {
       "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
     },
-    "rekernel": {
-      "repo": "https://github.com/Sakion-Team/Re-Kernel.git",
-      "branch": "main",
-      "patch_script": "Integrate/patches.sh"
-    },
     "disable_security": [
       "UH",
       "RKP",
@@ -234,11 +214,6 @@
     },
     "bbg": {
       "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
-    },
-    "rekernel": {
-      "repo": "https://github.com/Sakion-Team/Re-Kernel.git",
-      "branch": "main",
-      "patch_script": "Integrate/patches.sh"
     },
     "disable_security": [
       "UH",
@@ -289,11 +264,6 @@
     },
     "bbg": {
       "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
-    },
-    "rekernel": {
-      "repo": "https://github.com/Sakion-Team/Re-Kernel.git",
-      "branch": "main",
-      "patch_script": "Integrate/patches.sh"
     }
   },
   "z6_sm8650": {
@@ -341,11 +311,6 @@
     },
     "bbg": {
       "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
-    },
-    "rekernel": {
-      "repo": "https://github.com/Sakion-Team/Re-Kernel.git",
-      "branch": "main",
-      "patch_script": "Integrate/patches.sh"
     }
   },
   "mi17_sm8850": {
@@ -380,11 +345,6 @@
     },
     "bbg": {
       "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
-    },
-    "rekernel": {
-      "repo": "https://github.com/Sakion-Team/Re-Kernel.git",
-      "branch": "main",
-      "patch_script": "Integrate/patches.sh"
     },
     "readme_placeholders": {
       "DEVICE_NAME_CN": "小米 17 系列",

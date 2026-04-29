@@ -21,6 +21,28 @@ struct LocalLock {
     path: PathBuf,
 }
 
+struct KernelSourcePrep<'a> {
+    project: &'a str,
+    proj: &'a ProjectConfig,
+    branch: &'a str,
+    mirror_dir: &'a Path,
+    source_dir: &'a Path,
+    offline: bool,
+    no_fetch: bool,
+    clean: bool,
+}
+
+struct LocalBuildPlan<'a> {
+    options: &'a LocalBuildOptions,
+    central_root: &'a Path,
+    local_root: &'a Path,
+    variant: &'a str,
+    run_dir: &'a Path,
+    source_dir: &'a Path,
+    mirror_dir: &'a Path,
+    build_id: &'a str,
+}
+
 impl Drop for LocalLock {
     fn drop(&mut self) {
         let _ = fs::remove_file(&self.path);
@@ -44,7 +66,6 @@ struct BuildInfo {
     kernel_commit: Option<String>,
     apply_susfs: bool,
     apply_bbg: bool,
-    apply_rekernel: bool,
     local_root: String,
     workspace: String,
     kernel_source: String,
@@ -69,7 +90,6 @@ pub struct LocalBuildOptions {
     pub resukisu_setup_arg: Option<String>,
     pub apply_susfs: bool,
     pub apply_bbg: bool,
-    pub apply_rekernel: bool,
     pub local_root: Option<PathBuf>,
     pub offline: bool,
     pub no_fetch: bool,
@@ -140,16 +160,15 @@ fn acquire_project_lock(local_root: &Path, project: &str, force: bool) -> Result
 
     if force {
         let _ = fs::remove_file(&path);
-    } else if path.exists() {
-        if let Some(pid) = lock_holder_pid(&path) {
-            if !pid_is_alive(pid) {
-                eprintln!(
-                    "Removing stale lock for project {} held by dead pid {}.",
-                    project, pid
-                );
-                let _ = fs::remove_file(&path);
-            }
-        }
+    } else if path.exists()
+        && let Some(pid) = lock_holder_pid(&path)
+        && !pid_is_alive(pid)
+    {
+        eprintln!(
+            "Removing stale lock for project {} held by dead pid {}.",
+            project, pid
+        );
+        let _ = fs::remove_file(&path);
     }
 
     match fs::OpenOptions::new()
@@ -272,33 +291,32 @@ fn prepare_kernel_mirror(
     Ok(())
 }
 
-fn prepare_kernel_source(
-    project: &str,
-    proj: &ProjectConfig,
-    branch: &str,
-    mirror_dir: &Path,
-    source_dir: &Path,
-    offline: bool,
-    no_fetch: bool,
-    clean: bool,
-) -> Result<()> {
-    let repo_url = repo_clone_url(&proj.repo);
-    prepare_kernel_mirror(project, proj, mirror_dir, offline, no_fetch)?;
+fn prepare_kernel_source(spec: &KernelSourcePrep<'_>) -> Result<()> {
+    let repo_url = repo_clone_url(&spec.proj.repo);
+    prepare_kernel_mirror(
+        spec.project,
+        spec.proj,
+        spec.mirror_dir,
+        spec.offline,
+        spec.no_fetch,
+    )?;
 
-    if !source_dir.join(".git").exists() {
+    if !spec.source_dir.join(".git").exists() {
         fs::create_dir_all(
-            source_dir
+            spec.source_dir
                 .parent()
                 .ok_or_else(|| anyhow!("Invalid kernel source path"))?,
         )?;
-        let source_path = source_dir
+        let source_path = spec
+            .source_dir
             .to_str()
             .ok_or_else(|| anyhow!("Invalid kernel source path"))?;
-        let mirror_path = mirror_dir
+        let mirror_path = spec
+            .mirror_dir
             .to_str()
             .ok_or_else(|| anyhow!("Invalid kernel mirror path"))?;
 
-        if offline || no_fetch {
+        if spec.offline || spec.no_fetch {
             run_cmd(
                 &["git", "clone", "--recursive", mirror_path, source_path],
                 None,
@@ -325,55 +343,59 @@ fn prepare_kernel_source(
 
     run_cmd(
         &["git", "remote", "set-url", "origin", &repo_url],
-        Some(source_dir),
+        Some(spec.source_dir),
         false,
     )?;
 
-    if !offline && !no_fetch {
+    if !spec.offline && !spec.no_fetch {
         run_cmd(
             &["git", "fetch", "--tags", "--prune", "origin"],
-            Some(source_dir),
+            Some(spec.source_dir),
             false,
         )
-        .with_context(|| format!("Failed to fetch updates for {project}"))?;
+        .with_context(|| format!("Failed to fetch updates for {}", spec.project))?;
     }
 
-    let remote_ref = format!("refs/remotes/origin/{branch}");
-    let checkout_target = if git_rev_exists(source_dir, &remote_ref) {
-        format!("origin/{branch}")
+    let remote_ref = format!("refs/remotes/origin/{}", spec.branch);
+    let checkout_target = if git_rev_exists(spec.source_dir, &remote_ref) {
+        format!("origin/{}", spec.branch)
     } else {
-        branch.to_string()
+        spec.branch.to_string()
     };
 
     run_cmd(
         &["git", "checkout", "--force", &checkout_target],
-        Some(source_dir),
+        Some(spec.source_dir),
         false,
     )
-    .with_context(|| format!("Failed to checkout {branch} for {project}"))?;
-    run_cmd(&["git", "reset", "--hard", "HEAD"], Some(source_dir), false)?;
+    .with_context(|| format!("Failed to checkout {} for {}", spec.branch, spec.project))?;
+    run_cmd(
+        &["git", "reset", "--hard", "HEAD"],
+        Some(spec.source_dir),
+        false,
+    )?;
 
-    if clean {
-        run_cmd(&["git", "clean", "-ffdx"], Some(source_dir), false)?;
+    if spec.clean {
+        run_cmd(&["git", "clean", "-ffdx"], Some(spec.source_dir), false)?;
     } else {
         run_cmd(
             &["git", "clean", "-fd", "-e", "out", "-e", ".ccache"],
-            Some(source_dir),
+            Some(spec.source_dir),
             false,
         )?;
     }
 
-    if source_dir.join(".gitmodules").exists() {
-        if !offline && !no_fetch {
+    if spec.source_dir.join(".gitmodules").exists() {
+        if !spec.offline && !spec.no_fetch {
             run_cmd(
                 &["git", "submodule", "sync", "--recursive"],
-                Some(source_dir),
+                Some(spec.source_dir),
                 false,
             )?;
         }
         run_cmd(
             &["git", "submodule", "update", "--init", "--recursive"],
-            Some(source_dir),
+            Some(spec.source_dir),
             false,
         )?;
     }
@@ -417,8 +439,6 @@ fn run_build_command(
         .arg(options.apply_susfs.to_string())
         .arg("--apply-bbg")
         .arg(options.apply_bbg.to_string())
-        .arg("--apply-rekernel")
-        .arg(options.apply_rekernel.to_string())
         .current_dir(run_dir)
         .env("CI_CENTRAL_ROOT", central_root)
         .env("KOKUBAN_REUSE_TOOLCHAINS", "1")
@@ -690,56 +710,46 @@ fn local_layout(
     (variant, variant_key, run_dir, source_dir, mirror_dir)
 }
 
-fn print_plan(
-    options: &LocalBuildOptions,
-    central_root: &Path,
-    local_root: &Path,
-    variant: &str,
-    run_dir: &Path,
-    source_dir: &Path,
-    mirror_dir: &Path,
-    build_id: &str,
-) {
-    let project_key = sanitize_path_component(&options.project);
+fn print_plan(plan: &LocalBuildPlan<'_>) {
+    let project_key = sanitize_path_component(&plan.options.project);
     println!("Local build plan");
-    println!("  project: {}", options.project);
-    println!("  branch: {}", options.branch);
-    println!("  variant: {}", variant);
-    println!("  release: {}", options.do_release);
-    println!("  apply_susfs: {}", options.apply_susfs);
-    println!("  apply_bbg: {}", options.apply_bbg);
-    println!("  apply_rekernel: {}", options.apply_rekernel);
-    println!("  offline: {}", options.offline);
-    println!("  no_fetch: {}", options.no_fetch);
-    println!("  clean: {}", options.clean);
-    println!("  force_lock: {}", options.force_lock);
-    println!("  central_root: {}", central_root.display());
-    println!("  local_root: {}", local_root.display());
-    println!("  mirror: {}", mirror_dir.display());
-    println!("  workspace: {}", run_dir.display());
-    println!("  kernel_source: {}", source_dir.display());
+    println!("  project: {}", plan.options.project);
+    println!("  branch: {}", plan.options.branch);
+    println!("  variant: {}", plan.variant);
+    println!("  release: {}", plan.options.do_release);
+    println!("  apply_susfs: {}", plan.options.apply_susfs);
+    println!("  apply_bbg: {}", plan.options.apply_bbg);
+    println!("  offline: {}", plan.options.offline);
+    println!("  no_fetch: {}", plan.options.no_fetch);
+    println!("  clean: {}", plan.options.clean);
+    println!("  force_lock: {}", plan.options.force_lock);
+    println!("  central_root: {}", plan.central_root.display());
+    println!("  local_root: {}", plan.local_root.display());
+    println!("  mirror: {}", plan.mirror_dir.display());
+    println!("  workspace: {}", plan.run_dir.display());
+    println!("  kernel_source: {}", plan.source_dir.display());
     println!(
         "  toolchain_cache: {}",
-        local_root.join("downloads/toolchains").display()
+        plan.local_root.join("downloads/toolchains").display()
     );
     println!(
         "  anykernel_cache: {}",
-        local_root.join("repos/AnyKernel3").display()
+        plan.local_root.join("repos/AnyKernel3").display()
     );
     println!(
         "  log: {}",
-        local_root
+        plan.local_root
             .join("logs")
             .join(&project_key)
-            .join(format!("{build_id}.log"))
+            .join(format!("{}.log", plan.build_id))
             .display()
     );
     println!(
         "  artifact_dir: {}",
-        local_root
+        plan.local_root
             .join("artifacts")
             .join(&project_key)
-            .join(build_id)
+            .join(plan.build_id)
             .display()
     );
 }
@@ -762,16 +772,17 @@ pub fn handle_local_build(options: LocalBuildOptions) -> Result<()> {
         .join(&project_key)
         .join(format!("{build_id}.log"));
 
-    print_plan(
-        &options,
-        &central_root,
-        &local_root,
-        &variant,
-        &run_dir,
-        &source_dir,
-        &mirror_dir,
-        &build_id,
-    );
+    let plan = LocalBuildPlan {
+        options: &options,
+        central_root: &central_root,
+        local_root: &local_root,
+        variant: &variant,
+        run_dir: &run_dir,
+        source_dir: &source_dir,
+        mirror_dir: &mirror_dir,
+        build_id: &build_id,
+    };
+    print_plan(&plan);
 
     if options.dry_run {
         return Ok(());
@@ -794,16 +805,16 @@ pub fn handle_local_build(options: LocalBuildOptions) -> Result<()> {
         "Preparing kernel source for {} @ {}",
         options.project, options.branch
     );
-    prepare_kernel_source(
-        &options.project,
-        &proj,
-        &options.branch,
-        &mirror_dir,
-        &source_dir,
-        options.offline,
-        options.no_fetch,
-        options.clean,
-    )?;
+    prepare_kernel_source(&KernelSourcePrep {
+        project: &options.project,
+        proj: &proj,
+        branch: &options.branch,
+        mirror_dir: &mirror_dir,
+        source_dir: &source_dir,
+        offline: options.offline,
+        no_fetch: options.no_fetch,
+        clean: options.clean,
+    })?;
 
     let kernel_commit = run_cmd(&["git", "rev-parse", "HEAD"], Some(&source_dir), true)
         .ok()
@@ -834,7 +845,6 @@ pub fn handle_local_build(options: LocalBuildOptions) -> Result<()> {
         kernel_commit,
         apply_susfs: options.apply_susfs,
         apply_bbg: options.apply_bbg,
-        apply_rekernel: options.apply_rekernel,
         local_root: local_root.display().to_string(),
         workspace: run_dir.display().to_string(),
         kernel_source: source_dir.display().to_string(),

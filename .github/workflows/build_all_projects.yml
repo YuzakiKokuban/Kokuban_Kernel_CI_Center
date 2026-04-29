@@ -1,12 +1,11 @@
-name: Release All Branches
+name: Build All Projects
 on:
   workflow_dispatch:
     inputs:
-      project:
-        description: 'Select Project'
-        required: true
-        type: choice
-        options: [z5_sm8550, s25_sm8750, s23_sm8550, tabs9_sm8550, s24_sm8650, tabs10_mt6989, z6_sm8650, mi17_sm8850]
+      do_release:
+        description: 'Create GitHub Releases for every build'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -28,7 +27,7 @@ jobs:
 
       - name: Generate Matrix
         id: set-matrix
-        run: ./kokuban_ci_core matrix --project ${{ inputs.project }}
+        run: ./kokuban_ci_core matrix-all
 
   build:
     needs: matrix
@@ -37,10 +36,10 @@ jobs:
       fail-fast: false
     uses: ./.github/workflows/build_kernel.yml
     with:
-      project: ${{ inputs.project }}
+      project: ${{ matrix.project }}
       branch: ${{ matrix.branch }}
       ksu_variant: ${{ matrix.ksu_variant }}
-      do_release: true
+      do_release: ${{ inputs.do_release }}
       apply_susfs: true
       apply_bbg: true
     secrets: inherit

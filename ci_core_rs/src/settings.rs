@@ -8,7 +8,6 @@ use std::path::PathBuf;
 pub struct Settings {
     pub apply_susfs: bool,
     pub apply_bbg: bool,
-    pub apply_rekernel: bool,
     pub local_root: Option<PathBuf>,
 }
 
@@ -25,7 +24,6 @@ impl Default for Settings {
         Self {
             apply_susfs: true,
             apply_bbg: true,
-            apply_rekernel: true,
             local_root: env::var_os("KOKUBAN_LOCAL_ROOT").map(PathBuf::from),
         }
     }
@@ -78,7 +76,6 @@ pub fn load_settings() -> Result<Settings> {
         match key.trim() {
             "apply_susfs" => settings.apply_susfs = bool_value(value.trim())?,
             "apply_bbg" => settings.apply_bbg = bool_value(value.trim())?,
-            "apply_rekernel" => settings.apply_rekernel = bool_value(value.trim())?,
             "local_root" => {
                 let value = value.trim();
                 settings.local_root = if value.is_empty() {
@@ -96,7 +93,7 @@ pub fn load_settings() -> Result<Settings> {
 
 pub fn set_config_value(key: &str, value: &str) -> Result<()> {
     let normalized = match key {
-        "apply_susfs" | "apply_bbg" | "apply_rekernel" => bool_value(value)?.to_string(),
+        "apply_susfs" | "apply_bbg" => bool_value(value)?.to_string(),
         "local_root" => value.to_string(),
         _ => return Err(anyhow!("Unknown config key: {}", key)),
     };
