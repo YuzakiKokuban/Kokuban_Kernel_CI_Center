@@ -1,9 +1,15 @@
 name: Build All Projects
 on:
+  schedule:
+    - cron: '0 0 * * 0'
   workflow_dispatch:
     inputs:
       do_release:
         description: 'Create GitHub Releases for every build'
+        type: boolean
+        default: false
+      apply_susfs:
+        description: 'Apply SuSFS dynamically during build'
         type: boolean
         default: false
 
@@ -39,7 +45,7 @@ jobs:
       project: ${{ matrix.project }}
       branch: ${{ matrix.branch }}
       ksu_variant: ${{ matrix.ksu_variant }}
-      do_release: ${{ inputs.do_release }}
-      apply_susfs: true
+      do_release: ${{ inputs.do_release == true }}
+      apply_susfs: ${{ github.event_name == 'schedule' || inputs.apply_susfs == true }}
       apply_bbg: true
     secrets: inherit

@@ -44,7 +44,7 @@ on:
       apply_susfs:
         description: 'Apply SuSFS dynamically during build'
         type: boolean
-        default: true
+        default: false
       apply_bbg:
         description: 'Apply Baseband Guard dynamically during build'
         type: boolean
@@ -73,7 +73,7 @@ on:
         default: ''
       apply_susfs:
         type: boolean
-        default: true
+        default: false
       apply_bbg:
         type: boolean
         default: true
@@ -100,7 +100,7 @@ jobs:
             apply_susfs="${{ github.event.client_payload.apply_susfs }}"
             apply_bbg="${{ github.event.client_payload.apply_bbg }}"
             if [ -z "$apply_susfs" ]; then
-              apply_susfs="true"
+              apply_susfs="false"
             fi
             if [ -z "$apply_bbg" ]; then
               apply_bbg="true"
@@ -168,7 +168,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential git libncurses5-dev bc bison flex libssl-dev p7zip-full lz4 cpio curl libelf-dev dwarves jq lld pahole libdw-dev
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Build and Release
         env:
