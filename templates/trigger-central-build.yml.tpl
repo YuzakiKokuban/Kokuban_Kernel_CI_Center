@@ -17,6 +17,6 @@ jobs:
             {
               "project": "__PROJECT_KEY__",
               "branch": "${{ github.ref_name }}",
-              "apply_susfs": false,
+              "apply_susfs": true,
               "apply_bbg": true
             }

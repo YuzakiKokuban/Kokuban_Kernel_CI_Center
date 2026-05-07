@@ -31,7 +31,7 @@ Common local options:
   --clean               Remove untracked kernel source files before building
   --dry-run             Print the build plan without touching source or caches
   --force-lock          Remove an existing lock for this project before building
-  --with-susfs          Enable SuSFS
+  --with-susfs          Enable SuSFS (default)
   --no-susfs            Disable SuSFS
   --with-bbg            Enable Baseband Guard (default)
   --no-bbg              Disable Baseband Guard

@@ -22,7 +22,7 @@ pub struct Preset {
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            apply_susfs: false,
+            apply_susfs: true,
             apply_bbg: true,
             local_root: env::var_os("KOKUBAN_LOCAL_ROOT").map(PathBuf::from),
         }
