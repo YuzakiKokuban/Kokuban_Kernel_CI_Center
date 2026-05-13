@@ -47,7 +47,7 @@ jobs:
             echo "Unsupported ksu_type: $KSU_TYPE"
             exit 1
           fi
-          SETUP_URL="https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh"
+          SETUP_URL="https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/dev/kernel/setup.sh"
 
           echo "Updating projects with commit message: '$COMMIT_MESSAGE'"
           
@@ -68,7 +68,7 @@ jobs:
             cp ${{ github.workspace }}/configs/universal.gitignore ./.gitignore
 
             echo "Running setup.sh from $SETUP_URL..."
-            curl -LSs "$SETUP_URL" | bash -s main
+            curl -LSs "$SETUP_URL" | bash -s dev
             
             git config --global user.name "GitHub Actions"
             git config --global user.email "actions@github.com"

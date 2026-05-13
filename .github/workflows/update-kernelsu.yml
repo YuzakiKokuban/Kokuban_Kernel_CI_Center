@@ -40,7 +40,7 @@ jobs:
 
           if [ "${{ inputs.commit_id }}" == "latest" ]; then
             repo="https://github.com/ReSukiSU/ReSukiSU.git"
-            branch="main"
+            branch="dev"
             echo "COMMIT_ID=$(git ls-remote \"$repo\" \"$branch\" | cut -c1-7)" >> "$GITHUB_ENV"
           else
             echo "COMMIT_ID=${{ inputs.commit_id }}" >> "$GITHUB_ENV"
