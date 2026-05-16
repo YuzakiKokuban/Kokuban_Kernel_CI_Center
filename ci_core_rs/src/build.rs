@@ -1177,11 +1177,11 @@ pub fn handle_build(
         .as_deref()
         .map(str::trim)
         .filter(|arg| !arg.is_empty())
-        .unwrap_or("dev");
+        .unwrap_or("main");
 
     let setup_url = match branch.as_str() {
         _ if is_resukisu_variant(&branch) => Some((
-            "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/dev/kernel/setup.sh",
+            "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh",
             resukisu_setup_arg,
         )),
         _ => None,
