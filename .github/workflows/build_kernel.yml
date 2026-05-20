@@ -48,7 +48,7 @@ on:
       apply_bbg:
         description: 'Apply Baseband Guard dynamically during build'
         type: boolean
-        default: true
+        default: false
   repository_dispatch:
     types: [build-kernel]
   workflow_call:
@@ -76,7 +76,7 @@ on:
         default: true
       apply_bbg:
         type: boolean
-        default: true
+        default: false
 
 jobs:
   build:
@@ -103,7 +103,7 @@ jobs:
               apply_susfs="true"
             fi
             if [ -z "$apply_bbg" ]; then
-              apply_bbg="true"
+              apply_bbg="false"
             fi
           else
             project="${{ inputs.project }}"

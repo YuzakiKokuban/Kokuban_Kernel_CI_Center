@@ -42,5 +42,5 @@ jobs:
       ksu_variant: ${{ matrix.ksu_variant }}
       do_release: true
       apply_susfs: true
-      apply_bbg: true
+      apply_bbg: false
     secrets: inherit
