@@ -31,7 +31,8 @@
     "device_names": [
       "pa3q",
       "pa2q",
-      "pa1q"
+      "pa1q",
+      "psq"
     ],
     "supported_versions": "",
     "supported_patchlevels": "",
