@@ -184,7 +184,7 @@
   "s24_sm8650": {
     "repo": "YuzakiKokuban/android_kernel_samsung_sm8650",
     "defconfig": "defconfig",
-    "localversion_base": "-android14-Kokuban-Elysia-CYL1",
+    "localversion_base": "-android14-Kokuban-Elysia-DZE1",
     "supported_ksu": [
       "resukisu"
     ],
