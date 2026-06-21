@@ -86,7 +86,7 @@ jobs:
     env:
       ARTIFACT_DIR: build_artifacts
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Resolve Build Parameters
         run: |
@@ -149,7 +149,7 @@ jobs:
         run: ./kokuban_ci_core parse --project ${{ env.PROJECT }}
 
       - name: Checkout Kernel Source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: ${{ env.PROJECT_REPO }}
           ref: ${{ env.BRANCH_TARGET }}
