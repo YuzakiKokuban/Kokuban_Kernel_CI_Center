@@ -14,6 +14,7 @@ on:
           - s24_sm8650
           - tabs10_mt6989
           - z6_sm8650
+          - tabs7fe_sm7325
           - mi17_sm8850
       branch:
         description: 'Git Branch/Tag'
