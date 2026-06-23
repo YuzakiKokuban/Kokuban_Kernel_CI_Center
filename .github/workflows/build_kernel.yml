@@ -171,6 +171,18 @@ jobs:
           sudo apt-get install -y build-essential git libncurses5-dev bc bison flex libssl-dev p7zip-full lz4 cpio curl libelf-dev dwarves jq lld pahole libdw-dev
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
+      - name: Ensure compat cross-linker
+        run: |
+          # Older kernels (e.g. 5.4) use $(CROSS_COMPILE_COMPAT)ld for vdso32 linking.
+          # Ensure arm-linux-gnueabi-ld resolves to ld.lld (supports ARM32).
+          mkdir -p "$HOME/.local/bin"
+          for name in arm-linux-gnueabi-ld arm-linux-gnueabi-ld.bfd; do
+            if ! command -v "$name" &>/dev/null; then
+              ln -sf "$(command -v ld.lld)" "$HOME/.local/bin/$name"
+              echo "Created $HOME/.local/bin/$name -> $(command -v ld.lld)"
+            fi
+          done
+
       - name: Build and Release
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}

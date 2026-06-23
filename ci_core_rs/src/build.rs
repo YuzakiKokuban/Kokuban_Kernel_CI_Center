@@ -1096,6 +1096,22 @@ pub fn handle_build(
         new_path = format!("{}:{}", toolchain_base.join("bin").display(), new_path);
     }
 
+    // Ensure compat cross-linker symlinks exist for older kernels (e.g. 5.4 vdso32)
+    // The kernel build uses $(CROSS_COMPILE_COMPAT)ld which resolves to arm-linux-gnueabi-ld.
+    // Without this symlink, the build falls back to the system ld which lacks ARM32 support.
+    if let Some(first_export) = proj.toolchain_path_exports.as_ref().and_then(|e| e.first()) {
+        let bin_dir = toolchain_base.join(first_export);
+        let ld_lld = bin_dir.join("ld.lld");
+        if ld_lld.exists() {
+            for compat_ld in &["arm-linux-gnueabi-ld", "arm-linux-gnueabi-ld.bfd"] {
+                let compat_path = bin_dir.join(compat_ld);
+                if !compat_path.exists() {
+                    let _ = std::os::unix::fs::symlink(&ld_lld, &compat_path);
+                }
+            }
+        }
+    }
+
     build_env.insert("PATH".to_string(), new_path);
     build_env.insert("ARCH".to_string(), "arm64".to_string());
     build_env.insert("SUBARCH".to_string(), "arm64".to_string());
