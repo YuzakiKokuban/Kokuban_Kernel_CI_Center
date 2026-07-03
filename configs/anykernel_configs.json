@@ -160,28 +160,6 @@
     "boot_setup": "split_boot",
     "boot_finalize": "flash_boot"
   },
-  "sm7325": {
-    "kernel_string": "TabS7FE-Kokuban-Kernel",
-    "device_check": false,
-    "modules": false,
-    "systemless": true,
-    "cleanup": true,
-    "cleanup_on_abort": false,
-    "device_names": [
-      "",
-      "",
-      ""
-    ],
-    "supported_versions": "",
-    "supported_patchlevels": "",
-    "supported_vendorpatchlevels": "",
-    "block": "/dev/block/by-name/boot",
-    "is_slot_device": false,
-    "ramdisk_compression": "auto",
-    "patch_vbmeta_flag": "auto",
-    "boot_setup": "split_boot",
-    "boot_finalize": "flash_boot"
-  },
   "canoe": {
     "kernel_string": "Xiaomi17-Kokuban-Kernel",
     "device_check": true,

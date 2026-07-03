@@ -313,37 +313,6 @@
       "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
     }
   },
-  "tabs7fe_sm7325": {
-    "repo": "YuzakiKokuban/android_kernel_samsung_sm7325",
-    "defconfig": "vendor/gts7fewifi_eur_open_defconfig",
-    "localversion_base": "-qgki-Kokuban-Perica-DYF1",
-    "lto": "thin",
-    "supported_ksu": [
-      "resukisu"
-    ],
-    "readme_placeholders": {
-      "DEVICE_NAME_CN": "三星 Galaxy Tab S7 FE 系列",
-      "DEVICE_NAME_EN": "Samsung Galaxy Tab S7 FE Series"
-    },
-    "toolchain_urls": [
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm7325/releases/download/toolchain/toolchain.tar.gz"
-    ],
-    "toolchain_path_prefix": "",
-    "toolchain_path_exports": [
-      "prebuilts-master/clang/host/linux-x86/clang-r416183b/bin",
-      "prebuilts/gas/linux-x86"
-    ],
-    "anykernel_config": "sm7325",
-    "zip_name_prefix": "TabS7FE_kernel",
-    "disable_security": [
-      "UH",
-      "RKP",
-      "KDP",
-      "SECURITY_DEFEX",
-      "INTEGRITY",
-      "FIVE"
-    ]
-  },
   "mi17_sm8850": {
     "repo": "YuzakiKokuban/android_kernel_xiaomi_sm8850",
     "defconfig": "gki_defconfig",
