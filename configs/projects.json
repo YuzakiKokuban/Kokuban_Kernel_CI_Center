@@ -51,6 +51,7 @@
     "repo": "YuzakiKokuban/android_kernel_samsung_sm8750",
     "defconfig": "defconfig",
     "localversion_base": "-android15-Kokuban-Herta-CZF1",
+    "lto": "none",
     "supported_ksu": [
       "resukisu"
     ],
@@ -185,6 +186,7 @@
     "repo": "YuzakiKokuban/android_kernel_samsung_sm8650",
     "defconfig": "defconfig",
     "localversion_base": "-android14-Kokuban-Elysia-DZE1",
+    "lto": "none",
     "supported_ksu": [
       "resukisu"
     ],
@@ -228,6 +230,7 @@
     "repo": "YuzakiKokuban/android_kernel_samsung_mt6989_TabS10",
     "defconfig": "defconfig",
     "localversion_base": "-android14-Kokuban-Exusiai-CZB5",
+    "lto": "none",
     "supported_ksu": [
       "resukisu"
     ],
@@ -270,7 +273,7 @@
     "repo": "YuzakiKokuban/android_kernel_samsung_sm8650_Z6",
     "defconfig": "defconfig",
     "localversion_base": "-android14-Kokuban-Cyrene-CYI7",
-    "lto": "",
+    "lto": "none",
     "supported_ksu": [
       "resukisu"
     ],
