@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     flex \
     libssl-dev \
     p7zip-full \
+    pigz \
     lz4 \
     cpio \
     curl \

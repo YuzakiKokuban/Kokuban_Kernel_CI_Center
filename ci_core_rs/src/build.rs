@@ -53,6 +53,78 @@ fn toolchain_paths_ready(toolchain_base: &Path, proj: &ProjectConfig) -> bool {
         && toolchain_base.join("bin").exists()
 }
 
+fn download_single_toolchain(
+    url: &str,
+    tc_download_dir: &Path,
+    cache_dir: Option<&Path>,
+    offline: bool,
+    checksums: Option<&HashMap<String, String>>,
+) -> Result<()> {
+    let file_name = url_file_name(url)?;
+    let download_path = tc_download_dir.join(&file_name);
+
+    if let Some(cache_dir) = cache_dir {
+        fs::create_dir_all(cache_dir)?;
+        let cache_path = cache_dir.join(cache_file_name(url)?);
+
+        if cache_path.exists() {
+            verify_toolchain_checksum(url, &cache_path, checksums)?;
+            println!("Using cached toolchain package: {}", file_name);
+            fs::copy(cache_path, download_path)?;
+            return Ok(());
+        }
+
+        if offline {
+            return Err(anyhow!(
+                "Toolchain package is missing from cache while offline: {}",
+                url
+            ));
+        }
+
+        println!("Downloading toolchain from {}...", url);
+        let cache_file_name = cache_path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("toolchain");
+        let tmp_path = cache_path.with_file_name(format!(
+            "{}.tmp-{}",
+            cache_file_name,
+            std::process::id()
+        ));
+        let _ = fs::remove_file(&tmp_path);
+        let tmp_path_str = tmp_path
+            .to_str()
+            .ok_or_else(|| anyhow!("Invalid toolchain cache path"))?;
+        let download_result = (|| {
+            run_cmd(&["wget", "-q", "-O", tmp_path_str, url], None, false)?;
+            verify_toolchain_checksum(url, &tmp_path, checksums)?;
+            fs::rename(&tmp_path, &cache_path)?;
+            Ok(())
+        })();
+        if let Err(err) = download_result {
+            let _ = fs::remove_file(&tmp_path);
+            return Err(err);
+        }
+        fs::copy(cache_path, download_path)?;
+    } else {
+        if offline {
+            return Err(anyhow!(
+                "Toolchain cache is disabled and offline mode cannot download: {}",
+                url
+            ));
+        }
+
+        println!("Downloading toolchain from {}...", url);
+        let download_path_str = download_path
+            .to_str()
+            .ok_or_else(|| anyhow!("Invalid toolchain download path"))?;
+        run_cmd(&["wget", "-q", "-O", download_path_str, url], None, false)?;
+        verify_toolchain_checksum(url, &download_path, checksums)?;
+    }
+
+    Ok(())
+}
+
 fn download_toolchains(
     urls: &[String],
     tc_download_dir: &Path,
@@ -65,68 +137,29 @@ fn download_toolchains(
     }
     fs::create_dir_all(tc_download_dir)?;
 
-    for url in urls {
-        let file_name = url_file_name(url)?;
-        let download_path = tc_download_dir.join(&file_name);
+    // Toolchain shards are independent of one another, so download them in parallel
+    // to bound the total download time by the largest single shard.
+    let results: Vec<Result<()>> = std::thread::scope(|scope| {
+        let handles: Vec<_> = urls
+            .iter()
+            .map(|url| {
+                scope.spawn(move || {
+                    download_single_toolchain(url, tc_download_dir, cache_dir, offline, checksums)
+                })
+            })
+            .collect();
+        handles
+            .into_iter()
+            .map(|handle| {
+                handle
+                    .join()
+                    .unwrap_or_else(|_| Err(anyhow!("Toolchain download thread panicked")))
+            })
+            .collect()
+    });
 
-        if let Some(cache_dir) = cache_dir {
-            fs::create_dir_all(cache_dir)?;
-            let cache_path = cache_dir.join(cache_file_name(url)?);
-
-            if cache_path.exists() {
-                verify_toolchain_checksum(url, &cache_path, checksums)?;
-                println!("Using cached toolchain package: {}", file_name);
-                fs::copy(cache_path, download_path)?;
-                continue;
-            }
-
-            if offline {
-                return Err(anyhow!(
-                    "Toolchain package is missing from cache while offline: {}",
-                    url
-                ));
-            }
-
-            println!("Downloading toolchain from {}...", url);
-            let cache_file_name = cache_path
-                .file_name()
-                .and_then(|name| name.to_str())
-                .unwrap_or("toolchain");
-            let tmp_path = cache_path.with_file_name(format!(
-                "{}.tmp-{}",
-                cache_file_name,
-                std::process::id()
-            ));
-            let _ = fs::remove_file(&tmp_path);
-            let tmp_path_str = tmp_path
-                .to_str()
-                .ok_or_else(|| anyhow!("Invalid toolchain cache path"))?;
-            let download_result = (|| {
-                run_cmd(&["wget", "-q", "-O", tmp_path_str, url], None, false)?;
-                verify_toolchain_checksum(url, &tmp_path, checksums)?;
-                fs::rename(&tmp_path, &cache_path)?;
-                Ok(())
-            })();
-            if let Err(err) = download_result {
-                let _ = fs::remove_file(&tmp_path);
-                return Err(err);
-            }
-            fs::copy(cache_path, download_path)?;
-        } else {
-            if offline {
-                return Err(anyhow!(
-                    "Toolchain cache is disabled and offline mode cannot download: {}",
-                    url
-                ));
-            }
-
-            println!("Downloading toolchain from {}...", url);
-            let download_path_str = download_path
-                .to_str()
-                .ok_or_else(|| anyhow!("Invalid toolchain download path"))?;
-            run_cmd(&["wget", "-q", "-O", download_path_str, url], None, false)?;
-            verify_toolchain_checksum(url, &download_path, checksums)?;
-        }
+    for result in results {
+        result?;
     }
 
     Ok(())
@@ -1046,14 +1079,19 @@ pub fn handle_build(
 
             let extract_script = r#"
             set -e
+            if command -v pigz >/dev/null 2>&1; then
+                DECOMPRESS_PROG=pigz
+            else
+                DECOMPRESS_PROG=gzip
+            fi
             if ls *.tar.gz.[0-9]* 1> /dev/null 2>&1; then
-                cat *.tar.gz.* | tar -zxf - --warning=no-unknown-keyword -C ..
+                cat *.tar.gz.* | tar -xf - --use-compress-program="$DECOMPRESS_PROG" --warning=no-unknown-keyword -C ..
             elif ls *part_aa* 1> /dev/null 2>&1 || ls *_aa.tar.gz 1> /dev/null 2>&1 || ls *.tar.gz.aa 1> /dev/null 2>&1; then
-                cat *.tar.gz | tar -zxf - --warning=no-unknown-keyword -C ..
+                cat *.tar.gz | tar -xf - --use-compress-program="$DECOMPRESS_PROG" --warning=no-unknown-keyword -C ..
             else
                 if ls *.tar.gz 1> /dev/null 2>&1; then
                     for tarball in *.tar.gz; do
-                        tar -zxf "$tarball" --warning=no-unknown-keyword -C ..
+                        tar -xf "$tarball" --use-compress-program="$DECOMPRESS_PROG" --warning=no-unknown-keyword -C ..
                     done
                 fi
                 if ls *.tar.xz 1> /dev/null 2>&1; then

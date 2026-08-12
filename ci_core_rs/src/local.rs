@@ -119,7 +119,7 @@ pub fn ensure_local_host() -> Result<()> {
 
     if !missing.is_empty() {
         return Err(anyhow!(
-            "Missing local build dependencies: {}\nUbuntu install hint:\n  sudo apt-get update && sudo apt-get install -y build-essential git libncurses5-dev bc bison flex libssl-dev p7zip-full lz4 cpio curl wget libelf-dev dwarves jq lld pahole libdw-dev unzip zip",
+            "Missing local build dependencies: {}\nUbuntu install hint:\n  sudo apt-get update && sudo apt-get install -y build-essential git libncurses5-dev bc bison flex libssl-dev p7zip-full pigz lz4 cpio curl wget libelf-dev dwarves jq lld pahole libdw-dev unzip zip",
             missing.join(", ")
         ));
     }
