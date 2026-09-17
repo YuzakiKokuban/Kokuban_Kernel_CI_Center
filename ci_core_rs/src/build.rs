@@ -628,6 +628,14 @@ write_boot; # use flash_boot to skip ramdisk repack, e.g. for devices with init_
     }
 
     #[test]
+    fn extracts_make_value_after_setup_diagnostics() {
+        let output =
+            "start setup local env\nROOT_DIR=/tmp/kernel\nend of setup local env\n6.12.69\n";
+
+        assert_eq!(last_nonempty_output_line(output), Some("6.12.69"));
+    }
+
+    #[test]
     fn keeps_existing_hybridmount_and_enables_config() {
         let unique = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -683,6 +691,14 @@ fn validate_kernel_version(project_key: &str, expected: Option<&str>, actual: &s
         ));
     }
     Ok(())
+}
+
+fn last_nonempty_output_line(output: &str) -> Option<&str> {
+    output
+        .lines()
+        .rev()
+        .map(str::trim)
+        .find(|line| !line.is_empty())
 }
 
 fn copy_dir_files(source: &Path, dest: &Path) -> Result<()> {
@@ -1135,17 +1151,18 @@ fn capture_make_output(
 ) -> Result<String> {
     let output = if source_setup_env {
         let cmd = format!(
-            "source ./_setup_env.sh 2>/dev/null || true && make {}",
+            "source ./_setup_env.sh 2>/dev/null || true && make -s {}",
             target
         );
         run_cmd(&["bash", "-c", &cmd], Some(kernel_source_path), true)?
     } else {
-        run_cmd(&["make", target], Some(kernel_source_path), true)?
+        run_cmd(&["make", "-s", target], Some(kernel_source_path), true)?
     };
 
     Ok(output
-        .unwrap_or_else(|| "unknown".to_string())
-        .trim()
+        .as_deref()
+        .and_then(last_nonempty_output_line)
+        .unwrap_or("unknown")
         .to_string())
 }
 
