@@ -17,6 +17,35 @@ const ANYKERNEL_REPO: &str = "https://github.com/YuzakiKokuban/AnyKernel3.git";
 const ANYKERNEL_BRANCH: &str = "master";
 const HYBRIDMOUNT_REPO: &str = "https://github.com/Hybrid-Mount/meta-hybrid_mount.git";
 const HYBRIDMOUNT_BRANCH: &str = "feat/nomount-vfs";
+const SUSFS_KCONFIG_ENTRIES: &[(&str, &str)] = &[
+    ("CONFIG_KSU_SUSFS", "y"),
+    ("CONFIG_KSU_SUSFS_SUS_PATH", "y"),
+    ("CONFIG_KSU_SUSFS_SUS_MOUNT", "y"),
+    ("CONFIG_KSU_SUSFS_SUS_KSTAT", "y"),
+    ("CONFIG_KSU_SUSFS_SPOOF_UNAME", "y"),
+    ("CONFIG_KSU_SUSFS_ENABLE_LOG", "y"),
+    ("CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS", "y"),
+    ("CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG", "y"),
+    ("CONFIG_KSU_SUSFS_OPEN_REDIRECT", "y"),
+    ("CONFIG_KSU_SUSFS_SUS_MAP", "y"),
+];
+const SM8850_CUSTOM_KCONFIG_ENTRIES: &[(&str, &str)] = &[
+    ("CONFIG_OVERLAY_FS_REDIRECT_DIR", "y"),
+    ("CONFIG_OVERLAY_FS_INDEX", "y"),
+    ("CONFIG_OVERLAY_FS_XINO_AUTO", "y"),
+    ("CONFIG_OVERLAY_FS_METACOPY", "y"),
+    ("CONFIG_OVERLAY_FS_DEBUG", "y"),
+    ("CONFIG_TMPFS_INODE64", "y"),
+    ("CONFIG_TMPFS_QUOTA", "y"),
+];
+const SM8850_KSU_KCONFIG_ENTRIES: &[(&str, &str)] = &[
+    ("CONFIG_KSU", "y"),
+    ("CONFIG_KSU_MULTI_MANAGER_SUPPORT", "y"),
+    (
+        "CONFIG_KSU_FULL_NAME_FORMAT",
+        "\"%TAG_NAME%-%COMMIT_SHA%-KokubanKernel@%REPO_NAME%\"",
+    ),
+];
 
 fn verify_toolchain_checksum(
     url: &str,
@@ -636,6 +665,22 @@ write_boot; # use flash_boot to skip ramdisk repack, e.g. for devices with init_
     }
 
     #[test]
+    fn writes_and_validates_required_susfs_configs() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let config_path = std::env::temp_dir().join(format!("susfs-config-test-{unique}"));
+        fs::write(&config_path, "# CONFIG_KSU_SUSFS is not set\n").unwrap();
+
+        update_kconfig_file(&config_path, SUSFS_KCONFIG_ENTRIES).unwrap();
+        let result = validate_kconfig_entries(&config_path, SUSFS_KCONFIG_ENTRIES);
+
+        assert!(result.is_ok(), "SuSFS config validation failed: {result:?}");
+        fs::remove_file(config_path).unwrap();
+    }
+
+    #[test]
     fn keeps_existing_hybridmount_and_enables_config() {
         let unique = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -1179,6 +1224,39 @@ fn update_kconfig_file(path: &Path, entries: &[(&str, &str)]) -> Result<()> {
     Ok(())
 }
 
+fn project_defconfig_path(kernel_source_path: &Path, defconfig_name: &str) -> Result<PathBuf> {
+    find_first_existing_path(
+        kernel_source_path,
+        &[
+            format!("arch/arm64/configs/{defconfig_name}"),
+            format!("common/arch/arm64/configs/{defconfig_name}"),
+            format!("kernel_platform/arch/arm64/configs/{defconfig_name}"),
+            format!("kernel_platform/common/arch/arm64/configs/{defconfig_name}"),
+        ],
+    )
+    .ok_or_else(|| anyhow!("Could not locate defconfig: {}", defconfig_name))
+}
+
+fn validate_kconfig_entries(path: &Path, entries: &[(&str, &str)]) -> Result<()> {
+    let content = fs::read_to_string(path)?;
+    let missing: Vec<&str> = entries
+        .iter()
+        .filter_map(|(key, value)| {
+            let expected = format!("{key}={value}");
+            (!content.lines().any(|line| line == expected)).then_some(*key)
+        })
+        .collect();
+
+    if missing.is_empty() {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "Final kernel config is missing required entries: {}",
+            missing.join(", ")
+        ))
+    }
+}
+
 fn prepare_sm8850_build(
     kernel_source_path: &Path,
     proj: &ProjectConfig,
@@ -1190,7 +1268,7 @@ fn prepare_sm8850_build(
         fs::write(&build_config_path, content.replace("check_defconfig", ""))?;
     }
 
-    let defconfig_file = kernel_source_path.join(format!("arch/arm64/configs/{}", proj.defconfig));
+    let defconfig_file = project_defconfig_path(kernel_source_path, &proj.defconfig)?;
     let mut entries = vec![
         ("CONFIG_RUST", "y"),
         ("CONFIG_ANDROID_BINDER_IPC_RUST", "m"),
@@ -1199,8 +1277,9 @@ fn prepare_sm8850_build(
         ("CONFIG_TMPFS_XATTR", "y"),
         ("CONFIG_TMPFS_POSIX_ACL", "y"),
     ];
+    entries.extend_from_slice(SM8850_CUSTOM_KCONFIG_ENTRIES);
     if enable_ksu {
-        entries.push(("CONFIG_KSU", "y"));
+        entries.extend_from_slice(SM8850_KSU_KCONFIG_ENTRIES);
     }
     update_kconfig_file(&defconfig_file, &entries)
 }
@@ -1463,6 +1542,8 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
                 .as_ref()
                 .ok_or_else(|| anyhow!("Project {} does not define a SuSFS source", project_key))?;
             apply_susfs_overlay(&kernel_source_path, susfs)?;
+            let defconfig_file = project_defconfig_path(&kernel_source_path, &proj.defconfig)?;
+            update_kconfig_file(&defconfig_file, SUSFS_KCONFIG_ENTRIES)?;
             feature_suffixes.push("susfs".to_string());
         } else {
             println!(
@@ -1684,6 +1765,17 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
         &["olddefconfig"],
         is_sm8850,
     )?;
+
+    let final_config = kernel_source_path.join("out/.config");
+    if is_sm8850 {
+        validate_kconfig_entries(&final_config, SM8850_CUSTOM_KCONFIG_ENTRIES)?;
+        if setup_url.is_some() {
+            validate_kconfig_entries(&final_config, SM8850_KSU_KCONFIG_ENTRIES)?;
+        }
+    }
+    if apply_susfs && is_resukisu_variant(&branch) {
+        validate_kconfig_entries(&final_config, SUSFS_KCONFIG_ENTRIES)?;
+    }
 
     if !is_sm8850 {
         patch_setlocalversion_remove_dirty(&kernel_source_path)?;
