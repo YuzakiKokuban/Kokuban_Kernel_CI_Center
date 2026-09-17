@@ -43,4 +43,5 @@ jobs:
       do_release: true
       apply_susfs: true
       apply_bbg: false
+      apply_hybridmount: true
     secrets: inherit

@@ -35,6 +35,8 @@ Common local options:
   --no-susfs            Disable SuSFS
   --with-bbg            Enable Baseband Guard
   --no-bbg              Disable Baseband Guard (default)
+  --with-hybridmount    Enable Hybrid Mount (default)
+  --no-hybridmount      Disable Hybrid Mount
 EOF
 }
 
@@ -111,6 +113,19 @@ normalize_local_args() {
         ;;
       --apply-bbg)
         args+=(--apply-bbg "$(bool_value "${2:?Missing value for --apply-bbg}")")
+        shift
+        ;;
+      --with-hybridmount|--hybridmount)
+        args+=(--apply-hybridmount true)
+        ;;
+      --no-hybridmount)
+        args+=(--apply-hybridmount false)
+        ;;
+      --hybridmount=*|--apply-hybridmount=*)
+        args+=(--apply-hybridmount "$(bool_value "${1#*=}")")
+        ;;
+      --apply-hybridmount)
+        args+=(--apply-hybridmount "$(bool_value "${2:?Missing value for --apply-hybridmount}")")
         shift
         ;;
       *)

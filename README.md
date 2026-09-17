@@ -11,7 +11,7 @@ Kokuban Kernel CI Center 是一个专为 Android Linux 内核编译设计的集�
 * **集中化构建编排**：通过统一的 Rust 核心程序管理所有构建逻辑，替代了传统的碎片化 Shell 脚本，确保了构建过程的类型安全与逻辑严密性。
 * **多设备支持**：支持通过配置文件定义不同设备的构建参数（Defconfig、工具链、源码仓库），当前已覆盖三星与小米多个平台。
 * **精简的构建模式**：围绕 `LKM` 与 `ReSukiSU` 两种模式提供自动补丁与集成支持，已移除旧的 `KSU/MKSU` 内置分支流转。
-* **动态特性注入**：支持在构建阶段按需注入 `SuSFS` 与 `BBG`，其中 `SuSFS` 仅在 `ReSukiSU` 构建中启用。
+* **动态特性注入**：支持在构建阶段按需注入 `Hybrid Mount`、`SuSFS` 与 `BBG`。Hybrid Mount 适用于所有内核且默认开启，`SuSFS` 仅在 `ReSukiSU` 构建中启用，BBG 仅对声明支持的项目可用。
 * **智能工具链管理**：支持从远程 URL 自动下载、校验并解压编译工具链，兼容分卷压缩格式，并自动配置交叉编译环境变量（CLANG, GCC, Binutils）。
 * **发布工作流闭环**：构建完成后自动打包 AnyKernel3 刷机包，推送到对应的 GitHub Releases 页面，并通过 Telegram Bot API 发送详细的发布通知。
 * **上游监听**：`Watch Upstream KernelSU` 会对所有支持对应 KernelSU 变体的项目生效，并自动同步上游变更。
@@ -50,7 +50,7 @@ Kokuban Kernel CI Center 是一个专为 Android Linux 内核编译设计的集�
 | **Tab S9** | Galaxy Tab S9 Series (SM8550) | `tabs9_sm8550` |
 | **Tab S10** | Galaxy Tab S10 (MT6989) | `tabs10_mt6989` |
 | **Z6** | Galaxy Z Fold/Flip 6 (SM8650) | `z6_sm8650` |
-| **Mi17** | Xiaomi 17 Series (SM8850) | `mi17_sm8850` |
+| **Mi17** | Xiaomi 17 Series (SM8850, Linux 6.12.69, Hybrid Mount, no BBG) | `mi17_sm8850` |
 
 ## 构建与使用
 
@@ -62,7 +62,7 @@ Kokuban Kernel CI Center 是一个专为 Android Linux 内核编译设计的集�
 * **Git Branch/Tag**: 指定内核源码分支，通常使用 `main` 或 `resukisu`。
 * **Build Mode Override**: 选择构建模式（默认为 `default`，即跟随分支策略）。
 * **Create Release**: 是否在构建成功后创建 GitHub Release。
-* **Apply SuSFS / Apply BBG**: SuSFS 默认开启；BBG 默认关闭。其中 `SuSFS` 仅在 `ReSukiSU` 构建时真正生效。
+* **Apply Hybrid Mount / SuSFS / BBG**: Hybrid Mount 与 SuSFS 默认开启，BBG 默认关闭。其中 Hybrid Mount 适用于所有项目，`SuSFS` 仅在 `ReSukiSU` 构建时真正生效。
 
 ### 2. 仓库初始化与分支整理
 
@@ -106,9 +106,10 @@ sudo apt-get install -y build-essential git libncurses5-dev bc bison flex \
 # ReSukiSU
 ./kokuban build s25_sm8750 resukisu resukisu
 
-# ReSukiSU 默认启用 SuSFS，BBG 默认关闭，可按需显式传参开启
+# Hybrid Mount 默认对所有内核启用；ReSukiSU 默认启用 SuSFS；BBG 默认关闭
 ./kokuban build s25_sm8750 resukisu resukisu --no-susfs
 ./kokuban build s25_sm8750 resukisu resukisu --with-bbg
+./kokuban build s25_sm8750 resukisu resukisu --no-hybridmount
 
 # 指定自定义缓存根目录
 ./kokuban build mi17_sm8850 resukisu resukisu --local-root ~/kokuban-local-cache
@@ -118,8 +119,8 @@ sudo apt-get install -y build-essential git libncurses5-dev bc bison flex \
 
 ```bash
 ./kokuban list                 # 列出可用项目
-./kokuban features             # 查看所有项目的 SuSFS / BBG 支持状态
-./kokuban features s25_sm8750  # 查看单个项目的 SuSFS / BBG 配置
+./kokuban features             # 查看所有项目的 Hybrid Mount / SuSFS / BBG 支持状态
+./kokuban features s25_sm8750  # 查看单个项目的扩展能力配置
 ./kokuban validate             # 校验项目配置完整性
 ./kokuban doctor               # 检查本地依赖
 ./kokuban cache status         # 查看本地缓存占用
@@ -135,12 +136,13 @@ sudo apt-get install -y build-essential git libncurses5-dev bc bison flex \
 ./kokuban plan s25_sm8750 resukisu resukisu
 ```
 
-本地 CLI 默认会给构建传入 `apply_susfs=true` 与 `apply_bbg=false`。也可以写入本地默认配置：
+本地 CLI 默认会给构建传入 `apply_hybridmount=true`、`apply_susfs=true` 与 `apply_bbg=false`。也可以写入本地默认配置：
 
 ```bash
 ./kokuban config show
 ./kokuban config set apply_susfs true
 ./kokuban config set apply_bbg false
+./kokuban config set apply_hybridmount true
 ./kokuban config set local_root ~/kokuban-local-cache
 ```
 
@@ -166,7 +168,7 @@ sudo apt-get install -y build-essential git libncurses5-dev bc bison flex \
 
 构建完成后，产物会保留在工作区，同时归档到 `artifacts/<project>/<build-id>`，并更新 `artifacts/<project>/latest` 软链接。归档内容包含刷机包、`.config`、`vmlinux.symvers` 与本次构建日志。
 
-每次构建还会写入 `build-info.json`，记录项目、源码提交、SuSFS / BBG 状态、主机信息、工具链缓存路径与 SHA-256。构建失败时，CLI 会从日志中提取关键错误行和最后一段日志，直接打印失败摘要。
+每次构建还会写入 `build-info.json`，记录项目、源码提交、Hybrid Mount / SuSFS / BBG 状态、主机信息、工具链缓存路径与 SHA-256。构建失败时，CLI 会从日志中提取关键错误行和最后一段日志，直接打印失败摘要。
 
 缓存清理示例：
 

@@ -15,6 +15,8 @@ use crate::utils::{
 
 const ANYKERNEL_REPO: &str = "https://github.com/YuzakiKokuban/AnyKernel3.git";
 const ANYKERNEL_BRANCH: &str = "master";
+const HYBRIDMOUNT_REPO: &str = "https://github.com/Hybrid-Mount/meta-hybrid_mount.git";
+const HYBRIDMOUNT_BRANCH: &str = "feat/nomount-vfs";
 
 fn verify_toolchain_checksum(
     url: &str,
@@ -86,11 +88,8 @@ fn download_single_toolchain(
             .file_name()
             .and_then(|name| name.to_str())
             .unwrap_or("toolchain");
-        let tmp_path = cache_path.with_file_name(format!(
-            "{}.tmp-{}",
-            cache_file_name,
-            std::process::id()
-        ));
+        let tmp_path =
+            cache_path.with_file_name(format!("{}.tmp-{}", cache_file_name, std::process::id()));
         let _ = fs::remove_file(&tmp_path);
         let tmp_path_str = tmp_path
             .to_str()
@@ -607,6 +606,83 @@ write_boot; # use flash_boot to skip ramdisk repack, e.g. for devices with init_
 
         fs::remove_dir_all(&temp_dir).unwrap();
     }
+
+    #[test]
+    fn rejects_unsupported_bbg_request() {
+        let error = require_bbg_config("mi17_sm8850", None).unwrap_err();
+
+        assert_eq!(
+            error.to_string(),
+            "Project mi17_sm8850 does not support Baseband Guard"
+        );
+    }
+
+    #[test]
+    fn rejects_unexpected_kernel_version() {
+        let error = validate_kernel_version("mi17_sm8850", Some("6.12.69"), "6.12.68").unwrap_err();
+
+        assert_eq!(
+            error.to_string(),
+            "Project mi17_sm8850 requires kernel 6.12.69, but the source reports 6.12.68"
+        );
+    }
+
+    #[test]
+    fn keeps_existing_hybridmount_and_enables_config() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let temp_dir = std::env::temp_dir().join(format!("hybridmount-config-test-{unique}"));
+        fs::create_dir_all(temp_dir.join("fs/hybridmount")).unwrap();
+        fs::create_dir_all(temp_dir.join("arch/arm64/configs")).unwrap();
+        fs::write(temp_dir.join("fs/Kconfig"), "menu \"File systems\"\n").unwrap();
+        fs::write(temp_dir.join("arch/arm64/configs/test_defconfig"), "").unwrap();
+
+        apply_hybridmount_overlay(&temp_dir, "test_defconfig").unwrap();
+        let config =
+            fs::read_to_string(temp_dir.join("arch/arm64/configs/test_defconfig")).unwrap();
+
+        assert_eq!(config, "CONFIG_HYBRIDMOUNT=y\n");
+        fs::remove_dir_all(temp_dir).unwrap();
+    }
+
+    #[test]
+    fn rejects_hybridmount_when_nomount_exists() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let temp_dir = std::env::temp_dir().join(format!("hybridmount-nomount-test-{unique}"));
+        fs::create_dir_all(temp_dir.join("fs/nomount")).unwrap();
+        fs::write(temp_dir.join("fs/Kconfig"), "menu \"File systems\"\n").unwrap();
+
+        let error = apply_hybridmount_overlay(&temp_dir, "test_defconfig").unwrap_err();
+
+        assert_eq!(
+            error.to_string(),
+            "Hybrid Mount cannot be enabled because this kernel already integrates NoMount"
+        );
+        fs::remove_dir_all(temp_dir).unwrap();
+    }
+}
+
+fn require_bbg_config<'a>(project_key: &str, bbg: Option<&'a BbgConfig>) -> Result<&'a BbgConfig> {
+    bbg.ok_or_else(|| anyhow!("Project {} does not support Baseband Guard", project_key))
+}
+
+fn validate_kernel_version(project_key: &str, expected: Option<&str>, actual: &str) -> Result<()> {
+    if let Some(expected) = expected
+        && actual != expected
+    {
+        return Err(anyhow!(
+            "Project {} requires kernel {}, but the source reports {}",
+            project_key,
+            expected,
+            actual
+        ));
+    }
+    Ok(())
 }
 
 fn copy_dir_files(source: &Path, dest: &Path) -> Result<()> {
@@ -798,6 +874,102 @@ fn apply_susfs_overlay(kernel_source_path: &Path, susfs: &SusfsConfig) -> Result
 
     fs::remove_dir_all(&temp_dir)?;
     Ok(())
+}
+
+fn set_hybridmount_config(
+    kernel_source_path: &Path,
+    defconfig_name: &str,
+    enabled: bool,
+) -> Result<()> {
+    let defconfig_path = find_first_existing_path(
+        kernel_source_path,
+        &[
+            format!("arch/arm64/configs/{defconfig_name}"),
+            format!("common/arch/arm64/configs/{defconfig_name}"),
+            format!("kernel_platform/arch/arm64/configs/{defconfig_name}"),
+            format!("kernel_platform/common/arch/arm64/configs/{defconfig_name}"),
+        ],
+    )
+    .ok_or_else(|| anyhow!("Could not locate defconfig for Hybrid Mount"))?;
+    let defconfig_content = fs::read_to_string(&defconfig_path)?;
+    fs::write(
+        defconfig_path,
+        upsert_kconfig_entry(
+            &defconfig_content,
+            "CONFIG_HYBRIDMOUNT",
+            if enabled { "y" } else { "n" },
+        ),
+    )?;
+    Ok(())
+}
+
+fn apply_hybridmount_overlay(kernel_source_path: &Path, defconfig_name: &str) -> Result<()> {
+    let source_kconfig = find_first_existing_path(
+        kernel_source_path,
+        &[
+            "fs/Kconfig".to_string(),
+            "common/fs/Kconfig".to_string(),
+            "kernel_platform/common/fs/Kconfig".to_string(),
+        ],
+    )
+    .ok_or_else(|| anyhow!("Could not locate kernel fs/Kconfig for Hybrid Mount"))?;
+    let source_root = source_kconfig
+        .parent()
+        .and_then(Path::parent)
+        .ok_or_else(|| anyhow!("Could not locate kernel source root for Hybrid Mount"))?;
+    let fs_makefile = fs::read_to_string(source_root.join("fs/Makefile")).unwrap_or_default();
+    let fs_kconfig = fs::read_to_string(&source_kconfig).unwrap_or_default();
+    if source_root.join("fs/nomount").is_dir()
+        || fs_makefile.contains("nomount")
+        || fs_kconfig.contains("fs/nomount/Kconfig")
+    {
+        return Err(anyhow!(
+            "Hybrid Mount cannot be enabled because this kernel already integrates NoMount"
+        ));
+    }
+    let hybridmount_dir = source_root.join("fs/hybridmount");
+
+    if hybridmount_dir.is_dir() {
+        println!("Hybrid Mount is already integrated; keeping the in-tree sources.");
+    } else {
+        let temp_dir = kernel_source_path.join(".hybridmount_workspace");
+        if temp_dir.exists() {
+            fs::remove_dir_all(&temp_dir)?;
+        }
+
+        run_cmd(
+            &[
+                "git",
+                "clone",
+                "--depth=1",
+                "--branch",
+                HYBRIDMOUNT_BRANCH,
+                HYBRIDMOUNT_REPO,
+                temp_dir
+                    .to_str()
+                    .ok_or_else(|| anyhow!("Invalid Hybrid Mount temp path"))?,
+            ],
+            None,
+            false,
+        )?;
+
+        let setup_script = temp_dir.join("module/vfs/setup.sh");
+        let setup_result = run_cmd(
+            &[
+                "sh",
+                setup_script
+                    .to_str()
+                    .ok_or_else(|| anyhow!("Invalid Hybrid Mount setup path"))?,
+            ],
+            Some(source_root),
+            false,
+        );
+        let cleanup_result = fs::remove_dir_all(&temp_dir);
+        setup_result?;
+        cleanup_result?;
+    }
+
+    set_hybridmount_config(kernel_source_path, defconfig_name, true)
 }
 
 fn apply_bbg_overlay(
@@ -1016,15 +1188,28 @@ fn prepare_sm8850_build(
     update_kconfig_file(&defconfig_file, &entries)
 }
 
-pub fn handle_build(
-    project_key: String,
-    branch: String,
-    do_release: bool,
-    custom_localversion: Option<String>,
-    resukisu_setup_arg: Option<String>,
-    apply_susfs: bool,
-    apply_bbg: bool,
-) -> Result<()> {
+pub struct BuildOptions {
+    pub project_key: String,
+    pub branch: String,
+    pub do_release: bool,
+    pub custom_localversion: Option<String>,
+    pub resukisu_setup_arg: Option<String>,
+    pub apply_susfs: bool,
+    pub apply_bbg: bool,
+    pub apply_hybridmount: bool,
+}
+
+pub fn handle_build(options: BuildOptions) -> Result<()> {
+    let BuildOptions {
+        project_key,
+        branch,
+        do_release,
+        custom_localversion,
+        resukisu_setup_arg,
+        apply_susfs,
+        apply_bbg,
+        apply_hybridmount,
+    } = options;
     let proj = load_project(&project_key)?;
 
     let kernel_source_path = PathBuf::from("kernel_source");
@@ -1247,6 +1432,13 @@ pub fn handle_build(
     }
 
     let mut feature_suffixes = Vec::new();
+    if apply_hybridmount {
+        apply_hybridmount_overlay(&kernel_source_path, &proj.defconfig)?;
+        feature_suffixes.push("hybridmount".to_string());
+    } else {
+        set_hybridmount_config(&kernel_source_path, &proj.defconfig, false)?;
+    }
+
     if apply_susfs {
         if is_resukisu_variant(&branch) {
             let susfs = proj
@@ -1264,11 +1456,17 @@ pub fn handle_build(
     }
 
     if apply_bbg {
-        apply_bbg_overlay(&kernel_source_path, &proj, proj.bbg.as_ref())?;
+        let bbg = require_bbg_config(&project_key, proj.bbg.as_ref())?;
+        apply_bbg_overlay(&kernel_source_path, &proj, Some(bbg))?;
         feature_suffixes.push("bbg".to_string());
     }
 
     let kernel_version = capture_make_output(&kernel_source_path, "kernelversion", is_sm8850)?;
+    validate_kernel_version(
+        &project_key,
+        proj.expected_kernel_version.as_deref(),
+        &kernel_version,
+    )?;
 
     let short_sha = run_cmd(
         &["git", "rev-parse", "--short=12", "HEAD"],

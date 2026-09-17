@@ -49,6 +49,10 @@ on:
         description: 'Apply Baseband Guard dynamically during build'
         type: boolean
         default: false
+      apply_hybridmount:
+        description: 'Integrate Hybrid Mount VFS dynamically during build'
+        type: boolean
+        default: true
   repository_dispatch:
     types: [build-kernel]
   workflow_call:
@@ -77,6 +81,9 @@ on:
       apply_bbg:
         type: boolean
         default: false
+      apply_hybridmount:
+        type: boolean
+        default: true
 
 jobs:
   build:
@@ -99,11 +106,15 @@ jobs:
             resukisu_setup_arg=""
             apply_susfs="${{ github.event.client_payload.apply_susfs }}"
             apply_bbg="${{ github.event.client_payload.apply_bbg }}"
+            apply_hybridmount="${{ github.event.client_payload.apply_hybridmount }}"
             if [ -z "$apply_susfs" ]; then
               apply_susfs="true"
             fi
             if [ -z "$apply_bbg" ]; then
               apply_bbg="false"
+            fi
+            if [ -z "$apply_hybridmount" ]; then
+              apply_hybridmount="true"
             fi
           else
             project="${{ inputs.project }}"
@@ -114,6 +125,7 @@ jobs:
             resukisu_setup_arg="${{ inputs.resukisu_setup_arg }}"
             apply_susfs="${{ inputs.apply_susfs }}"
             apply_bbg="${{ inputs.apply_bbg }}"
+            apply_hybridmount="${{ inputs.apply_hybridmount }}"
           fi
 
           if [ "$variant" = "default" ] || [ -z "$variant" ]; then
@@ -135,6 +147,7 @@ jobs:
             echo "RESUKISU_SETUP_ARG=$resukisu_setup_arg"
             echo "APPLY_SUSFS=$apply_susfs"
             echo "APPLY_BBG=$apply_bbg"
+            echo "APPLY_HYBRIDMOUNT=$apply_hybridmount"
             echo "ARTIFACT_NAME=$artifact_name"
           } >> "$GITHUB_ENV"
 
@@ -196,6 +209,7 @@ jobs:
           fi
           ARGS+=("--apply-susfs" "${{ env.APPLY_SUSFS }}")
           ARGS+=("--apply-bbg" "${{ env.APPLY_BBG }}")
+          ARGS+=("--apply-hybridmount" "${{ env.APPLY_HYBRIDMOUNT }}")
           ./kokuban_ci_core build "${ARGS[@]}"
 
       - name: Collect Build Artifacts

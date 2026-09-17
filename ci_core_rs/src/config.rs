@@ -6,6 +6,7 @@ pub struct ProjectConfig {
     pub repo: String,
     pub defconfig: String,
     pub localversion_base: String,
+    pub expected_kernel_version: Option<String>,
     pub lto: Option<String>,
     pub supported_ksu: Option<Vec<String>>,
     pub toolchain_urls: Option<Vec<String>>,

@@ -320,6 +320,7 @@
     "repo": "YuzakiKokuban/android_kernel_xiaomi_sm8850",
     "defconfig": "gki_defconfig",
     "localversion_base": "-android16-Kokuban-SilverWolf",
+    "expected_kernel_version": "6.12.69",
     "supported_ksu": [
       "resukisu"
     ],
@@ -345,9 +346,6 @@
       "patch_path": "kernel_patches/50_add_susfs_in_gki-android16-6.12.patch",
       "fs_patch_dir": "kernel_patches/fs",
       "include_linux_patch_dir": "kernel_patches/include/linux"
-    },
-    "bbg": {
-      "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
     },
     "readme_placeholders": {
       "DEVICE_NAME_CN": "小米 17 系列",

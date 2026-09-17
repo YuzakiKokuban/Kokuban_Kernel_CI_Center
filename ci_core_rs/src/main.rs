@@ -133,6 +133,8 @@ enum Commands {
         apply_susfs: bool,
         #[arg(long, action = clap::ArgAction::Set)]
         apply_bbg: bool,
+        #[arg(long, action = clap::ArgAction::Set, default_value_t = true)]
+        apply_hybridmount: bool,
     },
     Local {
         #[arg(long)]
@@ -159,6 +161,12 @@ enum Commands {
         with_bbg: bool,
         #[arg(long, action = clap::ArgAction::SetTrue)]
         no_bbg: bool,
+        #[arg(long, action = clap::ArgAction::Set)]
+        apply_hybridmount: Option<bool>,
+        #[arg(long, action = clap::ArgAction::SetTrue)]
+        with_hybridmount: bool,
+        #[arg(long, action = clap::ArgAction::SetTrue)]
+        no_hybridmount: bool,
         #[arg(long)]
         local_root: Option<PathBuf>,
         #[arg(long, action = clap::ArgAction::SetTrue)]
@@ -308,15 +316,17 @@ fn main() -> Result<()> {
             resukisu_setup_arg,
             apply_susfs,
             apply_bbg,
-        } => build::handle_build(
-            project,
+            apply_hybridmount,
+        } => build::handle_build(build::BuildOptions {
+            project_key: project,
             branch,
             do_release,
             custom_localversion,
             resukisu_setup_arg,
             apply_susfs,
             apply_bbg,
-        ),
+            apply_hybridmount,
+        }),
         Commands::Local {
             project,
             branch,
@@ -330,6 +340,9 @@ fn main() -> Result<()> {
             apply_bbg,
             with_bbg,
             no_bbg,
+            apply_hybridmount,
+            with_hybridmount,
+            no_hybridmount,
             local_root,
             offline,
             no_fetch,
@@ -352,6 +365,13 @@ fn main() -> Result<()> {
             } else {
                 apply_bbg.unwrap_or(settings.apply_bbg)
             };
+            let resolved_hybridmount = if no_hybridmount {
+                false
+            } else if with_hybridmount {
+                true
+            } else {
+                apply_hybridmount.unwrap_or(settings.apply_hybridmount)
+            };
             local::handle_local_build(LocalBuildOptions {
                 project,
                 branch,
@@ -361,6 +381,7 @@ fn main() -> Result<()> {
                 resukisu_setup_arg,
                 apply_susfs: resolved_susfs,
                 apply_bbg: resolved_bbg,
+                apply_hybridmount: resolved_hybridmount,
                 local_root: local_root.or(settings.local_root),
                 offline,
                 no_fetch,
@@ -512,6 +533,7 @@ fn handle_add(options: AddOptions) -> Result<()> {
         repo: options.repo,
         defconfig: options.defconfig,
         localversion_base: options.localversion,
+        expected_kernel_version: None,
         lto: None,
         supported_ksu: Some(vec!["resukisu".to_string()]),
         toolchain_urls: None,

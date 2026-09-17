@@ -106,14 +106,15 @@ pub fn handle_features(project: Option<String>) -> Result<()> {
                 })
             );
         } else {
-            println!("bbg=missing");
+            println!("bbg=disabled");
         }
+        println!("hybridmount=enabled");
         return Ok(());
     }
 
     for (key, proj) in project_values()? {
         println!(
-            "{}\tsusfs={}\tbbg={}",
+            "{}\tsusfs={}\tbbg={}\thybridmount=enabled",
             key,
             if proj.susfs.is_some() {
                 "enabled"
@@ -123,7 +124,7 @@ pub fn handle_features(project: Option<String>) -> Result<()> {
             if proj.bbg.is_some() {
                 "enabled"
             } else {
-                "missing"
+                "disabled"
             }
         );
     }
@@ -170,9 +171,6 @@ pub fn handle_validate() -> Result<()> {
         }
         if proj.susfs.is_none() {
             errors.push(format!("{key}: missing susfs"));
-        }
-        if proj.bbg.is_none() {
-            errors.push(format!("{key}: missing bbg"));
         }
     }
 
@@ -272,6 +270,7 @@ pub fn handle_config_show() -> Result<()> {
     println!("config_file={}", settings::config_file()?.display());
     println!("apply_susfs={}", settings.apply_susfs);
     println!("apply_bbg={}", settings.apply_bbg);
+    println!("apply_hybridmount={}", settings.apply_hybridmount);
     println!(
         "local_root={}",
         settings
@@ -456,7 +455,7 @@ pub fn handle_cache_prune(
             let modified: DateTime<Utc> = metadata.modified()?.into();
             entries.push((entry.path(), modified));
         }
-        entries.sort_by(|a, b| b.1.cmp(&a.1));
+        entries.sort_by_key(|entry| std::cmp::Reverse(entry.1));
 
         for (idx, (path, modified)) in entries.into_iter().enumerate() {
             let beyond_keep = idx >= keep_artifacts;
