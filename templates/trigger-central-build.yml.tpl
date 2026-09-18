@@ -19,5 +19,5 @@ jobs:
               "branch": "${{ github.ref_name }}",
               "apply_susfs": true,
               "apply_bbg": false,
-              "apply_hybridmount": true
+              "apply_hybridmount": false
             }

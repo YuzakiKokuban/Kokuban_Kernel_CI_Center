@@ -52,7 +52,7 @@ on:
       apply_hybridmount:
         description: 'Integrate Hybrid Mount VFS dynamically during build'
         type: boolean
-        default: true
+        default: false
   repository_dispatch:
     types: [build-kernel]
   workflow_call:
@@ -83,7 +83,7 @@ on:
         default: false
       apply_hybridmount:
         type: boolean
-        default: true
+        default: false
 
 jobs:
   build:
@@ -114,7 +114,7 @@ jobs:
               apply_bbg="false"
             fi
             if [ -z "$apply_hybridmount" ]; then
-              apply_hybridmount="true"
+              apply_hybridmount="false"
             fi
           else
             project="${{ inputs.project }}"

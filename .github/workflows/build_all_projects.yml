@@ -6,6 +6,10 @@ on:
         description: 'Create GitHub Releases for every build'
         type: boolean
         default: false
+      apply_hybridmount:
+        description: 'Integrate Hybrid Mount VFS in every build'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -42,5 +46,5 @@ jobs:
       do_release: ${{ inputs.do_release }}
       apply_susfs: true
       apply_bbg: false
-      apply_hybridmount: true
+      apply_hybridmount: ${{ inputs.apply_hybridmount }}
     secrets: inherit
