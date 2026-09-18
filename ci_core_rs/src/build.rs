@@ -16,7 +16,7 @@ use crate::utils::{
 const ANYKERNEL_REPO: &str = "https://github.com/YuzakiKokuban/AnyKernel3.git";
 const ANYKERNEL_BRANCH: &str = "master";
 const HYBRIDMOUNT_REPO: &str = "https://github.com/Hybrid-Mount/meta-hybrid_mount.git";
-const HYBRIDMOUNT_BRANCH: &str = "feat/nomount-vfs";
+const HYBRIDMOUNT_BRANCH: &str = "dev";
 const SUSFS_KCONFIG_ENTRIES: &[(&str, &str)] = &[
     ("CONFIG_KSU_SUSFS", "y"),
     ("CONFIG_KSU_SUSFS_SUS_PATH", "y"),
