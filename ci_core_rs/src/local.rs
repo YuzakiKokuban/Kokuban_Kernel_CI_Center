@@ -607,30 +607,43 @@ fn archive_artifacts(
     let artifact_dir = local_root.join("artifacts").join(project).join(build_id);
     fs::create_dir_all(&artifact_dir)?;
 
-    let mut copied = false;
+    // A build log is written for every run, including failures, so it must not count as
+    // evidence that the build produced something worth publishing.
+    let mut produced_artifacts = false;
     for entry in fs::read_dir(run_dir)? {
         let path = entry?.path();
         if path.extension().and_then(|ext| ext.to_str()) == Some("zip") {
-            copied |= copy_if_exists(&path, &artifact_dir)?;
+            produced_artifacts |= copy_if_exists(&path, &artifact_dir)?;
         }
     }
 
     for source in [
         run_dir.join("kernel_source/out/.config"),
         run_dir.join("kernel_source/out/vmlinux.symvers"),
-        log_path.to_path_buf(),
     ] {
-        copied |= copy_if_exists(&source, &artifact_dir)?;
+        produced_artifacts |= copy_if_exists(&source, &artifact_dir)?;
+    }
+
+    let copied_log = copy_if_exists(log_path, &artifact_dir)?;
+
+    if !produced_artifacts {
+        // Leave `latest` pointing at the previous good build rather than an empty directory.
+        fs::remove_dir_all(&artifact_dir)?;
+        println!(
+            "No build artifacts were produced for {}; keeping the previous 'latest'.",
+            project
+        );
+        return Ok(artifact_dir);
     }
 
     let latest_path = local_root.join("artifacts").join(project).join("latest");
     replace_latest_symlink(&latest_path, &artifact_dir)?;
 
-    if copied {
+    if copied_log {
         println!("Archived local artifacts into {}", artifact_dir.display());
     } else {
         println!(
-            "Created artifact directory {}, but no build artifacts were found.",
+            "Archived local artifacts into {} (build log unavailable).",
             artifact_dir.display()
         );
     }
@@ -917,6 +930,38 @@ mod tests {
         assert!(lock.path.exists());
         drop(lock);
         assert!(!lock_dir.join("test.lock").exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    // A run that produced no artifacts must not steal the `latest` pointer: downstream
+    // consumers resolve that symlink to fetch the newest kernel, so pointing it at an empty
+    // directory turns a failed build into a broken "latest" release.
+    #[test]
+    fn archive_without_artifacts_keeps_existing_latest() {
+        let root = unique_temp_path("kokuban-latest-test");
+        let project = "testproj";
+
+        // A previous successful build.
+        let good_run = root.join("runs/good");
+        fs::create_dir_all(&good_run).unwrap();
+        fs::write(good_run.join("Kernel-good.zip"), "zip").unwrap();
+        let log = root.join("good.log");
+        fs::write(&log, "ok\n").unwrap();
+        let good_dir = archive_artifacts(&root, project, &good_run, "good-build", &log).unwrap();
+
+        // A later run that produced nothing.
+        let empty_run = root.join("runs/empty");
+        fs::create_dir_all(&empty_run).unwrap();
+        let empty_log = root.join("empty.log");
+        fs::write(&empty_log, "failed\n").unwrap();
+        archive_artifacts(&root, project, &empty_run, "empty-build", &empty_log).unwrap();
+
+        let latest = root.join("artifacts").join(project).join("latest");
+        let resolved = fs::read_link(&latest).unwrap();
+        assert_eq!(
+            resolved, good_dir,
+            "latest must still point at the last build that actually produced artifacts"
+        );
         fs::remove_dir_all(root).unwrap();
     }
 }

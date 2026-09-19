@@ -22,10 +22,10 @@ on:
         description: 'Device Name (EN)'
         required: true
         default: 'Unknown Device'
-      ak3_branch:
-        description: 'AnyKernel3 Branch'
-        default: 'master'
-        required: true
+      ak3_config:
+        description: 'AnyKernel3 config key in configs/anykernel_configs.json (optional)'
+        required: false
+        default: ''
       zip_name:
         description: 'Zip Name Prefix'
         default: 'Kernel'
@@ -47,21 +47,38 @@ jobs:
           chmod +x kokuban_ci_core
 
       - name: Add to Configuration
+        env:
+          PROJECT_KEY: ${{ inputs.project_key }}
+          REPO_PATH: ${{ inputs.repo_path }}
+          DEFCONFIG: ${{ inputs.defconfig }}
+          LOCALVERSION: ${{ inputs.localversion }}
+          DEVICE_NAME_CN: ${{ inputs.device_name_cn }}
+          DEVICE_NAME_EN: ${{ inputs.device_name_en }}
+          AK3_CONFIG: ${{ inputs.ak3_config }}
+          ZIP_NAME: ${{ inputs.zip_name }}
         run: |
-          ./kokuban_ci_core add \
-            --key "${{ inputs.project_key }}" \
-            --repo "${{ inputs.repo_path }}" \
-            --defconfig "${{ inputs.defconfig }}" \
-            --localversion "${{ inputs.localversion }}" \
-            --device_cn "${{ inputs.device_name_cn }}" \
-            --device_en "${{ inputs.device_name_en }}" \
-            --ak3_branch "${{ inputs.ak3_branch }}" \
-            --zip_name "${{ inputs.zip_name }}"
-            
+          # --localversion is joined with '=' on purpose: the configured values start with
+          # '-', so a space-separated form would be parsed as a separate (unknown) flag.
+          ARGS=(
+            --key="$PROJECT_KEY"
+            --repo="$REPO_PATH"
+            --defconfig="$DEFCONFIG"
+            --localversion="$LOCALVERSION"
+            --device-cn="$DEVICE_NAME_CN"
+            --device-en="$DEVICE_NAME_EN"
+            --zip-name="$ZIP_NAME"
+          )
+          if [ -n "$AK3_CONFIG" ]; then
+            ARGS+=(--ak3-config="$AK3_CONFIG")
+          fi
+          ./kokuban_ci_core add "${ARGS[@]}"
+
       - name: Commit and Push
+        env:
+          PROJECT_KEY: ${{ inputs.project_key }}
         run: |
           git config --global user.name "Kokuban-Bot"
           git config --global user.email "bot@kokuban.dev"
           git add configs/projects.json
-          git commit -m "feat: add new project ${{ inputs.project_key }}"
+          git commit -m "feat: add new project $PROJECT_KEY"
           git push

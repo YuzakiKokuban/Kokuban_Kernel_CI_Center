@@ -57,6 +57,40 @@ fn remove_path(path: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Reject a user-supplied path component that would resolve outside `root`.
+///
+/// `sanitize_path_component` already replaces separators, but `.`/`..` and absolute paths
+/// survive in other call paths, so validate the component shape and confirm the resolved
+/// target still sits under the cache root before anything is deleted.
+fn ensure_within(root: &Path, component: &str) -> Result<()> {
+    let candidate = Path::new(component);
+    let is_plain_segment = !candidate.is_absolute()
+        && candidate
+            .components()
+            .all(|part| matches!(part, std::path::Component::Normal(_)));
+
+    if !is_plain_segment {
+        return Err(anyhow!(
+            "Invalid project name {:?}: it must be a single path segment without '.'/'..'",
+            component
+        ));
+    }
+
+    let root = fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
+    let resolved = fs::canonicalize(root.join(component))
+        .unwrap_or_else(|_| root.join(component).to_path_buf());
+
+    if !resolved.starts_with(&root) {
+        return Err(anyhow!(
+            "Refusing to clean {:?}: it resolves outside the cache root {}",
+            component,
+            root.display()
+        ));
+    }
+
+    Ok(())
+}
+
 fn project_values() -> Result<Vec<(String, ProjectConfig)>> {
     let projects = load_projects()?;
     let mut values = Vec::new();
@@ -244,14 +278,10 @@ pub fn handle_cache_clean(
             let project =
                 project.ok_or_else(|| anyhow!("cache clean project requires --project"))?;
             let project_key = sanitize_path_component(&project);
+            ensure_within(&root, &project)?;
             remove_path(&root.join("builds").join(&project_key))?;
             remove_path(&root.join("artifacts").join(&project_key))?;
             remove_path(&root.join("logs").join(&project_key))?;
-            if project_key != project {
-                remove_path(&root.join("builds").join(&project))?;
-                remove_path(&root.join("artifacts").join(&project))?;
-                remove_path(&root.join("logs").join(&project))?;
-            }
             remove_path(
                 &root
                     .join("repos/kernels")
@@ -423,6 +453,29 @@ mod tests {
         assert!(!project_dir.join("old").exists());
         assert!(project_dir.join("new").exists());
         fs::remove_dir_all(root).unwrap();
+    }
+
+    // A project name that escapes the cache root must never delete anything outside it.
+    #[test]
+    fn cache_clean_project_cannot_escape_root() {
+        let root = unique_temp_path("kokuban-clean-escape-test");
+        let victim = root.parent().unwrap().join(format!(
+            "kokuban-clean-victim-{}",
+            root.file_name().unwrap().to_string_lossy()
+        ));
+        fs::create_dir_all(&victim).unwrap();
+        fs::write(victim.join("KEEP.txt"), "keep").unwrap();
+
+        let escaped = format!("../../{}", victim.file_name().unwrap().to_string_lossy());
+        let result = handle_cache_clean("project".to_string(), Some(escaped), Some(root.clone()));
+
+        assert!(result.is_err(), "escaping project name must be rejected");
+        assert!(
+            victim.join("KEEP.txt").exists(),
+            "files outside the cache root must be left untouched"
+        );
+        let _ = fs::remove_dir_all(&victim);
+        let _ = fs::remove_dir_all(&root);
     }
 }
 

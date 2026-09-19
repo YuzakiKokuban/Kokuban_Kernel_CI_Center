@@ -355,6 +355,20 @@ fn read_text_allow_missing(path: &Path) -> Result<String> {
     }
 }
 
+/// Download a setup script and pipe it into bash.
+///
+/// `pipefail` and `curl -f` are both required: without them a failed download yields an empty
+/// script that bash happily "runs", so the overlay is silently skipped and the build still
+/// succeeds while shipping a kernel with the feature it was supposed to add.
+fn run_setup_script(url: &str, setup_arg: Option<&str>, cwd: &Path) -> Result<()> {
+    let mut cmd = format!("set -o pipefail; curl -fsSL '{}' | bash", url);
+    if let Some(arg) = setup_arg {
+        cmd.push_str(&format!(" -s {}", arg));
+    }
+    run_cmd(&["bash", "-c", &cmd], Some(cwd), false)?;
+    Ok(())
+}
+
 fn upsert_kconfig_entry(content: &str, key: &str, value: &str) -> String {
     let key_prefix = format!("{key}=");
     let not_set_line = format!("# {key} is not set");
@@ -802,6 +816,50 @@ write_boot; # use flash_boot to skip ramdisk repack, e.g. for devices with init_
         );
         fs::remove_dir_all(temp_dir).unwrap();
     }
+
+    // A failed download must surface as an error. Without pipefail the pipeline's exit code
+    // comes from bash alone, so an empty/absent script "succeeds" and the overlay is skipped.
+    #[test]
+    fn setup_script_download_failure_is_reported() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let temp_dir = std::env::temp_dir().join(format!("setup-script-test-{unique}"));
+        fs::create_dir_all(&temp_dir).unwrap();
+
+        let missing = temp_dir.join("does-not-exist.sh");
+        let url = format!("file://{}", missing.display());
+        let result = run_setup_script(&url, None, &temp_dir);
+
+        assert!(
+            result.is_err(),
+            "a download that fails must not be treated as success"
+        );
+        fs::remove_dir_all(temp_dir).unwrap();
+    }
+
+    // The setup argument is appended to the bash invocation, so a successful download must
+    // still reach bash as an argument rather than being folded into the curl command.
+    #[test]
+    fn setup_script_passes_argument_to_bash() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let temp_dir = std::env::temp_dir().join(format!("setup-arg-test-{unique}"));
+        fs::create_dir_all(&temp_dir).unwrap();
+
+        let script = temp_dir.join("setup.sh");
+        fs::write(&script, "echo \"ARG=$1\" > got_arg.txt\n").unwrap();
+        let url = format!("file://{}", script.display());
+
+        run_setup_script(&url, Some("susfs"), &temp_dir).unwrap();
+
+        let got = fs::read_to_string(temp_dir.join("got_arg.txt")).unwrap();
+        assert_eq!(got.trim(), "ARG=susfs");
+        fs::remove_dir_all(temp_dir).unwrap();
+    }
 }
 
 fn require_bbg_config<'a>(project_key: &str, bbg: Option<&'a BbgConfig>) -> Result<&'a BbgConfig> {
@@ -1135,8 +1193,7 @@ fn apply_bbg_overlay(
     let setup_url = bbg
         .and_then(|cfg| cfg.setup_url.as_deref())
         .unwrap_or("https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh");
-    let cmd = format!("curl -LSs '{}' | bash", setup_url);
-    run_cmd(&["bash", "-c", &cmd], Some(&common_root), false)?;
+    run_setup_script(setup_url, None, &common_root)?;
 
     let security_kconfig = find_first_existing_path(
         &common_root,
@@ -1585,8 +1642,7 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
     };
 
     if let Some((url, arg)) = setup_url {
-        let cmd = format!("curl -LSs '{}' | bash -s {}", url, arg);
-        run_cmd(&["bash", "-c", &cmd], Some(&kernel_source_path), false)?;
+        run_setup_script(url, Some(arg), &kernel_source_path)?;
     }
 
     let mut feature_suffixes = Vec::new();

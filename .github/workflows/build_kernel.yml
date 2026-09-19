@@ -96,17 +96,33 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Resolve Build Parameters
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PAYLOAD_PROJECT: ${{ github.event.client_payload.project }}
+          PAYLOAD_BRANCH: ${{ github.event.client_payload.branch }}
+          PAYLOAD_APPLY_SUSFS: ${{ github.event.client_payload.apply_susfs }}
+          PAYLOAD_APPLY_BBG: ${{ github.event.client_payload.apply_bbg }}
+          PAYLOAD_APPLY_HYBRIDMOUNT: ${{ github.event.client_payload.apply_hybridmount }}
+          INPUT_PROJECT: ${{ inputs.project }}
+          INPUT_BRANCH: ${{ inputs.branch }}
+          INPUT_KSU_VARIANT: ${{ inputs.ksu_variant }}
+          INPUT_DO_RELEASE: ${{ inputs.do_release }}
+          INPUT_CUSTOM_LOCALVERSION: ${{ inputs.custom_localversion }}
+          INPUT_RESUKISU_SETUP_ARG: ${{ inputs.resukisu_setup_arg }}
+          INPUT_APPLY_SUSFS: ${{ inputs.apply_susfs }}
+          INPUT_APPLY_BBG: ${{ inputs.apply_bbg }}
+          INPUT_APPLY_HYBRIDMOUNT: ${{ inputs.apply_hybridmount }}
         run: |
-          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
-            project="${{ github.event.client_payload.project }}"
-            branch="${{ github.event.client_payload.branch }}"
+          if [ "$EVENT_NAME" = "repository_dispatch" ]; then
+            project="$PAYLOAD_PROJECT"
+            branch="$PAYLOAD_BRANCH"
             variant="default"
             release="true"
             custom_localversion=""
             resukisu_setup_arg=""
-            apply_susfs="${{ github.event.client_payload.apply_susfs }}"
-            apply_bbg="${{ github.event.client_payload.apply_bbg }}"
-            apply_hybridmount="${{ github.event.client_payload.apply_hybridmount }}"
+            apply_susfs="$PAYLOAD_APPLY_SUSFS"
+            apply_bbg="$PAYLOAD_APPLY_BBG"
+            apply_hybridmount="$PAYLOAD_APPLY_HYBRIDMOUNT"
             if [ -z "$apply_susfs" ]; then
               apply_susfs="true"
             fi
@@ -117,15 +133,15 @@ jobs:
               apply_hybridmount="false"
             fi
           else
-            project="${{ inputs.project }}"
-            branch="${{ inputs.branch }}"
-            variant="${{ inputs.ksu_variant }}"
-            release="${{ inputs.do_release }}"
-            custom_localversion="${{ inputs.custom_localversion }}"
-            resukisu_setup_arg="${{ inputs.resukisu_setup_arg }}"
-            apply_susfs="${{ inputs.apply_susfs }}"
-            apply_bbg="${{ inputs.apply_bbg }}"
-            apply_hybridmount="${{ inputs.apply_hybridmount }}"
+            project="$INPUT_PROJECT"
+            branch="$INPUT_BRANCH"
+            variant="$INPUT_KSU_VARIANT"
+            release="$INPUT_DO_RELEASE"
+            custom_localversion="$INPUT_CUSTOM_LOCALVERSION"
+            resukisu_setup_arg="$INPUT_RESUKISU_SETUP_ARG"
+            apply_susfs="$INPUT_APPLY_SUSFS"
+            apply_bbg="$INPUT_APPLY_BBG"
+            apply_hybridmount="$INPUT_APPLY_HYBRIDMOUNT"
           fi
 
           if [ "$variant" = "default" ] || [ -z "$variant" ]; then
@@ -159,7 +175,7 @@ jobs:
           chmod +x kokuban_ci_core
 
       - name: Parse Configuration
-        run: ./kokuban_ci_core parse --project ${{ env.PROJECT }}
+        run: ./kokuban_ci_core parse --project "$PROJECT"
 
       - name: Checkout Kernel Source
         uses: actions/checkout@v7
@@ -200,16 +216,16 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         run: |
-          ARGS=(--project ${{ env.PROJECT }} --branch ${{ env.VARIANT }} --do-release ${{ env.DO_RELEASE }})
-          if [ -n "${{ env.CUSTOM_LOCALVERSION }}" ]; then
-            ARGS+=("--custom-localversion=${{ env.CUSTOM_LOCALVERSION }}")
+          ARGS=(--project "$PROJECT" --branch "$VARIANT" --do-release "$DO_RELEASE")
+          if [ -n "$CUSTOM_LOCALVERSION" ]; then
+            ARGS+=("--custom-localversion=$CUSTOM_LOCALVERSION")
           fi
-          if [ -n "${{ env.RESUKISU_SETUP_ARG }}" ]; then
-            ARGS+=("--resukisu-setup-arg=${{ env.RESUKISU_SETUP_ARG }}")
+          if [ -n "$RESUKISU_SETUP_ARG" ]; then
+            ARGS+=("--resukisu-setup-arg=$RESUKISU_SETUP_ARG")
           fi
-          ARGS+=("--apply-susfs" "${{ env.APPLY_SUSFS }}")
-          ARGS+=("--apply-bbg" "${{ env.APPLY_BBG }}")
-          ARGS+=("--apply-hybridmount" "${{ env.APPLY_HYBRIDMOUNT }}")
+          ARGS+=("--apply-susfs" "$APPLY_SUSFS")
+          ARGS+=("--apply-bbg" "$APPLY_BBG")
+          ARGS+=("--apply-hybridmount" "$APPLY_HYBRIDMOUNT")
           ./kokuban_ci_core build "${ARGS[@]}"
 
       - name: Collect Build Artifacts
