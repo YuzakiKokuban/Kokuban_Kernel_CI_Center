@@ -330,6 +330,31 @@ fn copy_artifact_if_exists(source: &Path, artifact_dir: &Path) -> Result<bool> {
     Ok(true)
 }
 
+/// Read a text file, apply `edit`, and write the result back.
+///
+/// Reading is mandatory: a file that cannot be decoded is reported to the caller instead of
+/// being treated as empty, which previously overwrote real content with a truncated rewrite.
+fn edit_text_file<F>(path: &Path, edit: F) -> Result<()>
+where
+    F: FnOnce(String) -> String,
+{
+    let content = fs::read_to_string(path)?;
+    fs::write(path, edit(content))?;
+    Ok(())
+}
+
+/// Read a file for inspection, treating a genuinely missing file as empty.
+///
+/// Unlike `unwrap_or_default()`, any other failure (permissions, invalid UTF-8) is reported
+/// instead of silently making the file look empty.
+fn read_text_allow_missing(path: &Path) -> Result<String> {
+    match fs::read_to_string(path) {
+        Ok(content) => Ok(content),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(String::new()),
+        Err(err) => Err(anyhow!("Failed to read {}: {}", path.display(), err)),
+    }
+}
+
 fn upsert_kconfig_entry(content: &str, key: &str, value: &str) -> String {
     let key_prefix = format!("{key}=");
     let not_set_line = format!("# {key} is not set");
@@ -718,6 +743,65 @@ write_boot; # use flash_boot to skip ramdisk repack, e.g. for devices with init_
         );
         fs::remove_dir_all(temp_dir).unwrap();
     }
+
+    // A defconfig that lives under common/ (rather than arch/arm64/configs/) must still
+    // receive the localversion, otherwise the build silently ships a different version string.
+    #[test]
+    fn applies_sm8850_localversion_to_nested_defconfig() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let temp_dir = std::env::temp_dir().join(format!("sm8850-localversion-test-{unique}"));
+        fs::create_dir_all(temp_dir.join("common/arch/arm64/configs")).unwrap();
+        fs::write(
+            temp_dir.join("common/arch/arm64/configs/test_defconfig"),
+            "CONFIG_LOCALVERSION=\"-old\"\n",
+        )
+        .unwrap();
+
+        apply_sm8850_localversion(&temp_dir, "test_defconfig", "-new").unwrap();
+
+        let config =
+            fs::read_to_string(temp_dir.join("common/arch/arm64/configs/test_defconfig")).unwrap();
+        assert!(
+            config.contains("CONFIG_LOCALVERSION=\"-new\""),
+            "got: {config}"
+        );
+        assert!(
+            config.contains("CONFIG_LOCALVERSION_AUTO=n"),
+            "got: {config}"
+        );
+        fs::remove_dir_all(temp_dir).unwrap();
+    }
+
+    // A file that exists but cannot be decoded must not be silently replaced with a
+    // rewritten empty buffer; the build has to fail so the caller can see it.
+    #[test]
+    fn refuses_to_rewrite_unreadable_file() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let temp_dir = std::env::temp_dir().join(format!("unreadable-file-test-{unique}"));
+        fs::create_dir_all(temp_dir.join("scripts")).unwrap();
+        let target = temp_dir.join("scripts/setlocalversion");
+        let original = vec![0xFF_u8, 0xFE, 0x00];
+        fs::write(&target, &original).unwrap();
+
+        let result = patch_setlocalversion_remove_dirty(&temp_dir);
+
+        assert!(
+            result.is_err(),
+            "expected an error for a file that cannot be read"
+        );
+        assert_eq!(
+            fs::read(&target).unwrap(),
+            original,
+            "the original file must be left untouched"
+        );
+        fs::remove_dir_all(temp_dir).unwrap();
+    }
 }
 
 fn require_bbg_config<'a>(project_key: &str, bbg: Option<&'a BbgConfig>) -> Result<&'a BbgConfig> {
@@ -942,16 +1026,8 @@ fn set_hybridmount_config(
     defconfig_name: &str,
     enabled: bool,
 ) -> Result<()> {
-    let defconfig_path = find_first_existing_path(
-        kernel_source_path,
-        &[
-            format!("arch/arm64/configs/{defconfig_name}"),
-            format!("common/arch/arm64/configs/{defconfig_name}"),
-            format!("kernel_platform/arch/arm64/configs/{defconfig_name}"),
-            format!("kernel_platform/common/arch/arm64/configs/{defconfig_name}"),
-        ],
-    )
-    .ok_or_else(|| anyhow!("Could not locate defconfig for Hybrid Mount"))?;
+    let defconfig_path = project_defconfig_path(kernel_source_path, defconfig_name)
+        .map_err(|err| anyhow!("Could not locate defconfig for Hybrid Mount: {err}"))?;
     let defconfig_content = fs::read_to_string(&defconfig_path)?;
     fs::write(
         defconfig_path,
@@ -978,8 +1054,8 @@ fn apply_hybridmount_overlay(kernel_source_path: &Path, defconfig_name: &str) ->
         .parent()
         .and_then(Path::parent)
         .ok_or_else(|| anyhow!("Could not locate kernel source root for Hybrid Mount"))?;
-    let fs_makefile = fs::read_to_string(source_root.join("fs/Makefile")).unwrap_or_default();
-    let fs_kconfig = fs::read_to_string(&source_kconfig).unwrap_or_default();
+    let fs_makefile = read_text_allow_missing(&source_root.join("fs/Makefile"))?;
+    let fs_kconfig = read_text_allow_missing(&source_kconfig)?;
     if source_root.join("fs/nomount").is_dir()
         || fs_makefile.contains("nomount")
         || fs_kconfig.contains("fs/nomount/Kconfig")
@@ -1038,20 +1114,9 @@ fn apply_bbg_overlay(
     proj: &ProjectConfig,
     bbg: Option<&BbgConfig>,
 ) -> Result<()> {
-    let defconfig_path = find_first_existing_path(
-        kernel_source_path,
-        &[
-            format!("arch/arm64/configs/{}", proj.defconfig),
-            format!("common/arch/arm64/configs/{}", proj.defconfig),
-            format!("kernel_platform/arch/arm64/configs/{}", proj.defconfig),
-            format!(
-                "kernel_platform/common/arch/arm64/configs/{}",
-                proj.defconfig
-            ),
-        ],
-    )
-    .ok_or_else(|| anyhow!("Could not locate defconfig for BBG"))?;
-    let defconfig_content = fs::read_to_string(&defconfig_path).unwrap_or_default();
+    let defconfig_path = project_defconfig_path(kernel_source_path, &proj.defconfig)
+        .map_err(|err| anyhow!("Could not locate defconfig for BBG: {err}"))?;
+    let defconfig_content = fs::read_to_string(&defconfig_path)?;
     fs::write(
         &defconfig_path,
         upsert_kconfig_entry(&defconfig_content, "CONFIG_BBG", "y"),
@@ -1092,8 +1157,7 @@ fn apply_bbg_overlay(
     })
     .ok_or_else(|| anyhow!("Could not locate security/Kconfig for BBG"))?;
 
-    let security_content = fs::read_to_string(&security_kconfig).unwrap_or_default();
-    fs::write(&security_kconfig, ensure_bbg_lsm(&security_content))?;
+    edit_text_file(&security_kconfig, |content| ensure_bbg_lsm(&content))?;
 
     Ok(())
 }
@@ -1101,25 +1165,26 @@ fn apply_bbg_overlay(
 fn patch_setlocalversion_remove_dirty(kernel_source_path: &Path) -> Result<()> {
     let setlocalversion_path = kernel_source_path.join("scripts/setlocalversion");
     if setlocalversion_path.exists() {
-        let mut content = fs::read_to_string(&setlocalversion_path).unwrap_or_default();
-        content = content.replace(" -dirty", "");
+        edit_text_file(&setlocalversion_path, |mut content| {
+            content = content.replace(" -dirty", "");
 
-        let dirty_cleanup_line = r#"res=$(echo "$res" | sed 's/-dirty//g')"#;
-        let final_release_echo = r#"echo "${KERNELVERSION}${file_localversion}${config_localversion}${LOCALVERSION}${scm_version}""#;
+            let dirty_cleanup_line = r#"res=$(echo "$res" | sed 's/-dirty//g')"#;
+            let final_release_echo = r#"echo "${KERNELVERSION}${file_localversion}${config_localversion}${LOCALVERSION}${scm_version}""#;
 
-        if !content.contains(dirty_cleanup_line) {
-            if let Some(final_echo_pos) = content.rfind(final_release_echo) {
-                content.insert_str(final_echo_pos, &format!("{dirty_cleanup_line}\n"));
-            } else {
-                if !content.ends_with('\n') {
+            if !content.contains(dirty_cleanup_line) {
+                if let Some(final_echo_pos) = content.rfind(final_release_echo) {
+                    content.insert_str(final_echo_pos, &format!("{dirty_cleanup_line}\n"));
+                } else {
+                    if !content.ends_with('\n') {
+                        content.push('\n');
+                    }
+                    content.push_str(dirty_cleanup_line);
                     content.push('\n');
                 }
-                content.push_str(dirty_cleanup_line);
-                content.push('\n');
             }
-        }
 
-        fs::write(&setlocalversion_path, content)?;
+            content
+        })?;
     }
 
     Ok(())
@@ -1134,24 +1199,20 @@ fn apply_sm8850_localversion(
 
     let setlocalversion_path = kernel_source_path.join("scripts/setlocalversion");
     if setlocalversion_path.exists() {
-        let mut content = fs::read_to_string(&setlocalversion_path).unwrap_or_default();
-
-        content = content.replace("${scm_version}", "");
-        fs::write(&setlocalversion_path, content)?;
+        edit_text_file(&setlocalversion_path, |content| {
+            content.replace("${scm_version}", "")
+        })?;
     }
 
-    let defconfig_path = kernel_source_path.join(format!("arch/arm64/configs/{}", defconfig_name));
-    if defconfig_path.exists() {
-        let mut defconfig_content = fs::read_to_string(&defconfig_path).unwrap_or_default();
-        defconfig_content = upsert_kconfig_entry(
-            &defconfig_content,
-            "CONFIG_LOCALVERSION",
-            &format!("\"{}\"", localversion),
-        );
-        defconfig_content =
-            upsert_kconfig_entry(&defconfig_content, "CONFIG_LOCALVERSION_AUTO", "n");
-        fs::write(defconfig_path, defconfig_content)?;
-    }
+    let defconfig_path = project_defconfig_path(kernel_source_path, defconfig_name)?;
+    let mut defconfig_content = fs::read_to_string(&defconfig_path)?;
+    defconfig_content = upsert_kconfig_entry(
+        &defconfig_content,
+        "CONFIG_LOCALVERSION",
+        &format!("\"{}\"", localversion),
+    );
+    defconfig_content = upsert_kconfig_entry(&defconfig_content, "CONFIG_LOCALVERSION_AUTO", "n");
+    fs::write(defconfig_path, defconfig_content)?;
 
     Ok(())
 }
@@ -1216,12 +1277,12 @@ fn update_kconfig_file(path: &Path, entries: &[(&str, &str)]) -> Result<()> {
         return Ok(());
     }
 
-    let mut content = fs::read_to_string(path).unwrap_or_default();
-    for (key, value) in entries {
-        content = upsert_kconfig_entry(&content, key, value);
-    }
-    fs::write(path, content)?;
-    Ok(())
+    edit_text_file(path, |mut content| {
+        for (key, value) in entries {
+            content = upsert_kconfig_entry(&content, key, value);
+        }
+        content
+    })
 }
 
 fn project_defconfig_path(kernel_source_path: &Path, defconfig_name: &str) -> Result<PathBuf> {
@@ -1264,8 +1325,9 @@ fn prepare_sm8850_build(
 ) -> Result<()> {
     let build_config_path = kernel_source_path.join("build.config.gki");
     if build_config_path.exists() {
-        let content = fs::read_to_string(&build_config_path).unwrap_or_default();
-        fs::write(&build_config_path, content.replace("check_defconfig", ""))?;
+        edit_text_file(&build_config_path, |content| {
+            content.replace("check_defconfig", "")
+        })?;
     }
 
     let defconfig_file = project_defconfig_path(kernel_source_path, &proj.defconfig)?;
@@ -1605,9 +1667,12 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
     fs::write(kernel_source_path.join("protected_exports_list"), "")?;
 
     let git_exclude_path = kernel_source_path.join(".git/info/exclude");
-    let mut exclude_data = fs::read_to_string(&git_exclude_path).unwrap_or_default();
+    if let Some(parent) = git_exclude_path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let mut exclude_data = read_text_allow_missing(&git_exclude_path)?;
     exclude_data.push_str("\nprotected_module_names_list\nprotected_exports_list\n");
-    let _ = fs::write(git_exclude_path, exclude_data);
+    fs::write(&git_exclude_path, exclude_data)?;
 
     build_env.insert("CC".to_string(), cc_cmd.clone());
     build_env.insert("HOSTCC".to_string(), cc_cmd.clone());
