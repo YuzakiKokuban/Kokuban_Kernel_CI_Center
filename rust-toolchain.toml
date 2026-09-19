@@ -1,0 +1,7 @@
+[toolchain]
+# Pinned so `cargo fmt --check` and `cargo clippy` behave identically on a laptop and in CI.
+# Tracking the floating `stable` channel means an unrelated rustfmt release can fail the format
+# check on code nobody touched (PR #54 failed only because main had been reformatted by a newer
+# rustfmt than the contributor's machine had).
+channel = "1.92.0"
+components = ["rustfmt", "clippy"]

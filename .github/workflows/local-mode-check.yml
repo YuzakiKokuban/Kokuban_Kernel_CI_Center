@@ -12,6 +12,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Setup Rust
+        # Must match rust-toolchain.toml; see build_ci_core.yml for why the channel is pinned.
+        uses: dtolnay/rust-toolchain@1.92.0
+        with:
+          components: rustfmt, clippy
+
       - name: Install shellcheck
         run: |
           sudo apt-get update

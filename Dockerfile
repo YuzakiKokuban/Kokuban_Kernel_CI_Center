@@ -29,7 +29,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal
+# The toolchain is installed up front so the container never has to fetch it at run time;
+# keep the version in sync with rust-toolchain.toml.
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal \
+    --default-toolchain 1.92.0 \
+    --component rustfmt clippy
 
 ENV PATH="/root/.cargo/bin:${PATH}"
 WORKDIR /workspace
