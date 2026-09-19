@@ -64,14 +64,14 @@ fn remove_path(path: &Path) -> Result<()> {
 /// target still sits under the cache root before anything is deleted.
 fn ensure_within(root: &Path, component: &str) -> Result<()> {
     let candidate = Path::new(component);
-    let is_plain_segment = !candidate.is_absolute()
-        && candidate
-            .components()
-            .all(|part| matches!(part, std::path::Component::Normal(_)));
+    let mut parts = candidate.components();
+    let single_segment = !candidate.is_absolute()
+        && matches!(parts.next(), Some(std::path::Component::Normal(_)))
+        && parts.next().is_none();
 
-    if !is_plain_segment {
+    if !single_segment {
         return Err(anyhow!(
-            "Invalid project name {:?}: it must be a single path segment without '.'/'..'",
+            "Invalid project name {:?}: it must be a single path segment without separators or '.'/'..'",
             component
         ));
     }
@@ -476,6 +476,30 @@ mod tests {
         );
         let _ = fs::remove_dir_all(&victim);
         let _ = fs::remove_dir_all(&root);
+    }
+
+    // Every shape that is not exactly one plain path segment must be refused, including
+    // nested separators and the bare "." / ".." names that resolve to real directories.
+    #[test]
+    fn cache_clean_rejects_non_segment_project_names() {
+        for name in [".", "..", "a/b", "/abs/path", "a/../../b", "./x"] {
+            let root = unique_temp_path("kokuban-clean-shape-test");
+            fs::create_dir_all(&root).unwrap();
+
+            let result = handle_cache_clean(
+                "project".to_string(),
+                Some(name.to_string()),
+                Some(root.clone()),
+            );
+
+            assert!(
+                result.is_err(),
+                "project name {:?} must be rejected, not cleaned",
+                name
+            );
+            assert!(root.exists(), "root must survive rejected name {:?}", name);
+            let _ = fs::remove_dir_all(&root);
+        }
     }
 }
 

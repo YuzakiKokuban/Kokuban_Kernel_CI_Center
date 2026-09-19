@@ -627,8 +627,8 @@ fn archive_artifacts(
     let copied_log = copy_if_exists(log_path, &artifact_dir)?;
 
     if !produced_artifacts {
-        // Leave `latest` pointing at the previous good build rather than an empty directory.
-        fs::remove_dir_all(&artifact_dir)?;
+        // Keep the directory: it holds the copied build log, which is what makes a failed run
+        // debuggable. Only the `latest` pointer is left alone.
         println!(
             "No build artifacts were produced for {}; keeping the previous 'latest'.",
             project
