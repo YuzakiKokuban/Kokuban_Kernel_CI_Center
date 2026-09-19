@@ -964,4 +964,29 @@ mod tests {
         );
         fs::remove_dir_all(root).unwrap();
     }
+
+    // The returned directory is used afterwards (build-info.json is written into it), so it
+    // must still exist even when the run produced no publishable artifacts.
+    #[test]
+    fn archive_keeps_directory_when_nothing_was_produced() {
+        let root = unique_temp_path("kokuban-empty-archive-test");
+        let project = "testproj";
+        let run = root.join("runs/failed");
+        fs::create_dir_all(&run).unwrap();
+        let log = root.join("failed.log");
+        fs::write(&log, "build failed\n").unwrap();
+
+        let dir = archive_artifacts(&root, project, &run, "failed-build", &log).unwrap();
+
+        assert!(dir.is_dir(), "the returned artifact directory must exist");
+        assert!(
+            dir.join("failed.log").exists(),
+            "the failed build's log must be archived for debugging"
+        );
+        assert!(
+            !root.join("artifacts").join(project).join("latest").exists(),
+            "no previous build existed, so 'latest' must not be created"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
 }
