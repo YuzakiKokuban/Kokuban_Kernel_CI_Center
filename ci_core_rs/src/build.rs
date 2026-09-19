@@ -360,13 +360,21 @@ fn read_text_allow_missing(path: &Path) -> Result<String> {
 /// `pipefail` and `curl -f` are both required: without them a failed download yields an empty
 /// script that bash happily "runs", so the overlay is silently skipped and the build still
 /// succeeds while shipping a kernel with the feature it was supposed to add.
+///
+/// The URL and the setup argument are passed through the environment and referenced as quoted
+/// shell variables rather than being formatted into the command text, so neither can inject
+/// shell syntax (the setup argument is a free-form workflow input).
 fn run_setup_script(url: &str, setup_arg: Option<&str>, cwd: &Path) -> Result<()> {
-    let mut cmd = format!("set -o pipefail; curl -fsSL '{}' | bash", url);
+    let mut envs = HashMap::new();
+    envs.insert("KOKUBAN_SETUP_URL".to_string(), url.to_string());
+
+    let mut cmd = String::from("set -o pipefail; curl -fsSL \"$KOKUBAN_SETUP_URL\" | bash");
     if let Some(arg) = setup_arg {
-        cmd.push_str(&format!(" -s {}", arg));
+        envs.insert("KOKUBAN_SETUP_ARG".to_string(), arg.to_string());
+        cmd.push_str(" -s \"$KOKUBAN_SETUP_ARG\"");
     }
-    run_cmd(&["bash", "-c", &cmd], Some(cwd), false)?;
-    Ok(())
+
+    run_cmd_with_env(&["bash", "-c", &cmd], Some(cwd), &envs)
 }
 
 fn upsert_kconfig_entry(content: &str, key: &str, value: &str) -> String {
@@ -858,6 +866,37 @@ write_boot; # use flash_boot to skip ramdisk repack, e.g. for devices with init_
 
         let got = fs::read_to_string(temp_dir.join("got_arg.txt")).unwrap();
         assert_eq!(got.trim(), "ARG=susfs");
+        fs::remove_dir_all(temp_dir).unwrap();
+    }
+
+    // The setup argument comes straight from a free-form workflow input, so shell
+    // metacharacters in it must reach bash as literal text, never as syntax.
+    #[test]
+    fn setup_script_argument_cannot_inject_shell() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let temp_dir = std::env::temp_dir().join(format!("setup-inject-test-{unique}"));
+        fs::create_dir_all(&temp_dir).unwrap();
+
+        let script = temp_dir.join("setup.sh");
+        fs::write(&script, "echo \"ARG=$1\" > got_arg.txt\n").unwrap();
+        let url = format!("file://{}", script.display());
+
+        // If this were concatenated into the command line, the `; touch pwned` would run.
+        run_setup_script(&url, Some("x; touch pwned"), &temp_dir).unwrap();
+
+        assert!(
+            !temp_dir.join("pwned").exists(),
+            "shell metacharacters in the setup argument must not be executed"
+        );
+        let got = fs::read_to_string(temp_dir.join("got_arg.txt")).unwrap();
+        assert_eq!(
+            got.trim(),
+            "ARG=x; touch pwned",
+            "the argument must arrive as one literal value"
+        );
         fs::remove_dir_all(temp_dir).unwrap();
     }
 }

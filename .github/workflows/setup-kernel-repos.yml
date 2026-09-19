@@ -33,11 +33,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           WEBHOOK_SECRET: ${{ secrets.PUSH_SERVER_WEBHOOK_SECRET }}
+          COMMIT_MESSAGE: ${{ inputs.commit_message }}
+          README_LANGUAGE: ${{ inputs.readme_language }}
         run: |
           ./kokuban_ci_core setup \
-            --token "${{ secrets.GH_TOKEN }}" \
-            --commit-message "${{ inputs.commit_message }}" \
-            --readme-language "${{ inputs.readme_language }}"
+            --token "$GH_TOKEN" \
+            --commit-message "$COMMIT_MESSAGE" \
+            --readme-language "$README_LANGUAGE"
 
       - name: Delete Legacy KSU Branches
         env:

@@ -1,62 +1,95 @@
 {
-  "_globals": {
-    "broadcast_channel": "@BLBDSBD",
-    "resukisu_chat_id": "@ReSukiSU",
-    "resukisu_topic_id": 36
-  },
-  "z5_sm8550": {
-    "repo": "YuzakiKokuban/android_kernel_samsung_sm8550_Z5",
+  "tabs9_sm8550": {
+    "anykernel_config": "kalama_tabs9",
+    "bbg": {
+      "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
+    },
     "defconfig": "defconfig",
-    "localversion_base": "-android13-Kokuban-Mei-FZB2",
+    "disable_security": [
+      "UH",
+      "RKP",
+      "KDP",
+      "SECURITY_DEFEX",
+      "INTEGRITY",
+      "FIVE"
+    ],
+    "localversion_base": "-android13-Kokuban-Hutao-DZA1",
     "lto": "thin",
+    "readme_placeholders": {
+      "DEVICE_NAME_CN": "三星 Galaxy Tab S9 系列",
+      "DEVICE_NAME_EN": "Samsung Galaxy Tab S9 Series"
+    },
+    "repo": "YuzakiKokuban/android_kernel_samsung_sm8550_TabS9",
     "supported_ksu": [
       "resukisu"
     ],
-    "readme_placeholders": {
-      "DEVICE_NAME_CN": "三星 Galaxy Z5 系列",
-      "DEVICE_NAME_EN": "Samsung Galaxy Z5 Series"
+    "susfs": {
+      "branch": "gki-android13-5.15",
+      "fs_patch_dir": "kernel_patches/fs",
+      "include_linux_patch_dir": "kernel_patches/include/linux",
+      "patch_path": "kernel_patches/50_add_susfs_in_gki-android13-5.15.patch",
+      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git"
     },
+    "toolchain_path_exports": [
+      "build-tools/linux-x86/bin",
+      "build-tools/path/linux-x86",
+      "clang/host/linux-x86/clang-r450784e/bin"
+    ],
+    "toolchain_path_prefix": "prebuilts",
     "toolchain_urls": [
       "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8550_S23/releases/download/toolchain/toolchain_part_aa.tar.gz",
       "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8550_S23/releases/download/toolchain/toolchain_part_ab.tar.gz",
       "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8550_S23/releases/download/toolchain/toolchain_part_ac.tar.gz"
     ],
-    "toolchain_path_prefix": "prebuilts",
-    "toolchain_path_exports": [
-      "build-tools/linux-x86/bin",
-      "clang/host/linux-x86/clang-r450784e/bin"
-    ],
-    "anykernel_config": "kalama_z",
-    "zip_name_prefix": "Z5_Kernel",
-    "susfs": {
-      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
-      "branch": "gki-android13-5.15",
-      "patch_path": "kernel_patches/50_add_susfs_in_gki-android13-5.15.patch",
-      "fs_patch_dir": "kernel_patches/fs",
-      "include_linux_patch_dir": "kernel_patches/include/linux"
-    },
-    "bbg": {
-      "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
-    },
-    "disable_security": [
-      "UH",
-      "RKP",
-      "KDP",
-      "SECURITY_DEFEX",
-      "INTEGRITY",
-      "FIVE"
-    ]
+    "zip_name_prefix": "TabS9_kernel"
   },
-  "s25_sm8750": {
-    "repo": "YuzakiKokuban/android_kernel_samsung_sm8750",
-    "defconfig": "defconfig",
-    "localversion_base": "-android15-Kokuban-Herta-CZF1",
+  "mi17_sm8850": {
+    "anykernel_config": "canoe",
+    "defconfig": "gki_defconfig",
+    "expected_kernel_version": "6.12.69",
+    "localversion_base": "-android16-Kokuban-SilverWolf",
     "lto": "none",
+    "readme_placeholders": {
+      "DEVICE_NAME_CN": "小米 17 系列",
+      "DEVICE_NAME_EN": "Xiaomi 17 Series"
+    },
+    "repo": "YuzakiKokuban/android_kernel_xiaomi_sm8850",
     "supported_ksu": [
       "resukisu"
     ],
+    "susfs": {
+      "branch": "gki-android16-6.12",
+      "fs_patch_dir": "kernel_patches/fs",
+      "include_linux_patch_dir": "kernel_patches/include/linux",
+      "patch_path": "kernel_patches/50_add_susfs_in_gki-android16-6.12.patch",
+      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git"
+    },
+    "toolchain_path_exports": [
+      "bin",
+      "build-tools/bin",
+      "bindgen-cli-x86_64-unknown-linux-gnu"
+    ],
+    "toolchain_path_prefix": "",
+    "toolchain_urls": [
+      "https://github.com/cctv18/oneplus_sm8650_toolchain/releases/download/LLVM-Clang19-r536225/clang-r536225.zip",
+      "https://github.com/cctv18/oneplus_sm8650_toolchain/releases/download/LLVM-Clang19-r536225/rust.zip",
+      "https://github.com/cctv18/oneplus_sm8650_toolchain/releases/download/LLVM-Clang19-r536225/build-tools.zip",
+      "https://github.com/rust-lang/rust-bindgen/releases/download/v0.69.5/bindgen-cli-x86_64-unknown-linux-gnu.tar.xz"
+    ],
     "version_method": "file",
-    "extra_host_env": true,
+    "zip_name_prefix": "Mi17_Kernel"
+  },
+  "_globals": {
+    "broadcast_channel": "@BLBDSBD",
+    "resukisu_chat_id": "@ReSukiSU",
+    "resukisu_topic_id": 36
+  },
+  "s24_sm8650": {
+    "anykernel_config": "pineapple",
+    "bbg": {
+      "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
+    },
+    "defconfig": "defconfig",
     "disable_security": [
       "UH",
       "RKP",
@@ -65,15 +98,228 @@
       "INTEGRITY",
       "FIVE"
     ],
+    "localversion_base": "-android14-Kokuban-Elysia-DZE1",
+    "lto": "none",
+    "readme_placeholders": {
+      "DEVICE_NAME_CN": "三星 Galaxy S24 Snapdragon 系列",
+      "DEVICE_NAME_EN": "Samsung Galaxy S24 Snapdragon Series"
+    },
+    "repo": "YuzakiKokuban/android_kernel_samsung_sm8650",
+    "supported_ksu": [
+      "resukisu"
+    ],
+    "susfs": {
+      "branch": "gki-android14-6.1",
+      "fs_patch_dir": "kernel_patches/fs",
+      "include_linux_patch_dir": "kernel_patches/include/linux",
+      "patch_path": "kernel_patches/50_add_susfs_in_gki-android14-6.1.patch",
+      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git"
+    },
+    "toolchain_path_exports": [
+      "build-tools/linux-x86/bin",
+      "build-tools/path/linux-x86",
+      "clang/host/linux-x86/clang-r487747c/bin",
+      "kernel-build-tools/linux-x86/bin"
+    ],
+    "toolchain_path_prefix": "prebuilts",
+    "toolchain_urls": [
+      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8650/releases/download/toolchain/toolchainS24.tar.gz.00",
+      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8650/releases/download/toolchain/toolchainS24.tar.gz.01"
+    ],
+    "zip_name_prefix": "S24_Snapdragon_kernel"
+  },
+  "K": {
+    "anykernel_config": null,
+    "bbg": null,
+    "defconfig": "D",
+    "disable_security": null,
+    "expected_kernel_version": null,
+    "extra_host_env": null,
+    "localversion_base": "-Kokuban",
+    "lto": null,
+    "readme_placeholders": {
+      "DEVICE_NAME_CN": "未知设备",
+      "DEVICE_NAME_EN": "Unknown Device"
+    },
+    "repo": "R",
+    "supported_ksu": [
+      "resukisu"
+    ],
+    "susfs": null,
+    "toolchain_path_exports": null,
+    "toolchain_path_prefix": null,
+    "toolchain_sha256": null,
+    "toolchain_urls": null,
+    "version_method": null,
+    "watch_upstream_variants": null,
+    "zip_name_prefix": "Kernel"
+  },
+  "s23_sm8550": {
+    "anykernel_config": "kalama",
+    "bbg": {
+      "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
+    },
+    "defconfig": "defconfig",
+    "disable_security": [
+      "UH",
+      "RKP",
+      "KDP",
+      "SECURITY_DEFEX",
+      "INTEGRITY",
+      "FIVE"
+    ],
+    "localversion_base": "-android13-Kokuban-Firefly-EZB6",
+    "lto": "thin",
+    "readme_placeholders": {
+      "DEVICE_NAME_CN": "三星 Galaxy S23 系列",
+      "DEVICE_NAME_EN": "Samsung Galaxy S23 Series"
+    },
+    "repo": "YuzakiKokuban/android_kernel_samsung_sm8550_S23",
+    "supported_ksu": [
+      "resukisu"
+    ],
+    "susfs": {
+      "branch": "gki-android13-5.15",
+      "fs_patch_dir": "kernel_patches/fs",
+      "include_linux_patch_dir": "kernel_patches/include/linux",
+      "patch_path": "kernel_patches/50_add_susfs_in_gki-android13-5.15.patch",
+      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git"
+    },
+    "toolchain_path_exports": [
+      "build-tools/linux-x86/bin",
+      "build-tools/path/linux-x86",
+      "clang/host/linux-x86/clang-r450784e/bin"
+    ],
+    "toolchain_path_prefix": "prebuilts",
+    "toolchain_urls": [
+      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8550_S23/releases/download/toolchain/toolchain_part_aa.tar.gz",
+      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8550_S23/releases/download/toolchain/toolchain_part_ab.tar.gz",
+      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8550_S23/releases/download/toolchain/toolchain_part_ac.tar.gz"
+    ],
+    "zip_name_prefix": "S23_kernel"
+  },
+  "tabs10_mt6989": {
+    "anykernel_config": "mt6989",
+    "bbg": {
+      "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
+    },
+    "defconfig": "defconfig",
+    "disable_security": [
+      "UH",
+      "RKP",
+      "KDP",
+      "SECURITY_DEFEX",
+      "INTEGRITY",
+      "FIVE"
+    ],
+    "localversion_base": "-android14-Kokuban-Exusiai-DZG1",
+    "lto": "none",
+    "readme_placeholders": {
+      "DEVICE_NAME_CN": "三星 Galaxy Tab S10 系列",
+      "DEVICE_NAME_EN": "Samsung Galaxy Tab S10 Series"
+    },
+    "repo": "YuzakiKokuban/android_kernel_samsung_mt6989_TabS10",
+    "supported_ksu": [
+      "resukisu"
+    ],
+    "susfs": {
+      "branch": "gki-android14-6.1",
+      "fs_patch_dir": "kernel_patches/fs",
+      "include_linux_patch_dir": "kernel_patches/include/linux",
+      "patch_path": "kernel_patches/50_add_susfs_in_gki-android14-6.1.patch",
+      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git"
+    },
+    "toolchain_path_exports": [
+      "build-tools/linux-x86/bin",
+      "build-tools/path/linux-x86",
+      "clang/host/linux-x86/clang-r487747c/bin"
+    ],
+    "toolchain_path_prefix": "prebuilts",
+    "toolchain_urls": [
+      "https://github.com/YuzakiKokuban/android_kernel_samsung_mt6989_TabS10/releases/download/toolchain/toolchainS10.tar.gz.001",
+      "https://github.com/YuzakiKokuban/android_kernel_samsung_mt6989_TabS10/releases/download/toolchain/toolchainS10.tar.gz.002"
+    ],
+    "zip_name_prefix": "TabS10_kernel"
+  },
+  "z6_sm8650": {
+    "anykernel_config": "pineapple_z",
+    "bbg": {
+      "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
+    },
+    "defconfig": "defconfig",
+    "disable_security": [
+      "UH",
+      "RKP",
+      "KDP",
+      "SECURITY_DEFEX",
+      "INTEGRITY",
+      "FIVE"
+    ],
+    "extra_host_env": false,
+    "localversion_base": "-android14-Kokuban-Cyrene-CYI7",
+    "lto": "none",
+    "readme_placeholders": {
+      "DEVICE_NAME_CN": "三星 Galaxy Z6 系列",
+      "DEVICE_NAME_EN": "Samsung Galaxy Z6 Series"
+    },
+    "repo": "YuzakiKokuban/android_kernel_samsung_sm8650_Z6",
+    "supported_ksu": [
+      "resukisu"
+    ],
+    "susfs": {
+      "branch": "gki-android14-6.1",
+      "fs_patch_dir": "kernel_patches/fs",
+      "include_linux_patch_dir": "kernel_patches/include/linux",
+      "patch_path": "kernel_patches/50_add_susfs_in_gki-android14-6.1.patch",
+      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git"
+    },
+    "toolchain_path_exports": [
+      "build-tools/linux-x86/bin",
+      "build-tools/path/linux-x86",
+      "clang/host/linux-x86/clang-r487747c/bin",
+      "clang-tools/linux-x86/bin",
+      "kernel-build-tools/linux-x86/bin"
+    ],
+    "toolchain_path_prefix": "prebuilts",
+    "toolchain_urls": [
+      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8650/releases/download/toolchain/toolchainS24.tar.gz.00",
+      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8650/releases/download/toolchain/toolchainS24.tar.gz.01"
+    ],
+    "version_method": "param",
+    "zip_name_prefix": "Z6_Kernel"
+  },
+  "s25_sm8750": {
+    "anykernel_config": "sun",
+    "bbg": {
+      "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
+    },
+    "defconfig": "defconfig",
+    "disable_security": [
+      "UH",
+      "RKP",
+      "KDP",
+      "SECURITY_DEFEX",
+      "INTEGRITY",
+      "FIVE"
+    ],
+    "extra_host_env": true,
+    "localversion_base": "-android15-Kokuban-Herta-CZF1",
+    "lto": "none",
     "readme_placeholders": {
       "DEVICE_NAME_CN": "三星 Galaxy S25 系列",
       "DEVICE_NAME_EN": "Samsung Galaxy S25 Series"
     },
-    "toolchain_urls": [
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8750/releases/download/toolchain/toolchainS25.tar.gz.00",
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8750/releases/download/toolchain/toolchainS25.tar.gz.01"
+    "repo": "YuzakiKokuban/android_kernel_samsung_sm8750",
+    "supported_ksu": [
+      "resukisu"
     ],
-    "toolchain_path_prefix": "kernel_platform/prebuilts",
+    "susfs": {
+      "branch": "gki-android15-6.6",
+      "fs_patch_dir": "kernel_patches/fs",
+      "include_linux_patch_dir": "kernel_patches/include/linux",
+      "patch_path": "kernel_patches/50_add_susfs_in_gki-android15-6.6.patch",
+      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git"
+    },
     "toolchain_path_exports": [
       "build-tools/linux-x86/bin",
       "build-tools/path/linux-x86",
@@ -81,275 +327,55 @@
       "clang-tools/linux-x86/bin",
       "kernel-build-tools/linux-x86/bin"
     ],
-    "anykernel_config": "sun",
-    "zip_name_prefix": "S25_Kernel",
-    "susfs": {
-      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
-      "branch": "gki-android15-6.6",
-      "patch_path": "kernel_patches/50_add_susfs_in_gki-android15-6.6.patch",
-      "fs_patch_dir": "kernel_patches/fs",
-      "include_linux_patch_dir": "kernel_patches/include/linux"
-    },
-    "bbg": {
-      "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
-    }
-  },
-  "s23_sm8550": {
-    "repo": "YuzakiKokuban/android_kernel_samsung_sm8550_S23",
-    "defconfig": "defconfig",
-    "localversion_base": "-android13-Kokuban-Firefly-EZB6",
-    "lto": "thin",
-    "supported_ksu": [
-      "resukisu"
-    ],
-    "readme_placeholders": {
-      "DEVICE_NAME_CN": "三星 Galaxy S23 系列",
-      "DEVICE_NAME_EN": "Samsung Galaxy S23 Series"
-    },
+    "toolchain_path_prefix": "kernel_platform/prebuilts",
     "toolchain_urls": [
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8550_S23/releases/download/toolchain/toolchain_part_aa.tar.gz",
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8550_S23/releases/download/toolchain/toolchain_part_ab.tar.gz",
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8550_S23/releases/download/toolchain/toolchain_part_ac.tar.gz"
-    ],
-    "toolchain_path_prefix": "prebuilts",
-    "toolchain_path_exports": [
-      "build-tools/linux-x86/bin",
-      "build-tools/path/linux-x86",
-      "clang/host/linux-x86/clang-r450784e/bin"
-    ],
-    "anykernel_config": "kalama",
-    "zip_name_prefix": "S23_kernel",
-    "susfs": {
-      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
-      "branch": "gki-android13-5.15",
-      "patch_path": "kernel_patches/50_add_susfs_in_gki-android13-5.15.patch",
-      "fs_patch_dir": "kernel_patches/fs",
-      "include_linux_patch_dir": "kernel_patches/include/linux"
-    },
-    "bbg": {
-      "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
-    },
-    "disable_security": [
-      "UH",
-      "RKP",
-      "KDP",
-      "SECURITY_DEFEX",
-      "INTEGRITY",
-      "FIVE"
-    ]
-  },
-  "tabs9_sm8550": {
-    "repo": "YuzakiKokuban/android_kernel_samsung_sm8550_TabS9",
-    "defconfig": "defconfig",
-    "localversion_base": "-android13-Kokuban-Hutao-DZA1",
-    "lto": "thin",
-    "supported_ksu": [
-      "resukisu"
-    ],
-    "readme_placeholders": {
-      "DEVICE_NAME_CN": "三星 Galaxy Tab S9 系列",
-      "DEVICE_NAME_EN": "Samsung Galaxy Tab S9 Series"
-    },
-    "toolchain_urls": [
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8550_S23/releases/download/toolchain/toolchain_part_aa.tar.gz",
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8550_S23/releases/download/toolchain/toolchain_part_ab.tar.gz",
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8550_S23/releases/download/toolchain/toolchain_part_ac.tar.gz"
-    ],
-    "toolchain_path_prefix": "prebuilts",
-    "toolchain_path_exports": [
-      "build-tools/linux-x86/bin",
-      "build-tools/path/linux-x86",
-      "clang/host/linux-x86/clang-r450784e/bin"
-    ],
-    "anykernel_config": "kalama_tabs9",
-    "zip_name_prefix": "TabS9_kernel",
-    "susfs": {
-      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
-      "branch": "gki-android13-5.15",
-      "patch_path": "kernel_patches/50_add_susfs_in_gki-android13-5.15.patch",
-      "fs_patch_dir": "kernel_patches/fs",
-      "include_linux_patch_dir": "kernel_patches/include/linux"
-    },
-    "bbg": {
-      "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
-    },
-    "disable_security": [
-      "UH",
-      "RKP",
-      "KDP",
-      "SECURITY_DEFEX",
-      "INTEGRITY",
-      "FIVE"
-    ]
-  },
-  "s24_sm8650": {
-    "repo": "YuzakiKokuban/android_kernel_samsung_sm8650",
-    "defconfig": "defconfig",
-    "localversion_base": "-android14-Kokuban-Elysia-DZE1",
-    "lto": "none",
-    "supported_ksu": [
-      "resukisu"
-    ],
-    "readme_placeholders": {
-      "DEVICE_NAME_CN": "三星 Galaxy S24 Snapdragon 系列",
-      "DEVICE_NAME_EN": "Samsung Galaxy S24 Snapdragon Series"
-    },
-    "toolchain_urls": [
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8650/releases/download/toolchain/toolchainS24.tar.gz.00",
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8650/releases/download/toolchain/toolchainS24.tar.gz.01"
-    ],
-    "toolchain_path_prefix": "prebuilts",
-    "toolchain_path_exports": [
-      "build-tools/linux-x86/bin",
-      "build-tools/path/linux-x86",
-      "clang/host/linux-x86/clang-r487747c/bin",
-      "kernel-build-tools/linux-x86/bin"
-    ],
-    "anykernel_config": "pineapple",
-    "zip_name_prefix": "S24_Snapdragon_kernel",
-    "susfs": {
-      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
-      "branch": "gki-android14-6.1",
-      "patch_path": "kernel_patches/50_add_susfs_in_gki-android14-6.1.patch",
-      "fs_patch_dir": "kernel_patches/fs",
-      "include_linux_patch_dir": "kernel_patches/include/linux"
-    },
-    "bbg": {
-      "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
-    },
-    "disable_security": [
-      "UH",
-      "RKP",
-      "KDP",
-      "SECURITY_DEFEX",
-      "INTEGRITY",
-      "FIVE"
-    ]
-  },
-  "tabs10_mt6989": {
-    "repo": "YuzakiKokuban/android_kernel_samsung_mt6989_TabS10",
-    "defconfig": "defconfig",
-    "localversion_base": "-android14-Kokuban-Exusiai-DZG1",
-    "lto": "none",
-    "supported_ksu": [
-      "resukisu"
-    ],
-    "readme_placeholders": {
-      "DEVICE_NAME_CN": "三星 Galaxy Tab S10 系列",
-      "DEVICE_NAME_EN": "Samsung Galaxy Tab S10 Series"
-    },
-    "disable_security": [
-      "UH",
-      "RKP",
-      "KDP",
-      "SECURITY_DEFEX",
-      "INTEGRITY",
-      "FIVE"
-    ],
-    "toolchain_urls": [
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_mt6989_TabS10/releases/download/toolchain/toolchainS10.tar.gz.001",
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_mt6989_TabS10/releases/download/toolchain/toolchainS10.tar.gz.002"
-    ],
-    "toolchain_path_prefix": "prebuilts",
-    "toolchain_path_exports": [
-      "build-tools/linux-x86/bin",
-      "build-tools/path/linux-x86",
-      "clang/host/linux-x86/clang-r487747c/bin"
-    ],
-    "anykernel_config": "mt6989",
-    "zip_name_prefix": "TabS10_kernel",
-    "susfs": {
-      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
-      "branch": "gki-android14-6.1",
-      "patch_path": "kernel_patches/50_add_susfs_in_gki-android14-6.1.patch",
-      "fs_patch_dir": "kernel_patches/fs",
-      "include_linux_patch_dir": "kernel_patches/include/linux"
-    },
-    "bbg": {
-      "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
-    }
-  },
-  "z6_sm8650": {
-    "repo": "YuzakiKokuban/android_kernel_samsung_sm8650_Z6",
-    "defconfig": "defconfig",
-    "localversion_base": "-android14-Kokuban-Cyrene-CYI7",
-    "lto": "none",
-    "supported_ksu": [
-      "resukisu"
-    ],
-    "toolchain_urls": [
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8650/releases/download/toolchain/toolchainS24.tar.gz.00",
-      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8650/releases/download/toolchain/toolchainS24.tar.gz.01"
-    ],
-    "toolchain_path_prefix": "prebuilts",
-    "toolchain_path_exports": [
-      "build-tools/linux-x86/bin",
-      "build-tools/path/linux-x86",
-      "clang/host/linux-x86/clang-r487747c/bin",
-      "clang-tools/linux-x86/bin",
-      "kernel-build-tools/linux-x86/bin"
-    ],
-    "anykernel_config": "pineapple_z",
-    "zip_name_prefix": "Z6_Kernel",
-    "version_method": "param",
-    "extra_host_env": false,
-    "disable_security": [
-      "UH",
-      "RKP",
-      "KDP",
-      "SECURITY_DEFEX",
-      "INTEGRITY",
-      "FIVE"
-    ],
-    "readme_placeholders": {
-      "DEVICE_NAME_CN": "三星 Galaxy Z6 系列",
-      "DEVICE_NAME_EN": "Samsung Galaxy Z6 Series"
-    },
-    "susfs": {
-      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
-      "branch": "gki-android14-6.1",
-      "patch_path": "kernel_patches/50_add_susfs_in_gki-android14-6.1.patch",
-      "fs_patch_dir": "kernel_patches/fs",
-      "include_linux_patch_dir": "kernel_patches/include/linux"
-    },
-    "bbg": {
-      "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
-    }
-  },
-  "mi17_sm8850": {
-    "repo": "YuzakiKokuban/android_kernel_xiaomi_sm8850",
-    "defconfig": "gki_defconfig",
-    "localversion_base": "-android16-Kokuban-SilverWolf",
-    "expected_kernel_version": "6.12.69",
-    "supported_ksu": [
-      "resukisu"
+      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8750/releases/download/toolchain/toolchainS25.tar.gz.00",
+      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8750/releases/download/toolchain/toolchainS25.tar.gz.01"
     ],
     "version_method": "file",
-    "toolchain_urls": [
-      "https://github.com/cctv18/oneplus_sm8650_toolchain/releases/download/LLVM-Clang19-r536225/clang-r536225.zip",
-      "https://github.com/cctv18/oneplus_sm8650_toolchain/releases/download/LLVM-Clang19-r536225/rust.zip",
-      "https://github.com/cctv18/oneplus_sm8650_toolchain/releases/download/LLVM-Clang19-r536225/build-tools.zip",
-      "https://github.com/rust-lang/rust-bindgen/releases/download/v0.69.5/bindgen-cli-x86_64-unknown-linux-gnu.tar.xz"
-    ],
-    "toolchain_path_prefix": "",
-    "toolchain_path_exports": [
-      "bin",
-      "build-tools/bin",
-      "bindgen-cli-x86_64-unknown-linux-gnu"
-    ],
-    "lto": "none",
-    "anykernel_config": "canoe",
-    "zip_name_prefix": "Mi17_Kernel",
-    "susfs": {
-      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
-      "branch": "gki-android16-6.12",
-      "patch_path": "kernel_patches/50_add_susfs_in_gki-android16-6.12.patch",
-      "fs_patch_dir": "kernel_patches/fs",
-      "include_linux_patch_dir": "kernel_patches/include/linux"
+    "zip_name_prefix": "S25_Kernel"
+  },
+  "z5_sm8550": {
+    "anykernel_config": "kalama_z",
+    "bbg": {
+      "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
     },
+    "defconfig": "defconfig",
+    "disable_security": [
+      "UH",
+      "RKP",
+      "KDP",
+      "SECURITY_DEFEX",
+      "INTEGRITY",
+      "FIVE"
+    ],
+    "localversion_base": "-android13-Kokuban-Mei-FZB2",
+    "lto": "thin",
     "readme_placeholders": {
-      "DEVICE_NAME_CN": "小米 17 系列",
-      "DEVICE_NAME_EN": "Xiaomi 17 Series"
-    }
+      "DEVICE_NAME_CN": "三星 Galaxy Z5 系列",
+      "DEVICE_NAME_EN": "Samsung Galaxy Z5 Series"
+    },
+    "repo": "YuzakiKokuban/android_kernel_samsung_sm8550_Z5",
+    "supported_ksu": [
+      "resukisu"
+    ],
+    "susfs": {
+      "branch": "gki-android13-5.15",
+      "fs_patch_dir": "kernel_patches/fs",
+      "include_linux_patch_dir": "kernel_patches/include/linux",
+      "patch_path": "kernel_patches/50_add_susfs_in_gki-android13-5.15.patch",
+      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git"
+    },
+    "toolchain_path_exports": [
+      "build-tools/linux-x86/bin",
+      "clang/host/linux-x86/clang-r450784e/bin"
+    ],
+    "toolchain_path_prefix": "prebuilts",
+    "toolchain_urls": [
+      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8550_S23/releases/download/toolchain/toolchain_part_aa.tar.gz",
+      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8550_S23/releases/download/toolchain/toolchain_part_ab.tar.gz",
+      "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8550_S23/releases/download/toolchain/toolchain_part_ac.tar.gz"
+    ],
+    "zip_name_prefix": "Z5_Kernel"
   }
 }

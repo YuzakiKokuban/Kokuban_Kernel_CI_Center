@@ -35,21 +35,27 @@ jobs:
 
       - name: Determine Commit Hash
         id: hash
+        env:
+          INPUT_COMMIT_ID: ${{ inputs.commit_id }}
         run: |
           set -euo pipefail
 
-          if [ "${{ inputs.commit_id }}" == "latest" ]; then
+          if [ "$INPUT_COMMIT_ID" = "latest" ]; then
             repo="https://github.com/ReSukiSU/ReSukiSU.git"
             branch="main"
-            echo "COMMIT_ID=$(git ls-remote \"$repo\" \"$branch\" | cut -c1-7)" >> "$GITHUB_ENV"
+            echo "COMMIT_ID=$(git ls-remote "$repo" "$branch" | cut -c1-7)" >> "$GITHUB_ENV"
           else
-            echo "COMMIT_ID=${{ inputs.commit_id }}" >> "$GITHUB_ENV"
+            echo "COMMIT_ID=$INPUT_COMMIT_ID" >> "$GITHUB_ENV"
           fi
 
       - name: Execute Update
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          INPUT_PROJECT: ${{ inputs.project }}
+          INPUT_BRANCH: ${{ inputs.branch }}
         run: |
           ./kokuban_ci_core update \
-            --token "${{ secrets.GH_TOKEN }}" \
-            --project "${{ inputs.project }}" \
-            --variant "${{ inputs.branch }}" \
-            --commit-id "${{ env.COMMIT_ID }}"
+            --token "$GH_TOKEN" \
+            --project "$INPUT_PROJECT" \
+            --variant "$INPUT_BRANCH" \
+            --commit-id "$COMMIT_ID"

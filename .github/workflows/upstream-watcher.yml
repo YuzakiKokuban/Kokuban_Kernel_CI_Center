@@ -55,9 +55,14 @@ jobs:
           chmod +x kokuban_ci_core
           
       - name: Perform Update
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          MATRIX_PROJECT: ${{ matrix.project }}
+          MATRIX_VARIANT: ${{ matrix.variant }}
+          MATRIX_COMMIT_ID: ${{ matrix.commit_id }}
         run: |
           ./kokuban_ci_core update \
-            --token "${{ secrets.GH_TOKEN }}" \
-            --project "${{ matrix.project }}" \
-            --variant "${{ matrix.variant }}" \
-            --commit-id "${{ matrix.commit_id }}"
+            --token "$GH_TOKEN" \
+            --project "$MATRIX_PROJECT" \
+            --variant "$MATRIX_VARIANT" \
+            --commit-id "$MATRIX_COMMIT_ID"
