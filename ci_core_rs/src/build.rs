@@ -951,6 +951,26 @@ write_boot; # use flash_boot to skip ramdisk repack, e.g. for devices with init_
         fs::remove_dir_all(temp_dir).unwrap();
     }
 
+    // `make Image` may stop at vmlinux.symvers; the gate must still find the symbol
+    // rather than reporting the whole ABI unverifiable.
+    #[test]
+    fn abi_gate_reads_vmlinux_symvers_when_module_symvers_is_absent() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let temp_dir = std::env::temp_dir().join(format!("abi-gate-vmlinux-{unique}"));
+        fs::create_dir_all(temp_dir.join("out")).unwrap();
+        fs::write(
+            temp_dir.join("out/vmlinux.symvers"),
+            "0xf54e5881\tvendor_data_pad\tvmlinux\tEXPORT_SYMBOL_GPL\t\n",
+        )
+        .unwrap();
+
+        assert!(verify_abi_symbol_gates(&temp_dir, &vendor_data_pad_gate()).is_ok());
+        fs::remove_dir_all(temp_dir).unwrap();
+    }
+
     #[test]
     fn parses_a_tuning_fragment_and_keeps_quoted_values() {
         let entries = parse_kconfig_fragment(
@@ -1790,24 +1810,28 @@ fn verify_abi_symbol_gates(
         return Ok(());
     }
 
-    // `Module.symvers` carries every exported symbol; `vmlinux.symvers` is the
-    // vmlinux-only subset the kernel has emitted since 6.4. Either proves the ABI.
-    let symvers_path = ["out/Module.symvers", "out/vmlinux.symvers"]
+    // `make Image` alone may only emit the vmlinux subset (`vmlinux.symvers`);
+    // `Module.symvers` additionally carries module exports. Read whichever exist and
+    // merge, so a symbol is reported missing only when neither file has it.
+    let symvers_paths: Vec<PathBuf> = ["out/Module.symvers", "out/vmlinux.symvers"]
         .iter()
         .map(|relative| kernel_source_path.join(relative))
-        .find(|path| path.is_file())
-        .ok_or_else(|| {
-            anyhow!(
-                "Cannot verify the kernel ABI: neither out/Module.symvers nor out/vmlinux.symvers was produced"
-            )
-        })?;
-    let content = fs::read_to_string(&symvers_path)
-        .map_err(|err| anyhow!("Cannot read {}: {err}", symvers_path.display()))?;
+        .filter(|path| path.is_file())
+        .collect();
+    if symvers_paths.is_empty() {
+        return Err(anyhow!(
+            "Cannot verify the kernel ABI: neither out/Module.symvers nor out/vmlinux.symvers was produced"
+        ));
+    }
 
     let mut found: HashMap<String, String> = HashMap::new();
-    for line in content.lines() {
-        if let Some((crc, symbol)) = parse_symvers_line(line) {
-            found.insert(symbol, crc);
+    for symvers_path in &symvers_paths {
+        let content = fs::read_to_string(symvers_path)
+            .map_err(|err| anyhow!("Cannot read {}: {err}", symvers_path.display()))?;
+        for line in content.lines() {
+            if let Some((crc, symbol)) = parse_symvers_line(line) {
+                found.insert(symbol, crc);
+            }
         }
     }
 
