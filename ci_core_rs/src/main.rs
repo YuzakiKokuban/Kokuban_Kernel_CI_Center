@@ -691,6 +691,9 @@ fn handle_setup(
             }
 
             run_cmd(&["git", "add", "."], Some(&target_dir), false)?;
+            // `.github` is a dot-directory and the universal .gitignore ignores dot-files, so
+            // a trigger that is not tracked yet would be silently dropped from the commit.
+            run_cmd(&["git", "add", "-f", ".github"], Some(&target_dir), false)?;
             let status = run_cmd(&["git", "status", "--porcelain"], Some(&target_dir), true)?;
 
             if !status.unwrap_or_default().is_empty() {
