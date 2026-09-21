@@ -176,10 +176,11 @@ jobs:
           safe_artifact_branch=$(printf '%s' "$branch" | sed 's#[^A-Za-z0-9._-]#-#g')
           artifact_name="${project}-kernel-${safe_artifact_branch}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
 
-          # Cache per tuning profile, not per project: different profiles compile
-          # different objects, and two runs sharing one key race on restore
-          # ("tar: Error is not recoverable") instead of just missing the cache.
-          profile_slug=$(printf '%s' "${kconfig_fragment:-default}/${lto:-none}" \
+          # Cache per build shape, not per project: the variant, the tuning profile and
+          # the feature flags all change the sources, and two runs sharing one key race
+          # on restore ("tar: Error is not recoverable") instead of missing the cache.
+          profile_slug=$(printf '%s' \
+            "${resolved_variant}-${kconfig_fragment:-default}-${lto:-none}-s${apply_susfs}-h${apply_hybridmount}-b${apply_bbg}" \
             | sed 's#[^A-Za-z0-9]#-#g')
           cache_key_suffix="${profile_slug}"
 
