@@ -224,7 +224,12 @@ jobs:
         uses: hendrikmuhs/ccache-action@v1.2.24
         with:
           variant: sccache
+          # The exact key is per build shape so two concurrent runs never save the
+          # same entry, but any shape of this project is a valid fallback: sccache
+          # is content addressed, so a restored object from another variant is
+          # either reused as-is or ignored, never wrong.
           key: kernel-build-shared-${{ env.PROJECT }}-${{ env.CACHE_KEY_SUFFIX }}
+          restore-keys: kernel-build-shared-${{ env.PROJECT }}-
           max-size: 5G
 
       - name: Install Dependencies
