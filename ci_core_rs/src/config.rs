@@ -53,6 +53,13 @@ pub struct AbiBaseline {
     pub allow_crc_mismatch: usize,
     #[serde(default)]
     pub allow_missing: usize,
+    /// Symbols a deliberate change is allowed to stop exporting, named explicitly
+    /// so the exception is reviewable rather than hidden behind a raised count.
+    #[serde(default)]
+    pub allowed_missing_symbols: Vec<String>,
+    /// Symbols a deliberate change is allowed to move the CRC of.
+    #[serde(default)]
+    pub allowed_crc_symbols: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

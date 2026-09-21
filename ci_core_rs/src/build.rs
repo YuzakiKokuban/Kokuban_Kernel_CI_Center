@@ -1159,7 +1159,44 @@ write_boot; # use flash_boot to skip ramdisk repack, e.g. for devices with init_
             ignore_prefixes: rust_ignore(),
             allow_crc_mismatch,
             allow_missing,
+            allowed_missing_symbols: Vec::new(),
+            allowed_crc_symbols: Vec::new(),
         }
+    }
+
+    // Disabling a debug feature necessarily drops its debug symbols, so the gate
+    // accepts a *named* list of them instead of a fuzzy count.
+    #[test]
+    fn abi_baseline_accepts_named_symbol_exceptions() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("abi-baseline-named-{unique}"));
+        baseline_file(
+            &dir,
+            "0xaaa	module_layout	vmlinux	EXPORT_SYMBOL	\n0xbbb	kasan_mode	vmlinux	EXPORT_SYMBOL_GPL	\n",
+        );
+        fs::create_dir_all(dir.join("out")).unwrap();
+        fs::write(
+            dir.join("out/vmlinux.symvers"),
+            "0xccc	module_layout	vmlinux	EXPORT_SYMBOL	\n",
+        )
+        .unwrap();
+
+        let mut config = baseline_config(0, 0);
+        assert!(
+            verify_abi_baseline(&dir, &config).is_err(),
+            "both deltas fail"
+        );
+
+        config.allowed_missing_symbols = vec!["kasan_mode".to_string()];
+        config.allowed_crc_symbols = vec!["module_layout".to_string()];
+        assert!(
+            verify_abi_baseline(&dir, &config).is_ok(),
+            "named exceptions clear both"
+        );
+        fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]
@@ -2169,19 +2206,38 @@ fn verify_abi_baseline(kernel_source_path: &Path, baseline: &AbiBaseline) -> Res
     let built = read_kernel_symvers(kernel_source_path)?;
     let report = diff_symvers(&built, &expected, &baseline.ignore_prefixes);
 
+    // Split out the deltas a deliberate change is allowed to cause. Naming them
+    // keeps the exception visible in review instead of hiding it behind a count.
+    let (accepted_crc, crc_mismatch): (Vec<_>, Vec<_>) = report
+        .crc_mismatch
+        .iter()
+        .partition(|(symbol, _, _)| baseline.allowed_crc_symbols.contains(symbol));
+    let (accepted_missing, missing): (Vec<_>, Vec<_>) = report
+        .missing
+        .iter()
+        .partition(|symbol| baseline.allowed_missing_symbols.contains(symbol));
+
     println!(
-        "ABI baseline {}: compared {} symbols, {} CRC mismatch, {} missing, {} extra",
+        "ABI baseline {}: compared {} symbols, {} CRC mismatch ({} accepted), {} missing ({} accepted), {} extra",
         baseline.path,
         report.compared,
-        report.crc_mismatch.len(),
-        report.missing.len(),
+        crc_mismatch.len(),
+        accepted_crc.len(),
+        missing.len(),
+        accepted_missing.len(),
         report.extra.len()
     );
-    for (symbol, want, got) in report.crc_mismatch.iter().take(ABI_REPORT_LIMIT) {
+    for (symbol, want, got) in crc_mismatch.iter().take(ABI_REPORT_LIMIT) {
         println!("  CRC {symbol}: baseline {want}, built {got}");
     }
-    for symbol in report.missing.iter().take(ABI_REPORT_LIMIT) {
+    for symbol in missing.iter().take(ABI_REPORT_LIMIT) {
         println!("  MISSING {symbol}");
+    }
+    for (symbol, want, got) in &accepted_crc {
+        println!("  CRC {symbol}: {want} -> {got} (accepted)");
+    }
+    for symbol in &accepted_missing {
+        println!("  MISSING {symbol} (accepted)");
     }
     if report.extra.len() <= ABI_REPORT_LIMIT {
         for symbol in &report.extra {
@@ -2195,17 +2251,17 @@ fn verify_abi_baseline(kernel_source_path: &Path, baseline: &AbiBaseline) -> Res
     }
 
     let mut failures = Vec::new();
-    if report.crc_mismatch.len() > baseline.allow_crc_mismatch {
+    if crc_mismatch.len() > baseline.allow_crc_mismatch {
         failures.push(format!(
             "{} symbol(s) changed CRC (allowed {})",
-            report.crc_mismatch.len(),
+            crc_mismatch.len(),
             baseline.allow_crc_mismatch
         ));
     }
-    if report.missing.len() > baseline.allow_missing {
+    if missing.len() > baseline.allow_missing {
         failures.push(format!(
             "{} baseline symbol(s) no longer exported (allowed {})",
-            report.missing.len(),
+            missing.len(),
             baseline.allow_missing
         ));
     }
