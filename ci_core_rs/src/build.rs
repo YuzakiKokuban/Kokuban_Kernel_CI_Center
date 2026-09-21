@@ -2782,14 +2782,17 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
         fs::write(kernel_source_path.join("localversion"), "")?;
     }
 
-    if let Some(gates) = &proj.abi_symbol_gates {
-        verify_abi_symbol_gates(&kernel_source_path, gates)?;
-        println!("Kernel ABI gate passed for {} symbol(s)", gates.len());
-    }
-
+    // The baseline check runs first: it prints the full per-symbol report, which is
+    // what makes an experiment diagnosable. The canary list is the cheaper fallback
+    // for projects that ship no baseline.
     if let Some(baseline) = &proj.abi_baseline {
         verify_abi_baseline(&kernel_source_path, baseline)?;
         println!("Kernel ABI baseline check passed");
+    }
+
+    if let Some(gates) = &proj.abi_symbol_gates {
+        verify_abi_symbol_gates(&kernel_source_path, gates)?;
+        println!("Kernel ABI gate passed for {} symbol(s)", gates.len());
     }
 
     prepare_anykernel_worktree(Path::new("AnyKernel3"), offline)?;
