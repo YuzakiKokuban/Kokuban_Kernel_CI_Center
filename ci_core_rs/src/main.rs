@@ -46,6 +46,9 @@ struct AddOptions {
     zip_name: String,
     #[arg(long, default_value = "")]
     toolchain_prefix: String,
+    /// Build pipeline for this project, e.g. `gki-6.12` for ACK/GKI trees.
+    #[arg(long)]
+    build_style: Option<String>,
 }
 
 #[derive(Subcommand)]
@@ -547,6 +550,9 @@ fn handle_add(options: AddOptions) -> Result<()> {
         anykernel_config: options.ak3_config,
         zip_name_prefix: Some(options.zip_name),
         version_method: None,
+        build_style: options.build_style,
+        abi_symbol_gates: None,
+        kconfig_fragment: None,
         extra_host_env: None,
         disable_security: None,
         readme_placeholders: Some(placeholders),

@@ -29,7 +29,13 @@ const SUSFS_KCONFIG_ENTRIES: &[(&str, &str)] = &[
     ("CONFIG_KSU_SUSFS_OPEN_REDIRECT", "y"),
     ("CONFIG_KSU_SUSFS_SUS_MAP", "y"),
 ];
-const SM8850_CUSTOM_KCONFIG_ENTRIES: &[(&str, &str)] = &[
+/// `build_style` value opting a project into the ACK/GKI-6.12 pipeline.
+const GKI_612_BUILD_STYLE: &str = "gki-6.12";
+/// Soc suffix that historically selected the same pipeline via the project key
+/// (`mi17_sm8850`), kept so that entry needs no config change.
+const GKI_612_LEGACY_SOC: &str = "sm8850";
+
+const GKI_CUSTOM_KCONFIG_ENTRIES: &[(&str, &str)] = &[
     ("CONFIG_OVERLAY_FS_REDIRECT_DIR", "y"),
     ("CONFIG_OVERLAY_FS_INDEX", "y"),
     ("CONFIG_OVERLAY_FS_XINO_AUTO", "y"),
@@ -38,7 +44,7 @@ const SM8850_CUSTOM_KCONFIG_ENTRIES: &[(&str, &str)] = &[
     ("CONFIG_TMPFS_INODE64", "y"),
     ("CONFIG_TMPFS_QUOTA", "y"),
 ];
-const SM8850_KSU_KCONFIG_ENTRIES: &[(&str, &str)] = &[
+const GKI_KSU_KCONFIG_ENTRIES: &[(&str, &str)] = &[
     ("CONFIG_KSU", "y"),
     ("CONFIG_KSU_MULTI_MANAGER_SUPPORT", "y"),
     (
@@ -795,7 +801,7 @@ write_boot; # use flash_boot to skip ramdisk repack, e.g. for devices with init_
     // A defconfig that lives under common/ (rather than arch/arm64/configs/) must still
     // receive the localversion, otherwise the build silently ships a different version string.
     #[test]
-    fn applies_sm8850_localversion_to_nested_defconfig() {
+    fn applies_gki_localversion_to_nested_defconfig() {
         let unique = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -808,7 +814,7 @@ write_boot; # use flash_boot to skip ramdisk repack, e.g. for devices with init_
         )
         .unwrap();
 
-        apply_sm8850_localversion(&temp_dir, "test_defconfig", "-new").unwrap();
+        apply_gki_localversion(&temp_dir, "test_defconfig", "-new").unwrap();
 
         let config =
             fs::read_to_string(temp_dir.join("common/arch/arm64/configs/test_defconfig")).unwrap();
@@ -820,6 +826,206 @@ write_boot; # use flash_boot to skip ramdisk repack, e.g. for devices with init_
             config.contains("CONFIG_LOCALVERSION_AUTO=n"),
             "got: {config}"
         );
+        fs::remove_dir_all(temp_dir).unwrap();
+    }
+
+    fn project_with_build_style(repo: &str, build_style: Option<&str>) -> ProjectConfig {
+        ProjectConfig {
+            repo: repo.to_string(),
+            defconfig: "defconfig".to_string(),
+            localversion_base: "-test".to_string(),
+            expected_kernel_version: None,
+            lto: None,
+            supported_ksu: None,
+            toolchain_urls: None,
+            toolchain_sha256: None,
+            toolchain_path_prefix: None,
+            toolchain_path_exports: None,
+            anykernel_config: None,
+            zip_name_prefix: None,
+            version_method: None,
+            build_style: build_style.map(str::to_string),
+            abi_symbol_gates: None,
+            kconfig_fragment: None,
+            extra_host_env: None,
+            disable_security: None,
+            readme_placeholders: None,
+            susfs: None,
+            bbg: None,
+            watch_upstream_variants: None,
+        }
+    }
+
+    // mi17_sm8850 predates `build_style`; its soc suffix must keep selecting the GKI
+    // pipeline, while a new device opts in explicitly.
+    #[test]
+    fn selects_gki_pipeline_by_legacy_soc_or_build_style() {
+        assert!(uses_gki_612_pipeline(
+            "mi17_sm8850",
+            &project_with_build_style("yuzaki/x", None)
+        ));
+        assert!(uses_gki_612_pipeline(
+            "razrfold_sm8845",
+            &project_with_build_style("yuzaki/blanc", Some("gki-6.12"))
+        ));
+        assert!(!uses_gki_612_pipeline(
+            "s23_sm8550",
+            &project_with_build_style("yuzaki/s23", None)
+        ));
+        assert!(!uses_gki_612_pipeline(
+            "razrfold_sm8845",
+            &project_with_build_style("yuzaki/blanc", Some("make"))
+        ));
+    }
+
+    #[test]
+    fn parses_symvers_lines_and_skips_malformed_ones() {
+        assert_eq!(
+            parse_symvers_line("0xf54e5881\tvendor_data_pad\tvmlinux\tEXPORT_SYMBOL_GPL\t"),
+            Some(("0xf54e5881".to_string(), "vendor_data_pad".to_string()))
+        );
+        assert_eq!(parse_symvers_line(""), None);
+        assert_eq!(parse_symvers_line("\t\t\t"), None);
+    }
+
+    fn kernel_source_with_symvers(name: &str, symvers: &str) -> PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let temp_dir = std::env::temp_dir().join(format!("{name}-{unique}"));
+        fs::create_dir_all(temp_dir.join("out")).unwrap();
+        fs::write(temp_dir.join("out/Module.symvers"), symvers).unwrap();
+        temp_dir
+    }
+
+    fn vendor_data_pad_gate() -> HashMap<String, String> {
+        HashMap::from([("vendor_data_pad".to_string(), "0xf54e5881".to_string())])
+    }
+
+    #[test]
+    fn abi_gate_accepts_the_stock_vendor_data_pad_crc() {
+        let dir = kernel_source_with_symvers(
+            "abi-gate-ok",
+            "0xf54e5881\tvendor_data_pad\tvmlinux\tEXPORT_SYMBOL_GPL\t\n",
+        );
+        assert!(verify_abi_symbol_gates(&dir, &vendor_data_pad_gate()).is_ok());
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    // Forcing GKI_TASK_STRUCT_VENDOR_SIZE_MAX to 1024 is the documented cause of the
+    // blanc bootloop; the gate must stop that image from being packaged.
+    #[test]
+    fn abi_gate_rejects_the_vendor_size_1024_crc() {
+        let dir = kernel_source_with_symvers(
+            "abi-gate-mismatch",
+            "0xa4519653\tvendor_data_pad\tvmlinux\tEXPORT_SYMBOL_GPL\t\n",
+        );
+        let error = verify_abi_symbol_gates(&dir, &vendor_data_pad_gate()).unwrap_err();
+        assert!(error.to_string().contains("0xa4519653"), "got: {error}");
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn abi_gate_rejects_a_symbol_the_build_never_exported() {
+        let dir = kernel_source_with_symvers(
+            "abi-gate-missing",
+            "0x1\tmodule_layout\tvmlinux\tEXPORT_SYMBOL\t\n",
+        );
+        let error = verify_abi_symbol_gates(&dir, &vendor_data_pad_gate()).unwrap_err();
+        assert!(error.to_string().contains("not exported"), "got: {error}");
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn abi_gate_requires_a_symvers_file_only_when_gates_exist() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let temp_dir = std::env::temp_dir().join(format!("abi-gate-absent-{unique}"));
+        fs::create_dir_all(&temp_dir).unwrap();
+
+        assert!(verify_abi_symbol_gates(&temp_dir, &HashMap::new()).is_ok());
+        assert!(verify_abi_symbol_gates(&temp_dir, &vendor_data_pad_gate()).is_err());
+        fs::remove_dir_all(temp_dir).unwrap();
+    }
+
+    #[test]
+    fn parses_a_tuning_fragment_and_keeps_quoted_values() {
+        let entries = parse_kconfig_fragment(
+            "# a comment\n\nCONFIG_TCP_CONG_BBR=y\nCONFIG_DEFAULT_TCP_CONG=\"cubic\"\n",
+        )
+        .unwrap();
+        assert_eq!(
+            entries,
+            vec![
+                ("CONFIG_TCP_CONG_BBR".to_string(), "y".to_string()),
+                (
+                    "CONFIG_DEFAULT_TCP_CONG".to_string(),
+                    "\"cubic\"".to_string()
+                ),
+            ]
+        );
+    }
+
+    #[test]
+    fn rejects_a_malformed_tuning_fragment() {
+        assert!(parse_kconfig_fragment("CONFIG_FOO\n").is_err());
+        assert!(parse_kconfig_fragment("NOT_A_CONFIG=y\n").is_err());
+    }
+
+    // The fragment must override whatever the full defconfig already said, including a
+    // `# CONFIG_x is not set` line, or the tuning silently does not take effect.
+    #[test]
+    fn overlays_a_tuning_fragment_onto_the_defconfig() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let temp_dir = std::env::temp_dir().join(format!("kconfig-fragment-{unique}"));
+        fs::create_dir_all(temp_dir.join("arch/arm64/configs")).unwrap();
+        fs::create_dir_all(temp_dir.join("Kokuban")).unwrap();
+        fs::write(
+            temp_dir.join("arch/arm64/configs/test_defconfig"),
+            "# CONFIG_TCP_CONG_ADVANCED is not set\nCONFIG_DEFAULT_TCP_CONG=\"cubic\"\n",
+        )
+        .unwrap();
+        fs::write(
+            temp_dir.join("Kokuban/tuning.fragment"),
+            "# comment\nCONFIG_TCP_CONG_ADVANCED=y\nCONFIG_TCP_CONG_BBR=y\n",
+        )
+        .unwrap();
+
+        apply_kconfig_fragment(&temp_dir, "test_defconfig", "Kokuban/tuning.fragment").unwrap();
+
+        let config =
+            fs::read_to_string(temp_dir.join("arch/arm64/configs/test_defconfig")).unwrap();
+        assert!(
+            config.starts_with("CONFIG_TCP_CONG_ADVANCED=y\n"),
+            "{config}"
+        );
+        assert!(config.contains("CONFIG_TCP_CONG_BBR=y"), "{config}");
+        assert!(!config.contains("is not set\n"), "{config}");
+        // An untouched entry keeps its original position and value.
+        assert!(
+            config.contains("CONFIG_DEFAULT_TCP_CONG=\"cubic\""),
+            "{config}"
+        );
+        fs::remove_dir_all(temp_dir).unwrap();
+    }
+
+    #[test]
+    fn reports_a_missing_tuning_fragment() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let temp_dir = std::env::temp_dir().join(format!("kconfig-fragment-missing-{unique}"));
+        fs::create_dir_all(&temp_dir).unwrap();
+        let error = apply_kconfig_fragment(&temp_dir, "test_defconfig", "Kokuban/tuning.fragment")
+            .unwrap_err();
+        assert!(error.to_string().contains("tuning.fragment"), "{error}");
         fs::remove_dir_all(temp_dir).unwrap();
     }
 
@@ -1322,7 +1528,7 @@ fn patch_setlocalversion_remove_dirty(kernel_source_path: &Path) -> Result<()> {
     Ok(())
 }
 
-fn apply_sm8850_localversion(
+fn apply_gki_localversion(
     kernel_source_path: &Path,
     defconfig_name: &str,
     localversion: &str,
@@ -1351,6 +1557,16 @@ fn apply_sm8850_localversion(
 
 fn uses_file_localversion(proj: &ProjectConfig) -> bool {
     proj.version_method.as_deref().unwrap_or("param") == "file"
+}
+
+/// ACK/GKI-6.12 trees share one pipeline: they need the prebuilt ACK clang
+/// environment, a rust/bindgen toolchain, `_setup_env.sh` around every make
+/// invocation, and `KBUILD_GENDWARFKSYMS_STABLE` so exported-symbol CRCs stay
+/// reproducible. Projects opt in with `build_style`; `mi17_sm8850` selected the
+/// same path through its soc suffix before that field existed.
+fn uses_gki_612_pipeline(project_key: &str, proj: &ProjectConfig) -> bool {
+    project_key.split('_').nth(1) == Some(GKI_612_LEGACY_SOC)
+        || proj.build_style.as_deref() == Some(GKI_612_BUILD_STYLE)
 }
 
 fn run_make_targets(
@@ -1450,7 +1666,75 @@ fn validate_kconfig_entries(path: &Path, entries: &[(&str, &str)]) -> Result<()>
     }
 }
 
-fn prepare_sm8850_build(
+/// Reads a `CONFIG_x=y` fragment into `(key, value)` pairs.
+///
+/// Comments (`#`) and blank lines are ignored. Everything after the first `=` is
+/// the value, so quoted strings such as `CONFIG_DEFAULT_TCP_CONG="cubic"` survive
+/// intact. Malformed lines are rejected rather than silently skipped: a typo in a
+/// tuning fragment would otherwise ship an unmodified kernel.
+fn parse_kconfig_fragment(content: &str) -> Result<Vec<(String, String)>> {
+    let mut entries = Vec::new();
+    for (index, raw) in content.lines().enumerate() {
+        let line = raw.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let Some((key, value)) = line.split_once('=') else {
+            return Err(anyhow!(
+                "Malformed kconfig fragment line {}: {raw}",
+                index + 1
+            ));
+        };
+        let key = key.trim();
+        if !key.starts_with("CONFIG_") {
+            return Err(anyhow!(
+                "Malformed kconfig fragment line {}: {raw} (expected a CONFIG_ key)",
+                index + 1
+            ));
+        }
+        entries.push((key.to_string(), value.trim().to_string()));
+    }
+    Ok(entries)
+}
+
+/// Overlays a kconfig fragment onto the project defconfig so the fragment, not the
+/// full `.config`, is the single source of truth for a tuning delta.
+fn apply_kconfig_fragment(
+    kernel_source_path: &Path,
+    defconfig_name: &str,
+    fragment_relative_path: &str,
+) -> Result<()> {
+    let fragment_path = kernel_source_path.join(fragment_relative_path);
+    let fragment = fs::read_to_string(&fragment_path).map_err(|err| {
+        anyhow!(
+            "Cannot read kconfig fragment {}: {err}",
+            fragment_path.display()
+        )
+    })?;
+    let entries = parse_kconfig_fragment(&fragment)?;
+    if entries.is_empty() {
+        return Err(anyhow!(
+            "Kconfig fragment {} defines no CONFIG_ entries",
+            fragment_path.display()
+        ));
+    }
+
+    let defconfig_file = project_defconfig_path(kernel_source_path, defconfig_name)?;
+    let owned: Vec<(&str, &str)> = entries
+        .iter()
+        .map(|(key, value)| (key.as_str(), value.as_str()))
+        .collect();
+    update_kconfig_file(&defconfig_file, &owned)?;
+    println!(
+        "Applied {} tuning entr{} from {}",
+        entries.len(),
+        if entries.len() == 1 { "y" } else { "ies" },
+        fragment_relative_path
+    );
+    Ok(())
+}
+
+fn prepare_gki_build(
     kernel_source_path: &Path,
     proj: &ProjectConfig,
     enable_ksu: bool,
@@ -1471,11 +1755,81 @@ fn prepare_sm8850_build(
         ("CONFIG_TMPFS_XATTR", "y"),
         ("CONFIG_TMPFS_POSIX_ACL", "y"),
     ];
-    entries.extend_from_slice(SM8850_CUSTOM_KCONFIG_ENTRIES);
+    entries.extend_from_slice(GKI_CUSTOM_KCONFIG_ENTRIES);
     if enable_ksu {
-        entries.extend_from_slice(SM8850_KSU_KCONFIG_ENTRIES);
+        entries.extend_from_slice(GKI_KSU_KCONFIG_ENTRIES);
     }
     update_kconfig_file(&defconfig_file, &entries)
+}
+
+/// Parses one `Module.symvers` line into `(crc, symbol)`.
+///
+/// The format is tab-separated: `0x1234abcd<TAB>symbol<TAB>module<TAB>export`.
+fn parse_symvers_line(line: &str) -> Option<(String, String)> {
+    let mut fields = line.split('\t');
+    let crc = fields.next()?.trim();
+    let symbol = fields.next()?.trim();
+    if crc.is_empty() || symbol.is_empty() {
+        return None;
+    }
+    Some((crc.to_string(), symbol.to_string()))
+}
+
+/// Verifies that the build reproduced the stock kernel's exported-symbol CRCs.
+///
+/// A GKI kernel must stay ABI-compatible with the modules already on the device,
+/// which are never rebuilt here. `vendor_data_pad` is the canary: it is the only
+/// CRC that stock and a from-source build disagree on when
+/// `GKI_TASK_STRUCT_VENDOR_SIZE_MAX` is overridden, and a mismatch there makes
+/// stock modules refuse to load and the device panic before `init`.
+fn verify_abi_symbol_gates(
+    kernel_source_path: &Path,
+    gates: &HashMap<String, String>,
+) -> Result<()> {
+    if gates.is_empty() {
+        return Ok(());
+    }
+
+    // `Module.symvers` carries every exported symbol; `vmlinux.symvers` is the
+    // vmlinux-only subset the kernel has emitted since 6.4. Either proves the ABI.
+    let symvers_path = ["out/Module.symvers", "out/vmlinux.symvers"]
+        .iter()
+        .map(|relative| kernel_source_path.join(relative))
+        .find(|path| path.is_file())
+        .ok_or_else(|| {
+            anyhow!(
+                "Cannot verify the kernel ABI: neither out/Module.symvers nor out/vmlinux.symvers was produced"
+            )
+        })?;
+    let content = fs::read_to_string(&symvers_path)
+        .map_err(|err| anyhow!("Cannot read {}: {err}", symvers_path.display()))?;
+
+    let mut found: HashMap<String, String> = HashMap::new();
+    for line in content.lines() {
+        if let Some((crc, symbol)) = parse_symvers_line(line) {
+            found.insert(symbol, crc);
+        }
+    }
+
+    let mut mismatches = Vec::new();
+    for (symbol, expected) in gates {
+        match found.get(symbol.as_str()) {
+            Some(actual) if actual.eq_ignore_ascii_case(expected) => {}
+            Some(actual) => {
+                mismatches.push(format!("{symbol}: expected {expected}, built {actual}"))
+            }
+            None => mismatches.push(format!("{symbol}: not exported by the built kernel")),
+        }
+    }
+
+    if mismatches.is_empty() {
+        return Ok(());
+    }
+
+    Err(anyhow!(
+        "Kernel ABI mismatch — stock modules would fail to load: {}",
+        mismatches.join("; ")
+    ))
 }
 
 pub struct BuildOptions {
@@ -1508,7 +1862,7 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
     }
 
     let target_soc_str = project_key.split('_').nth(1).unwrap_or("unknown");
-    let is_sm8850 = target_soc_str == "sm8850";
+    let is_gki_612 = uses_gki_612_pipeline(&project_key, &proj);
 
     let wrapper_dir = env::current_dir()?.join(".compiler_wrappers");
     let _ = fs::create_dir_all(&wrapper_dir);
@@ -1640,7 +1994,7 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
     build_env.insert("TZ".to_string(), "Asia/Hong_Kong".to_string());
 
     let mut kcflags = "-O2 -pipe -Wno-error -D__ANDROID_COMMON_KERNEL__".to_string();
-    if is_sm8850 {
+    if is_gki_612 {
         if let Ok(common_real_path) = fs::canonicalize(&kernel_source_path)
             && let Some(root_real_path) = common_real_path.parent()
         {
@@ -1752,7 +2106,12 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
         feature_suffixes.push("bbg".to_string());
     }
 
-    let kernel_version = capture_make_output(&kernel_source_path, "kernelversion", is_sm8850)?;
+    if let Some(fragment) = proj.kconfig_fragment.as_deref() {
+        apply_kconfig_fragment(&kernel_source_path, &proj.defconfig, fragment)?;
+        feature_suffixes.push("tuning".to_string());
+    }
+
+    let kernel_version = capture_make_output(&kernel_source_path, "kernelversion", is_gki_612)?;
     validate_kernel_version(
         &project_key,
         proj.expected_kernel_version.as_deref(),
@@ -1814,7 +2173,7 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
 
     let mut localversion = if let Some(ref custom) = custom_localversion {
         let custom = custom.trim();
-        if is_sm8850 {
+        if is_gki_612 {
             format!("-{}", custom.trim_start_matches('-'))
         } else {
             custom.to_string()
@@ -1839,7 +2198,7 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
         );
     }
 
-    if is_sm8850 {
+    if is_gki_612 {
         if custom_localversion.is_none() {
             if project_key == "mi17_sm8850" {
                 localversion = format!(
@@ -1853,14 +2212,14 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
         let _ = fs::write(kernel_source_path.join(".scmversion"), "");
         make_args.push("LOCALVERSION_AUTO=n");
         build_env.insert("LOCALVERSION_AUTO".to_string(), "n".to_string());
-        apply_sm8850_localversion(&kernel_source_path, &proj.defconfig, &localversion)?;
+        apply_gki_localversion(&kernel_source_path, &proj.defconfig, &localversion)?;
     }
 
-    if is_sm8850 {
-        prepare_sm8850_build(&kernel_source_path, &proj, setup_url.is_some())?;
+    if is_gki_612 {
+        prepare_gki_build(&kernel_source_path, &proj, setup_url.is_some())?;
     }
 
-    if is_sm8850 {
+    if is_gki_612 {
         println!("Testing Environment and rust_is_available.sh...");
         let mut cmd = std::process::Command::new("bash");
         cmd.arg("-c").arg("source ./_setup_env.sh 2>/dev/null || true && echo '=== Toolchain Versions ===' && $CC --version | head -n1 && $RUSTC -V && bindgen --version && pahole --version && echo '==========================' && sh scripts/rust_is_available.sh -v");
@@ -1882,7 +2241,7 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
         &build_env,
         &make_args,
         &[&proj.defconfig],
-        is_sm8850,
+        is_gki_612,
     )?;
 
     let mut disable_configs = vec!["TRIM_UNUSED_KSYMS"];
@@ -1959,25 +2318,25 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
         &build_env,
         &make_args,
         &["olddefconfig"],
-        is_sm8850,
+        is_gki_612,
     )?;
 
     let final_config = kernel_source_path.join("out/.config");
-    if is_sm8850 {
-        validate_kconfig_entries(&final_config, SM8850_CUSTOM_KCONFIG_ENTRIES)?;
+    if is_gki_612 {
+        validate_kconfig_entries(&final_config, GKI_CUSTOM_KCONFIG_ENTRIES)?;
         if setup_url.is_some() {
-            validate_kconfig_entries(&final_config, SM8850_KSU_KCONFIG_ENTRIES)?;
+            validate_kconfig_entries(&final_config, GKI_KSU_KCONFIG_ENTRIES)?;
         }
     }
     if apply_susfs && is_resukisu_variant(&branch) {
         validate_kconfig_entries(&final_config, SUSFS_KCONFIG_ENTRIES)?;
     }
 
-    if !is_sm8850 {
+    if !is_gki_612 {
         patch_setlocalversion_remove_dirty(&kernel_source_path)?;
     }
 
-    if custom_localversion.is_some() && !is_sm8850 {
+    if custom_localversion.is_some() && !is_gki_612 {
         let _ = fs::write(kernel_source_path.join(".scmversion"), "");
         make_args.push("LOCALVERSION_AUTO=n");
         build_env.insert("LOCALVERSION_AUTO".to_string(), "n".to_string());
@@ -1985,7 +2344,7 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
 
     let localversion_arg = format!("LOCALVERSION={}", localversion);
 
-    if !is_sm8850 {
+    if !is_gki_612 {
         if uses_file_localversion(&proj) {
             let _ = fs::write(
                 kernel_source_path.join("localversion"),
@@ -2006,7 +2365,7 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
     let threads = run_cmd(&["nproc"], None, true)?.unwrap().trim().to_string();
     let jobs = format!("-j{}", threads);
 
-    if is_sm8850 {
+    if is_gki_612 {
         let mut cmd_str = format!(
             "source ./_setup_env.sh 2>/dev/null || true && make {} Image",
             jobs
@@ -2027,6 +2386,11 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
 
     if uses_file_localversion(&proj) {
         fs::write(kernel_source_path.join("localversion"), "")?;
+    }
+
+    if let Some(gates) = &proj.abi_symbol_gates {
+        verify_abi_symbol_gates(&kernel_source_path, gates)?;
+        println!("Kernel ABI gate passed for {} symbol(s)", gates.len());
     }
 
     prepare_anykernel_worktree(Path::new("AnyKernel3"), offline)?;

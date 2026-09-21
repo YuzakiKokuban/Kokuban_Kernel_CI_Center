@@ -51,6 +51,7 @@ Kokuban Kernel CI Center 是一个专为 Android Linux 内核编译设计的集�
 | **Tab S10** | Galaxy Tab S10 (MT6989) | `tabs10_mt6989` |
 | **Z6** | Galaxy Z Fold/Flip 6 (SM8650) | `z6_sm8650` |
 | **Mi17** | Xiaomi 17 Series (SM8850, Linux 6.12.69, Hybrid Mount, no BBG) | `mi17_sm8850` |
+| **Razr Fold** | Motorola Razr Fold 2026 (SM8845 canoe/`blanc`, Linux 6.12.38, Hybrid Mount, no BBG) | `razrfold_sm8845` |
 
 ## 构建与使用
 

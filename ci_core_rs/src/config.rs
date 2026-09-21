@@ -16,6 +16,17 @@ pub struct ProjectConfig {
     pub anykernel_config: Option<String>,
     pub zip_name_prefix: Option<String>,
     pub version_method: Option<String>,
+    /// Selects the build pipeline for trees that are not plain `make` kernels.
+    /// `"gki-6.12"` opts into the ACK/GKI path shared with `mi17_sm8850`.
+    pub build_style: Option<String>,
+    /// Exported-symbol CRCs the built `vmlinux` must reproduce exactly, as
+    /// `symbol -> "0x…"`. A mismatch means the stock vendor modules will refuse
+    /// to load, so the build fails instead of shipping a bootlooping image.
+    pub abi_symbol_gates: Option<HashMap<String, String>>,
+    /// Path inside the kernel source of a `CONFIG_x=y` file overlaid onto the
+    /// defconfig just before configuration, so the delta stays reviewable in one
+    /// small file instead of being buried in a full `.config`.
+    pub kconfig_fragment: Option<String>,
     pub extra_host_env: Option<bool>,
     pub disable_security: Option<Vec<String>>,
     pub readme_placeholders: Option<HashMap<String, String>>,

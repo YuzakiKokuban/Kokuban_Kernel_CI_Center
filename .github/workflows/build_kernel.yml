@@ -15,6 +15,7 @@ on:
           - tabs10_mt6989
           - z6_sm8650
           - mi17_sm8850
+          - razrfold_sm8845
       branch:
         description: 'Git Branch/Tag'
         required: true
