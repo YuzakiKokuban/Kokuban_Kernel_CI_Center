@@ -747,6 +747,32 @@ write_boot; # use flash_boot to skip ramdisk repack, e.g. for devices with init_
         fs::remove_dir_all(temp_dir).unwrap();
     }
 
+    // The setup script runs with the kernel source root as its working directory, so it has
+    // to be addressed absolutely. The earlier relative form broke every Hybrid Mount build
+    // with "setup.sh: No such file", because the path was resolved against that directory.
+    #[test]
+    fn resolves_hybridmount_setup_script_absolutely() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        // A relative workspace root on purpose: test binaries run with the package directory
+        // as their working directory, which is what makes the regression observable.
+        let temp_dir = PathBuf::from(format!("target/hybridmount-script-test-{unique}"));
+        fs::create_dir_all(temp_dir.join("module/vfs")).unwrap();
+        fs::write(temp_dir.join("module/vfs/setup.sh"), "#!/bin/sh\n").unwrap();
+
+        let setup_script = hybridmount_setup_script(&temp_dir).unwrap();
+
+        assert!(
+            setup_script.is_absolute(),
+            "setup script path must be absolute, got {}",
+            setup_script.display()
+        );
+        assert!(setup_script.ends_with("module/vfs/setup.sh"));
+        fs::remove_dir_all(temp_dir).unwrap();
+    }
+
     #[test]
     fn rejects_hybridmount_when_nomount_exists() {
         let unique = SystemTime::now()
@@ -1137,6 +1163,16 @@ fn set_hybridmount_config(
     Ok(())
 }
 
+/// Resolves the Hybrid Mount setup script in a fresh checkout of the upstream repository.
+///
+/// The script is spawned with the kernel source root as its working directory, so the path
+/// handed to `sh` must be absolute: the relative form resolves against that working
+/// directory (kernel_source/kernel_source/...) and is never found.
+fn hybridmount_setup_script(temp_dir: &Path) -> Result<PathBuf> {
+    fs::canonicalize(temp_dir.join("module/vfs/setup.sh"))
+        .map_err(|err| anyhow!("Hybrid Mount setup script missing in {HYBRIDMOUNT_REPO}: {err}"))
+}
+
 fn apply_hybridmount_overlay(kernel_source_path: &Path, defconfig_name: &str) -> Result<()> {
     let source_kconfig = find_first_existing_path(
         kernel_source_path,
@@ -1187,7 +1223,7 @@ fn apply_hybridmount_overlay(kernel_source_path: &Path, defconfig_name: &str) ->
             false,
         )?;
 
-        let setup_script = temp_dir.join("module/vfs/setup.sh");
+        let setup_script = hybridmount_setup_script(&temp_dir)?;
         let setup_result = run_cmd(
             &[
                 "sh",

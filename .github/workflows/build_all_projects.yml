@@ -9,7 +9,7 @@ on:
       apply_hybridmount:
         description: 'Integrate Hybrid Mount VFS in every build'
         type: boolean
-        default: false
+        default: true
 
 permissions:
   contents: write
