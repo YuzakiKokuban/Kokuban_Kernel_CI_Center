@@ -92,6 +92,8 @@ pub struct LocalBuildOptions {
     pub apply_susfs: bool,
     pub apply_bbg: bool,
     pub apply_hybridmount: bool,
+    pub kconfig_fragment: Option<String>,
+    pub lto: Option<String>,
     pub local_root: Option<PathBuf>,
     pub offline: bool,
     pub no_fetch: bool,
@@ -473,6 +475,12 @@ fn run_build_command(
         "--resukisu-setup-arg",
         options.resukisu_setup_arg.as_deref(),
     );
+    add_optional_arg(
+        &mut command,
+        "--kconfig-fragment",
+        options.kconfig_fragment.as_deref(),
+    );
+    add_optional_arg(&mut command, "--lto", options.lto.as_deref());
 
     if let Some(parent) = log_path.parent() {
         fs::create_dir_all(parent)?;

@@ -54,6 +54,16 @@ on:
         description: 'Integrate Hybrid Mount VFS dynamically during build'
         type: boolean
         default: true
+      kconfig_fragment:
+        description: 'Kconfig fragment override: path in the kernel tree (e.g. Kokuban/profiles/stage3.fragment). Empty = project default'
+        type: string
+        required: false
+        default: ''
+      lto:
+        description: 'LTO override: none | thin | full. Empty = project default'
+        type: string
+        required: false
+        default: ''
   repository_dispatch:
     types: [build-kernel]
   workflow_call:
@@ -85,6 +95,12 @@ on:
       apply_hybridmount:
         type: boolean
         default: true
+      kconfig_fragment:
+        type: string
+        default: ''
+      lto:
+        type: string
+        default: ''
 
 jobs:
   build:
@@ -113,6 +129,8 @@ jobs:
           INPUT_APPLY_SUSFS: ${{ inputs.apply_susfs }}
           INPUT_APPLY_BBG: ${{ inputs.apply_bbg }}
           INPUT_APPLY_HYBRIDMOUNT: ${{ inputs.apply_hybridmount }}
+          INPUT_KCONFIG_FRAGMENT: ${{ inputs.kconfig_fragment }}
+          INPUT_LTO: ${{ inputs.lto }}
         run: |
           if [ "$EVENT_NAME" = "repository_dispatch" ]; then
             project="$PAYLOAD_PROJECT"
@@ -124,6 +142,8 @@ jobs:
             apply_susfs="$PAYLOAD_APPLY_SUSFS"
             apply_bbg="$PAYLOAD_APPLY_BBG"
             apply_hybridmount="$PAYLOAD_APPLY_HYBRIDMOUNT"
+            kconfig_fragment=""
+            lto=""
             if [ -z "$apply_susfs" ]; then
               apply_susfs="true"
             fi
@@ -143,6 +163,8 @@ jobs:
             apply_susfs="$INPUT_APPLY_SUSFS"
             apply_bbg="$INPUT_APPLY_BBG"
             apply_hybridmount="$INPUT_APPLY_HYBRIDMOUNT"
+            kconfig_fragment="$INPUT_KCONFIG_FRAGMENT"
+            lto="$INPUT_LTO"
           fi
 
           if [ "$variant" = "default" ] || [ -z "$variant" ]; then
@@ -165,6 +187,8 @@ jobs:
             echo "APPLY_SUSFS=$apply_susfs"
             echo "APPLY_BBG=$apply_bbg"
             echo "APPLY_HYBRIDMOUNT=$apply_hybridmount"
+            echo "KCONFIG_FRAGMENT=$kconfig_fragment"
+            echo "LTO_OVERRIDE=$lto"
             echo "ARTIFACT_NAME=$artifact_name"
           } >> "$GITHUB_ENV"
 
@@ -223,6 +247,12 @@ jobs:
           fi
           if [ -n "$RESUKISU_SETUP_ARG" ]; then
             ARGS+=("--resukisu-setup-arg=$RESUKISU_SETUP_ARG")
+          fi
+          if [ -n "$KCONFIG_FRAGMENT" ]; then
+            ARGS+=("--kconfig-fragment=$KCONFIG_FRAGMENT")
+          fi
+          if [ -n "$LTO_OVERRIDE" ]; then
+            ARGS+=("--lto=$LTO_OVERRIDE")
           fi
           ARGS+=("--apply-susfs" "$APPLY_SUSFS")
           ARGS+=("--apply-bbg" "$APPLY_BBG")

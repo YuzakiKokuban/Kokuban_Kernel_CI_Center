@@ -387,6 +387,14 @@
       "sched_setscheduler": "0xa1316a25"
     },
     "kconfig_fragment": "Kokuban/tuning.fragment",
+    "abi_baseline": {
+      "path": "Kokuban/abi/vmlinux.symvers.golden",
+      "ignore_prefixes": [
+        "_R"
+      ],
+      "allow_crc_mismatch": 0,
+      "allow_missing": 0
+    },
     "susfs": {
       "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
       "branch": "gki-android16-6.12",

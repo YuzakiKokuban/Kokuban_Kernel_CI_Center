@@ -6,7 +6,7 @@ use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
-use crate::config::{AnyKernelConfig, BbgConfig, ProjectConfig, SusfsConfig};
+use crate::config::{AbiBaseline, AnyKernelConfig, BbgConfig, ProjectConfig, SusfsConfig};
 use crate::utils::{
     cache_file_name, command_exists, env_flag, file_sha256, handle_notify, is_resukisu_variant,
     load_anykernel_config, load_project, run_cmd, run_cmd_with_env, set_github_output,
@@ -847,6 +847,7 @@ write_boot; # use flash_boot to skip ramdisk repack, e.g. for devices with init_
             build_style: build_style.map(str::to_string),
             abi_symbol_gates: None,
             kconfig_fragment: None,
+            abi_baseline: None,
             extra_host_env: None,
             disable_security: None,
             readme_placeholders: None,
@@ -975,6 +976,7 @@ write_boot; # use flash_boot to skip ramdisk repack, e.g. for devices with init_
     fn parses_a_tuning_fragment_and_keeps_quoted_values() {
         let entries = parse_kconfig_fragment(
             "# a comment\n\nCONFIG_TCP_CONG_BBR=y\nCONFIG_DEFAULT_TCP_CONG=\"cubic\"\n",
+            Path::new("tuning.fragment"),
         )
         .unwrap();
         assert_eq!(
@@ -991,8 +993,8 @@ write_boot; # use flash_boot to skip ramdisk repack, e.g. for devices with init_
 
     #[test]
     fn rejects_a_malformed_tuning_fragment() {
-        assert!(parse_kconfig_fragment("CONFIG_FOO\n").is_err());
-        assert!(parse_kconfig_fragment("NOT_A_CONFIG=y\n").is_err());
+        assert!(parse_kconfig_fragment("CONFIG_FOO\n", Path::new("f")).is_err());
+        assert!(parse_kconfig_fragment("NOT_A_CONFIG=y\n", Path::new("f")).is_err());
     }
 
     // The fragment must override whatever the full defconfig already said, including a
@@ -1047,6 +1049,156 @@ write_boot; # use flash_boot to skip ramdisk repack, e.g. for devices with init_
             .unwrap_err();
         assert!(error.to_string().contains("tuning.fragment"), "{error}");
         fs::remove_dir_all(temp_dir).unwrap();
+    }
+
+    fn symvers(pairs: &[(&str, &str)]) -> HashMap<String, String> {
+        pairs
+            .iter()
+            .map(|(symbol, crc)| (symbol.to_string(), crc.to_string()))
+            .collect()
+    }
+
+    fn rust_ignore() -> Vec<String> {
+        vec!["_R".to_string()]
+    }
+
+    #[test]
+    fn fragment_source_includes_are_resolved_and_later_entries_win() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("fragment-include-{unique}"));
+        fs::create_dir_all(dir.join("tuning")).unwrap();
+        fs::write(
+            dir.join("tuning.fragment"),
+            "CONFIG_A=y\nsource tuning/network.fragment\n",
+        )
+        .unwrap();
+        fs::write(
+            dir.join("tuning/network.fragment"),
+            "CONFIG_A=n\nCONFIG_NET_SCH_CAKE=y\n",
+        )
+        .unwrap();
+
+        let entries = parse_kconfig_fragment(
+            &fs::read_to_string(dir.join("tuning.fragment")).unwrap(),
+            &dir.join("tuning.fragment"),
+        )
+        .unwrap();
+
+        assert_eq!(
+            entries,
+            vec![
+                ("CONFIG_A".to_string(), "y".to_string()),
+                ("CONFIG_A".to_string(), "n".to_string()),
+                ("CONFIG_NET_SCH_CAKE".to_string(), "y".to_string()),
+            ]
+        );
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn fragment_source_cycles_are_rejected() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("fragment-cycle-{unique}"));
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("a.fragment"), "source b.fragment\n").unwrap();
+        fs::write(dir.join("b.fragment"), "source a.fragment\n").unwrap();
+
+        let error = parse_kconfig_fragment(
+            &fs::read_to_string(dir.join("a.fragment")).unwrap(),
+            &dir.join("a.fragment"),
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("cycle"), "{error}");
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn abi_diff_classifies_mismatch_missing_and_extra() {
+        let baseline = symvers(&[
+            ("module_layout", "0xaaa"),
+            ("vendor_data_pad", "0xbbb"),
+            ("gone", "0xccc"),
+            ("_RNvRust", "0xddd"),
+        ]);
+        let built = symvers(&[
+            ("module_layout", "0xaaa"),
+            ("vendor_data_pad", "0xzzz"),
+            ("_RNvRust", "0xeee"),
+            ("brand_new", "0x123"),
+        ]);
+
+        let report = diff_symvers(&built, &baseline, &rust_ignore());
+
+        assert_eq!(report.compared, 3, "Rust-mangled names are not compared");
+        assert_eq!(
+            report.crc_mismatch,
+            vec![(
+                "vendor_data_pad".to_string(),
+                "0xbbb".to_string(),
+                "0xzzz".to_string()
+            )]
+        );
+        assert_eq!(report.missing, vec!["gone".to_string()]);
+        assert_eq!(report.extra, vec!["brand_new".to_string()]);
+    }
+
+    fn baseline_file(dir: &Path, content: &str) {
+        fs::create_dir_all(dir.join("Kokuban/abi")).unwrap();
+        fs::write(dir.join("Kokuban/abi/golden.symvers"), content).unwrap();
+    }
+
+    fn baseline_config(allow_crc_mismatch: usize, allow_missing: usize) -> AbiBaseline {
+        AbiBaseline {
+            path: "Kokuban/abi/golden.symvers".to_string(),
+            ignore_prefixes: rust_ignore(),
+            allow_crc_mismatch,
+            allow_missing,
+        }
+    }
+
+    #[test]
+    fn abi_baseline_passes_when_the_symbol_table_is_unmoved() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("abi-baseline-ok-{unique}"));
+        let golden = "0xaaa\tmodule_layout\tvmlinux\tEXPORT_SYMBOL\t\n";
+        baseline_file(&dir, golden);
+        fs::create_dir_all(dir.join("out")).unwrap();
+        fs::write(dir.join("out/vmlinux.symvers"), golden).unwrap();
+
+        assert!(verify_abi_baseline(&dir, &baseline_config(0, 0)).is_ok());
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    // An experiment that moves an exported symbol must fail loudly, not ship.
+    #[test]
+    fn abi_baseline_fails_on_a_moved_symbol() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("abi-baseline-moved-{unique}"));
+        baseline_file(&dir, "0xaaa\tmodule_layout\tvmlinux\tEXPORT_SYMBOL\t\n");
+        fs::create_dir_all(dir.join("out")).unwrap();
+        fs::write(
+            dir.join("out/vmlinux.symvers"),
+            "0xbbb\tmodule_layout\tvmlinux\tEXPORT_SYMBOL\t\n",
+        )
+        .unwrap();
+
+        let error = verify_abi_baseline(&dir, &baseline_config(0, 0)).unwrap_err();
+        assert!(error.to_string().contains("changed CRC"), "{error}");
+        // Raising the tolerance is how an experiment records a known, accepted move.
+        assert!(verify_abi_baseline(&dir, &baseline_config(1, 0)).is_ok());
+        fs::remove_dir_all(dir).unwrap();
     }
 
     // A file that exists but cannot be decoded must not be silently replaced with a
@@ -1686,19 +1838,73 @@ fn validate_kconfig_entries(path: &Path, entries: &[(&str, &str)]) -> Result<()>
     }
 }
 
-/// Reads a `CONFIG_x=y` fragment into `(key, value)` pairs.
+/// Reads a `CONFIG_x=y` fragment into `(key, value)` pairs, following `source`
+/// includes so a tuning set can be assembled from small per-topic files.
 ///
 /// Comments (`#`) and blank lines are ignored. Everything after the first `=` is
 /// the value, so quoted strings such as `CONFIG_DEFAULT_TCP_CONG="cubic"` survive
 /// intact. Malformed lines are rejected rather than silently skipped: a typo in a
 /// tuning fragment would otherwise ship an unmodified kernel.
-fn parse_kconfig_fragment(content: &str) -> Result<Vec<(String, String)>> {
+///
+/// `source <path>` resolves relative to `owner`'s directory, and a later entry wins
+/// over an earlier one, so `source` order is meaningful. Includes are cycle checked
+/// and depth bounded so a bad fragment cannot recurse forever.
+fn parse_kconfig_fragment(content: &str, owner: &Path) -> Result<Vec<(String, String)>> {
     let mut entries = Vec::new();
+    let mut visited = vec![owner.to_path_buf()];
+    parse_kconfig_fragment_into(content, owner, &mut entries, &mut visited)?;
+    Ok(entries)
+}
+
+const MAX_FRAGMENT_DEPTH: usize = 16;
+
+fn parse_kconfig_fragment_into(
+    content: &str,
+    owner: &Path,
+    entries: &mut Vec<(String, String)>,
+    visited: &mut Vec<PathBuf>,
+) -> Result<()> {
+    if visited.len() >= MAX_FRAGMENT_DEPTH {
+        return Err(anyhow!(
+            "Kconfig fragment include chain is deeper than {MAX_FRAGMENT_DEPTH} at {}",
+            owner.display()
+        ));
+    }
+
     for (index, raw) in content.lines().enumerate() {
         let line = raw.trim();
         if line.is_empty() || line.starts_with('#') {
             continue;
         }
+
+        if let Some(target) = line.strip_prefix("source ") {
+            let target = target.trim();
+            if target.is_empty() {
+                return Err(anyhow!(
+                    "Kconfig fragment {}:{}: source needs a path",
+                    owner.display(),
+                    index + 1
+                ));
+            }
+            let path = owner
+                .parent()
+                .unwrap_or_else(|| Path::new("."))
+                .join(target);
+            if visited.contains(&path) {
+                return Err(anyhow!(
+                    "Kconfig fragment include cycle: {} already included",
+                    path.display()
+                ));
+            }
+            let included = fs::read_to_string(&path).map_err(|err| {
+                anyhow!("Cannot read included fragment {}: {err}", path.display())
+            })?;
+            visited.push(path.clone());
+            parse_kconfig_fragment_into(&included, &path, entries, visited)?;
+            visited.pop();
+            continue;
+        }
+
         let Some((key, value)) = line.split_once('=') else {
             return Err(anyhow!(
                 "Malformed kconfig fragment line {}: {raw}",
@@ -1714,7 +1920,7 @@ fn parse_kconfig_fragment(content: &str) -> Result<Vec<(String, String)>> {
         }
         entries.push((key.to_string(), value.trim().to_string()));
     }
-    Ok(entries)
+    Ok(())
 }
 
 /// Overlays a kconfig fragment onto the project defconfig so the fragment, not the
@@ -1731,7 +1937,7 @@ fn apply_kconfig_fragment(
             fragment_path.display()
         )
     })?;
-    let entries = parse_kconfig_fragment(&fragment)?;
+    let entries = parse_kconfig_fragment(&fragment, &fragment_path)?;
     if entries.is_empty() {
         return Err(anyhow!(
             "Kconfig fragment {} defines no CONFIG_ entries",
@@ -1795,6 +2001,104 @@ fn parse_symvers_line(line: &str) -> Option<(String, String)> {
     Some((crc.to_string(), symbol.to_string()))
 }
 
+/// Loads every exported symbol the build produced.
+///
+/// `make Image` alone may only emit the vmlinux subset (`vmlinux.symvers`);
+/// `Module.symvers` additionally carries module exports. Read whichever exist and
+/// merge, so a symbol counts as missing only when neither file has it.
+fn read_kernel_symvers(kernel_source_path: &Path) -> Result<HashMap<String, String>> {
+    let symvers_paths: Vec<PathBuf> = ["out/Module.symvers", "out/vmlinux.symvers"]
+        .iter()
+        .map(|relative| kernel_source_path.join(relative))
+        .filter(|path| path.is_file())
+        .collect();
+    if symvers_paths.is_empty() {
+        return Err(anyhow!(
+            "Cannot verify the kernel ABI: neither out/Module.symvers nor out/vmlinux.symvers was produced"
+        ));
+    }
+
+    let mut found = HashMap::new();
+    for symvers_path in &symvers_paths {
+        let content = fs::read_to_string(symvers_path)
+            .map_err(|err| anyhow!("Cannot read {}: {err}", symvers_path.display()))?;
+        for line in content.lines() {
+            if let Some((crc, symbol)) = parse_symvers_line(line) {
+                found.insert(symbol, crc);
+            }
+        }
+    }
+    Ok(found)
+}
+
+fn read_symvers_file(path: &Path) -> Result<HashMap<String, String>> {
+    let content = fs::read_to_string(path)
+        .map_err(|err| anyhow!("Cannot read ABI baseline {}: {err}", path.display()))?;
+    Ok(content
+        .lines()
+        .filter_map(parse_symvers_line)
+        .map(|(crc, symbol)| (symbol, crc))
+        .collect())
+}
+
+fn is_ignored_symbol(symbol: &str, ignore_prefixes: &[String]) -> bool {
+    ignore_prefixes
+        .iter()
+        .any(|prefix| symbol.starts_with(prefix.as_str()))
+}
+
+#[derive(Debug, Default, PartialEq)]
+struct AbiDiff {
+    compared: usize,
+    crc_mismatch: Vec<(String, String, String)>,
+    missing: Vec<String>,
+    extra: Vec<String>,
+}
+
+/// Compares the built symbol table against the baseline.
+///
+/// A symbol the baseline exports but the build does not is a hard failure: the
+/// stock modules are never rebuilt, so one of them may import it. Symbols only the
+/// build exports are harmless additions and are reported for information. `extra`
+/// and `missing` are sorted so the report is stable across runs.
+fn diff_symvers(
+    built: &HashMap<String, String>,
+    baseline: &HashMap<String, String>,
+    ignore_prefixes: &[String],
+) -> AbiDiff {
+    let mut report = AbiDiff::default();
+
+    for (symbol, expected) in baseline {
+        if is_ignored_symbol(symbol, ignore_prefixes) {
+            continue;
+        }
+        report.compared += 1;
+        match built.get(symbol) {
+            Some(actual) if actual.eq_ignore_ascii_case(expected) => {}
+            Some(actual) => {
+                report
+                    .crc_mismatch
+                    .push((symbol.clone(), expected.clone(), actual.clone()))
+            }
+            None => report.missing.push(symbol.clone()),
+        }
+    }
+
+    for symbol in built.keys() {
+        if is_ignored_symbol(symbol, ignore_prefixes) {
+            continue;
+        }
+        if !baseline.contains_key(symbol) {
+            report.extra.push(symbol.clone());
+        }
+    }
+
+    report.crc_mismatch.sort();
+    report.missing.sort();
+    report.extra.sort();
+    report
+}
+
 /// Verifies that the build reproduced the stock kernel's exported-symbol CRCs.
 ///
 /// A GKI kernel must stay ABI-compatible with the modules already on the device,
@@ -1809,31 +2113,7 @@ fn verify_abi_symbol_gates(
     if gates.is_empty() {
         return Ok(());
     }
-
-    // `make Image` alone may only emit the vmlinux subset (`vmlinux.symvers`);
-    // `Module.symvers` additionally carries module exports. Read whichever exist and
-    // merge, so a symbol is reported missing only when neither file has it.
-    let symvers_paths: Vec<PathBuf> = ["out/Module.symvers", "out/vmlinux.symvers"]
-        .iter()
-        .map(|relative| kernel_source_path.join(relative))
-        .filter(|path| path.is_file())
-        .collect();
-    if symvers_paths.is_empty() {
-        return Err(anyhow!(
-            "Cannot verify the kernel ABI: neither out/Module.symvers nor out/vmlinux.symvers was produced"
-        ));
-    }
-
-    let mut found: HashMap<String, String> = HashMap::new();
-    for symvers_path in &symvers_paths {
-        let content = fs::read_to_string(symvers_path)
-            .map_err(|err| anyhow!("Cannot read {}: {err}", symvers_path.display()))?;
-        for line in content.lines() {
-            if let Some((crc, symbol)) = parse_symvers_line(line) {
-                found.insert(symbol, crc);
-            }
-        }
-    }
+    let found = read_kernel_symvers(kernel_source_path)?;
 
     let mut mismatches = Vec::new();
     for (symbol, expected) in gates {
@@ -1856,6 +2136,75 @@ fn verify_abi_symbol_gates(
     ))
 }
 
+/// Compares the whole built symbol table against a baseline `symvers` file.
+///
+/// This is the experiment-grade gate: the fixed `abi_symbol_gates` list catches
+/// struct-layout drift, but a tuning experiment can move a symbol the list does not
+/// name. A full diff reports exactly which symbols moved, so an experiment is graded
+/// by evidence instead of by a bootloop.
+fn verify_abi_baseline(kernel_source_path: &Path, baseline: &AbiBaseline) -> Result<()> {
+    let baseline_path = kernel_source_path.join(&baseline.path);
+    let expected = read_symvers_file(&baseline_path)?;
+    if expected.is_empty() {
+        return Err(anyhow!(
+            "ABI baseline {} holds no symbols",
+            baseline_path.display()
+        ));
+    }
+    let built = read_kernel_symvers(kernel_source_path)?;
+    let report = diff_symvers(&built, &expected, &baseline.ignore_prefixes);
+
+    println!(
+        "ABI baseline {}: compared {} symbols, {} CRC mismatch, {} missing, {} extra",
+        baseline.path,
+        report.compared,
+        report.crc_mismatch.len(),
+        report.missing.len(),
+        report.extra.len()
+    );
+    for (symbol, want, got) in report.crc_mismatch.iter().take(ABI_REPORT_LIMIT) {
+        println!("  CRC {symbol}: baseline {want}, built {got}");
+    }
+    for symbol in report.missing.iter().take(ABI_REPORT_LIMIT) {
+        println!("  MISSING {symbol}");
+    }
+    if report.extra.len() <= ABI_REPORT_LIMIT {
+        for symbol in &report.extra {
+            println!("  extra (harmless) {symbol}");
+        }
+    } else {
+        println!(
+            "  {} extra symbols (harmless additions, not listed)",
+            report.extra.len()
+        );
+    }
+
+    let mut failures = Vec::new();
+    if report.crc_mismatch.len() > baseline.allow_crc_mismatch {
+        failures.push(format!(
+            "{} symbol(s) changed CRC (allowed {})",
+            report.crc_mismatch.len(),
+            baseline.allow_crc_mismatch
+        ));
+    }
+    if report.missing.len() > baseline.allow_missing {
+        failures.push(format!(
+            "{} baseline symbol(s) no longer exported (allowed {})",
+            report.missing.len(),
+            baseline.allow_missing
+        ));
+    }
+    if failures.is_empty() {
+        return Ok(());
+    }
+    Err(anyhow!(
+        "Kernel ABI baseline mismatch — stock modules may fail to load: {}",
+        failures.join("; ")
+    ))
+}
+
+const ABI_REPORT_LIMIT: usize = 40;
+
 pub struct BuildOptions {
     pub project_key: String,
     pub branch: String,
@@ -1865,6 +2214,11 @@ pub struct BuildOptions {
     pub apply_susfs: bool,
     pub apply_bbg: bool,
     pub apply_hybridmount: bool,
+    /// Overrides the project's `kconfig_fragment` for one run, so a tuning profile
+    /// can be graded without editing `configs/projects.json`.
+    pub kconfig_fragment: Option<String>,
+    /// Overrides the project's `lto` setting for one run.
+    pub lto: Option<String>,
 }
 
 pub fn handle_build(options: BuildOptions) -> Result<()> {
@@ -1877,6 +2231,8 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
         apply_susfs,
         apply_bbg,
         apply_hybridmount,
+        kconfig_fragment: kconfig_fragment_override,
+        lto: lto_override,
     } = options;
     let proj = load_project(&project_key)?;
 
@@ -2130,7 +2486,16 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
         feature_suffixes.push("bbg".to_string());
     }
 
-    if let Some(fragment) = proj.kconfig_fragment.as_deref() {
+    // A one-run override lets a tuning profile be graded in CI without editing the
+    // project entry, which is what makes staged ABI experiments practical.
+    let kconfig_fragment = kconfig_fragment_override
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .or_else(|| proj.kconfig_fragment.clone());
+
+    if let Some(fragment) = kconfig_fragment.as_deref() {
         apply_kconfig_fragment(&kernel_source_path, &proj.defconfig, fragment)?;
         feature_suffixes.push("tuning".to_string());
     }
@@ -2289,7 +2654,12 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
         )?;
     }
 
-    if let Some(lto) = &proj.lto {
+    let lto_setting = lto_override
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .or(proj.lto.as_deref());
+    if let Some(lto) = lto_setting {
         if lto == "thin" {
             run_cmd(
                 &[
@@ -2415,6 +2785,11 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
     if let Some(gates) = &proj.abi_symbol_gates {
         verify_abi_symbol_gates(&kernel_source_path, gates)?;
         println!("Kernel ABI gate passed for {} symbol(s)", gates.len());
+    }
+
+    if let Some(baseline) = &proj.abi_baseline {
+        verify_abi_baseline(&kernel_source_path, baseline)?;
+        println!("Kernel ABI baseline check passed");
     }
 
     prepare_anykernel_worktree(Path::new("AnyKernel3"), offline)?;

@@ -27,12 +27,32 @@ pub struct ProjectConfig {
     /// defconfig just before configuration, so the delta stays reviewable in one
     /// small file instead of being buried in a full `.config`.
     pub kconfig_fragment: Option<String>,
+    /// Reference `symvers` file the whole built symbol table is graded against.
+    pub abi_baseline: Option<AbiBaseline>,
     pub extra_host_env: Option<bool>,
     pub disable_security: Option<Vec<String>>,
     pub readme_placeholders: Option<HashMap<String, String>>,
     pub susfs: Option<SusfsConfig>,
     pub bbg: Option<BbgConfig>,
     pub watch_upstream_variants: Option<Vec<String>>,
+}
+
+/// Grades a build against a reference symbol table instead of a fixed canary list.
+///
+/// A tuning experiment can move a symbol that no hand-written gate names, so the
+/// whole table is compared and the thresholds below decide what is tolerated.
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct AbiBaseline {
+    /// Path inside the kernel source of the reference `symvers` file.
+    pub path: String,
+    /// Symbol-name prefixes excluded from the comparison. Rust mangled names embed a
+    /// per-build crate hash, so they churn every build and no C module consumes them.
+    #[serde(default)]
+    pub ignore_prefixes: Vec<String>,
+    #[serde(default)]
+    pub allow_crc_mismatch: usize,
+    #[serde(default)]
+    pub allow_missing: usize,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

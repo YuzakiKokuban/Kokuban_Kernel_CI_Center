@@ -138,6 +138,12 @@ enum Commands {
         apply_bbg: bool,
         #[arg(long, action = clap::ArgAction::Set, default_value_t = true)]
         apply_hybridmount: bool,
+        /// Override the project's kconfig fragment for this run (tuning profile).
+        #[arg(long)]
+        kconfig_fragment: Option<String>,
+        /// Override the project's LTO setting for this run: none | thin | full.
+        #[arg(long)]
+        lto: Option<String>,
     },
     Local {
         #[arg(long)]
@@ -170,6 +176,12 @@ enum Commands {
         with_hybridmount: bool,
         #[arg(long, action = clap::ArgAction::SetTrue)]
         no_hybridmount: bool,
+        /// Override the project's kconfig fragment for this run (tuning profile).
+        #[arg(long)]
+        kconfig_fragment: Option<String>,
+        /// Override the project's LTO setting for this run: none | thin | full.
+        #[arg(long)]
+        lto: Option<String>,
         #[arg(long)]
         local_root: Option<PathBuf>,
         #[arg(long, action = clap::ArgAction::SetTrue)]
@@ -320,6 +332,8 @@ fn main() -> Result<()> {
             apply_susfs,
             apply_bbg,
             apply_hybridmount,
+            kconfig_fragment,
+            lto,
         } => build::handle_build(build::BuildOptions {
             project_key: project,
             branch,
@@ -329,6 +343,8 @@ fn main() -> Result<()> {
             apply_susfs,
             apply_bbg,
             apply_hybridmount,
+            kconfig_fragment,
+            lto,
         }),
         Commands::Local {
             project,
@@ -346,6 +362,8 @@ fn main() -> Result<()> {
             apply_hybridmount,
             with_hybridmount,
             no_hybridmount,
+            kconfig_fragment,
+            lto,
             local_root,
             offline,
             no_fetch,
@@ -385,6 +403,8 @@ fn main() -> Result<()> {
                 apply_susfs: resolved_susfs,
                 apply_bbg: resolved_bbg,
                 apply_hybridmount: resolved_hybridmount,
+                kconfig_fragment,
+                lto,
                 local_root: local_root.or(settings.local_root),
                 offline,
                 no_fetch,
@@ -553,6 +573,7 @@ fn handle_add(options: AddOptions) -> Result<()> {
         build_style: options.build_style,
         abi_symbol_gates: None,
         kconfig_fragment: None,
+        abi_baseline: None,
         extra_host_env: None,
         disable_security: None,
         readme_placeholders: Some(placeholders),
