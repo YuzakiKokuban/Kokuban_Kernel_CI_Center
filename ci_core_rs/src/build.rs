@@ -1180,6 +1180,21 @@ write_boot; # use flash_boot to skip ramdisk repack, e.g. for devices with init_
 
     // An experiment that moves an exported symbol must fail loudly, not ship.
     #[test]
+    fn reports_fragment_entries_the_resolved_config_dropped() {
+        let requested = vec![
+            ("CONFIG_KASAN".to_string(), "n".to_string()),
+            ("CONFIG_HZ".to_string(), "300".to_string()),
+            ("CONFIG_NET_SCH_CAKE".to_string(), "y".to_string()),
+        ];
+        // KASAN off is expressed as an absent symbol; HZ was recomputed to 250.
+        let config = "CONFIG_HZ=250\nCONFIG_NET_SCH_CAKE=y\n";
+
+        let dropped = unapplied_fragment_entries(config, &requested);
+
+        assert_eq!(dropped, vec![("CONFIG_HZ".to_string(), "300".to_string())]);
+    }
+
+    #[test]
     fn abi_baseline_fails_on_a_moved_symbol() {
         let unique = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -2205,6 +2220,60 @@ fn verify_abi_baseline(kernel_source_path: &Path, baseline: &AbiBaseline) -> Res
 
 const ABI_REPORT_LIMIT: usize = 40;
 
+/// Reports fragment entries that the resolved config does not carry.
+///
+/// Returns `(key, requested)` for every entry whose value is absent from the final
+/// `.config`, which means Kconfig dropped it or recomputed it from something else.
+fn unapplied_fragment_entries(
+    final_config: &str,
+    requested: &[(String, String)],
+) -> Vec<(String, String)> {
+    let mut present: HashMap<&str, &str> = HashMap::new();
+    for line in final_config.lines() {
+        if let Some((key, value)) = line.split_once('=') {
+            present.insert(key.trim(), value.trim());
+        }
+    }
+
+    requested
+        .iter()
+        .filter(|(key, value)| {
+            // `CONFIG_X=n` is the fragment's way of saying "not set", and Kconfig
+            // writes that as either `# CONFIG_X is not set` or `CONFIG_X=n`.
+            let expected = present.get(key.as_str()).copied().unwrap_or("n");
+            expected != value.as_str()
+        })
+        .cloned()
+        .collect()
+}
+
+fn report_unapplied_fragment_entries(final_config: &Path, fragment_path: &Path) -> Result<()> {
+    let fragment = fs::read_to_string(fragment_path)
+        .map_err(|err| anyhow!("Cannot read {}: {err}", fragment_path.display()))?;
+    let entries = parse_kconfig_fragment(&fragment, fragment_path)?;
+    let config = fs::read_to_string(final_config)
+        .map_err(|err| anyhow!("Cannot read {}: {err}", final_config.display()))?;
+
+    let dropped = unapplied_fragment_entries(&config, &entries);
+    if dropped.is_empty() {
+        println!(
+            "All {} tuning entries are present in the resolved config",
+            entries.len()
+        );
+        return Ok(());
+    }
+
+    println!(
+        "{} of {} tuning entries were not applied as written (dropped or recomputed):",
+        dropped.len(),
+        entries.len()
+    );
+    for (key, value) in &dropped {
+        println!("  {key}={value} -> not in the final config");
+    }
+    Ok(())
+}
+
 pub struct BuildOptions {
     pub project_key: String,
     pub branch: String,
@@ -2716,6 +2785,11 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
     )?;
 
     let final_config = kernel_source_path.join("out/.config");
+    // Report dropped fragment entries before the ABI checks: if a tuning experiment
+    // silently applied nothing, that is the first thing worth knowing.
+    if let Some(fragment) = kconfig_fragment.as_deref() {
+        report_unapplied_fragment_entries(&final_config, &kernel_source_path.join(fragment))?;
+    }
     if is_gki_612 {
         validate_kconfig_entries(&final_config, GKI_CUSTOM_KCONFIG_ENTRIES)?;
         if setup_url.is_some() {
