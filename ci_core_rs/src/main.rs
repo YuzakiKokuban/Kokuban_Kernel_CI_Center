@@ -106,6 +106,12 @@ enum Commands {
         #[arg(long, default_value = "both")]
         readme_language: String,
     },
+    /// Print the content stamp of the `ci_core_rs` tree this binary was built from.
+    ///
+    /// Callers that download the moving `ci-core-latest` release use it to prove they are
+    /// running a core that matches the tree they are driving, instead of silently executing
+    /// an older core whose checks are missing.
+    Stamp,
     Watch,
     Update {
         #[arg(long)]
@@ -315,6 +321,10 @@ fn main() -> Result<()> {
             commit_message,
             readme_language,
         } => handle_setup(token, commit_message, readme_language),
+        Commands::Stamp => {
+            println!("{}", env!("KOKUBAN_CORE_TREE"));
+            Ok(())
+        }
         Commands::Watch => handle_watch(),
         Commands::Update {
             token,

@@ -20,9 +20,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
-          gh release download ci-core-latest -p "kokuban_ci_core" --clobber
-          chmod +x kokuban_ci_core
-          
+          ./scripts/fetch-ci-core.sh
       - name: Check Upstream
         id: watcher
         run: ./kokuban_ci_core watch
@@ -51,9 +49,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
-          gh release download ci-core-latest -p "kokuban_ci_core" --clobber
-          chmod +x kokuban_ci_core
-          
+          ./scripts/fetch-ci-core.sh
       - name: Perform Update
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}

@@ -205,8 +205,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
-          gh release download ci-core-latest -p "kokuban_ci_core"
-          chmod +x kokuban_ci_core
+          ./scripts/fetch-ci-core.sh
 
       - name: Parse Configuration
         run: ./kokuban_ci_core parse --project "$PROJECT"
