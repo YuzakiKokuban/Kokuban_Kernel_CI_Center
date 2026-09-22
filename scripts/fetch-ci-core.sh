@@ -19,13 +19,37 @@ output="${1:-kokuban_ci_core}"
 attempts="${CI_CORE_ATTEMPTS:-30}"
 delay="${CI_CORE_DELAY:-20}"
 
+# A bare name would be a PATH lookup, and bash never searches the current directory: the
+# invocation below would fail with "command not found" while the download succeeded. That
+# is not hypothetical, it is how every attempt of the first run of this guard reported a
+# perfectly good binary as 'unavailable'.
+case "$output" in
+  /* | ./* | ../*) ;;
+  *) output="./$output" ;;
+esac
+
 expected="$(git rev-parse HEAD:ci_core_rs 2>/dev/null || echo unknown)"
+if [ "$expected" = unknown ]; then
+  echo "::error::cannot determine the ci_core_rs tree stamp; run this from the repository root"
+  exit 1
+fi
+
+# Must be initialised: with `set -u`, a failed download is otherwise reported as an
+# unbound-variable crash instead of the mismatch it is.
 actual=""
 
 for attempt in $(seq 1 "$attempts"); do
   if gh release download ci-core-latest -p "kokuban_ci_core" --clobber -O "$output"; then
     chmod +x "$output" 2>/dev/null || true
-    actual="$("$output" stamp 2>/dev/null || true)"
+    # A binary that cannot even run is not the same finding as a binary with the wrong
+    # stamp, and reporting it as a plain mismatch is how the PATH bug above stayed
+    # invisible. Surface the reason; never let it read as 'just stale'.
+    if ! actual="$("$output" stamp 2>/dev/null)"; then
+      why="$("$output" stamp 2>&1 | head -n 1 || true)"
+      actual=""
+      echo "::warning::released core could not report its stamp (${why:-no output})"
+    fi
+    actual="${actual//[[:space:]]/}"
   fi
   if [ "$actual" = "$expected" ]; then
     echo "CI Core stamp matches the tree being driven ($expected)"
