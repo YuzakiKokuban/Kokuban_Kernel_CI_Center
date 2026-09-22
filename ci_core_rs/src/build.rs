@@ -1161,6 +1161,7 @@ write_boot; # use flash_boot to skip ramdisk repack, e.g. for devices with init_
             allow_missing,
             allowed_missing_symbols: Vec::new(),
             allowed_crc_symbols: Vec::new(),
+            consumer_manifest: None,
         }
     }
 
@@ -1250,6 +1251,66 @@ write_boot; # use flash_boot to skip ramdisk repack, e.g. for devices with init_
         assert!(error.to_string().contains("changed CRC"), "{error}");
         // Raising the tolerance is how an experiment records a known, accepted move.
         assert!(verify_abi_baseline(&dir, &baseline_config(1, 0)).is_ok());
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    // The baseline gate compares against a reference build of this same tree, so a
+    // change that is internally consistent satisfies it -- the vendored LZ4 stack
+    // did exactly that. This gate encodes the other half: what the modules already
+    // on the device demand, read out of their own __versions sections.
+    #[test]
+    fn stock_module_abi_catches_a_crc_the_vendor_modules_would_reject() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("stock-module-abi-{unique}"));
+        fs::create_dir_all(dir.join("Kokuban/abi")).unwrap();
+        fs::write(
+            dir.join("Kokuban/abi/stock_module_imports.tsv"),
+            concat!(
+                "# crc\tsymbol\tprovider\timporters\texamples\n",
+                "0xaaa\tLZ4_compress_HC\tvmlinux\t1\tmoto_swap5.ko\n",
+                "0xbbb\tqcom_glink_smem_start\tmodule\t1\tqcom_glink_smem.ko\n",
+                "0xccc\tqcom_smem_get\tunknown\t45\tcnss2.ko\n",
+            ),
+        )
+        .unwrap();
+        fs::create_dir_all(dir.join("out")).unwrap();
+        fs::write(
+            dir.join("out/vmlinux.symvers"),
+            "0xaaa\tLZ4_compress_HC\tvmlinux\tEXPORT_SYMBOL\t\n",
+        )
+        .unwrap();
+
+        let mut config = baseline_config(0, 0);
+        config.consumer_manifest = Some("Kokuban/abi/stock_module_imports.tsv".to_string());
+
+        // Only the `vmlinux` row is ours to keep: what another module provides, or
+        // nobody provides, is not this kernel's contract.
+        assert!(verify_stock_module_abi(&dir, &config).is_ok());
+
+        fs::write(
+            dir.join("out/vmlinux.symvers"),
+            "0xddd\tLZ4_compress_HC\tvmlinux\tEXPORT_SYMBOL\t\n",
+        )
+        .unwrap();
+        let error = verify_stock_module_abi(&dir, &config).unwrap_err();
+        assert!(error.to_string().contains("refuse to load"), "{error}");
+
+        // Dropping the symbol is as fatal as moving it.
+        fs::write(dir.join("out/vmlinux.symvers"), "").unwrap();
+        let error = verify_stock_module_abi(&dir, &config).unwrap_err();
+        assert!(error.to_string().contains("no longer exported"), "{error}");
+
+        // Naming the symbol is how a deliberate move gets recorded.
+        fs::write(
+            dir.join("out/vmlinux.symvers"),
+            "0xddd\tLZ4_compress_HC\tvmlinux\tEXPORT_SYMBOL\t\n",
+        )
+        .unwrap();
+        config.allowed_crc_symbols = vec!["LZ4_compress_HC".to_string()];
+        assert!(verify_stock_module_abi(&dir, &config).is_ok());
         fs::remove_dir_all(dir).unwrap();
     }
 
@@ -2276,6 +2337,121 @@ fn verify_abi_baseline(kernel_source_path: &Path, baseline: &AbiBaseline) -> Res
 
 const ABI_REPORT_LIMIT: usize = 40;
 
+/// One row of the consumer manifest: a symbol the stock vendor modules import.
+#[derive(Debug, PartialEq)]
+struct ConsumerEntry {
+    crc: String,
+    symbol: String,
+    provider: String,
+    importers: usize,
+    examples: String,
+}
+
+fn read_consumer_manifest(path: &Path) -> Result<Vec<ConsumerEntry>> {
+    let content = fs::read_to_string(path)
+        .map_err(|err| anyhow!("Cannot read consumer manifest {}: {err}", path.display()))?;
+    let mut entries = Vec::new();
+    for (index, line) in content.lines().enumerate() {
+        if line.starts_with('#') || line.trim().is_empty() {
+            continue;
+        }
+        let fields: Vec<&str> = line.split('\t').collect();
+        if fields.len() < 4 {
+            return Err(anyhow!(
+                "{}:{}: expected crc, symbol, provider and importer count",
+                path.display(),
+                index + 1
+            ));
+        }
+        let importers = fields[3].parse().map_err(|_| {
+            anyhow!(
+                "{}:{}: importer count {:?} is not a number",
+                path.display(),
+                index + 1,
+                fields[3]
+            )
+        })?;
+        entries.push(ConsumerEntry {
+            crc: fields[0].to_string(),
+            symbol: fields[1].to_string(),
+            provider: fields[2].to_string(),
+            importers,
+            examples: fields.get(4).copied().unwrap_or_default().to_string(),
+        });
+    }
+    if entries.is_empty() {
+        return Err(anyhow!(
+            "Consumer manifest {} holds no entries",
+            path.display()
+        ));
+    }
+    Ok(entries)
+}
+
+/// Checks the build against the symbols the stock vendor modules import.
+///
+/// Every module records, in its `__versions` section, the CRC it expects for each
+/// symbol it imports; a mismatch makes it refuse to load with "disagrees about
+/// version of symbol". The baseline check compares against a reference build of
+/// this same tree, so a self-consistent change can satisfy it -- as the vendored
+/// LZ4 stack did, moving thirteen CRCs while still matching its own baseline.
+/// This check states the other half of the contract: what the modules already on
+/// the device require. Only rows the stock kernel provided are enforced; symbols
+/// that came from another module, or from nowhere at all, are not ours to keep.
+fn verify_stock_module_abi(kernel_source_path: &Path, baseline: &AbiBaseline) -> Result<()> {
+    let relative = match baseline.consumer_manifest.as_deref() {
+        Some(relative) => relative,
+        None => return Ok(()),
+    };
+    let entries = read_consumer_manifest(&kernel_source_path.join(relative))?;
+    let built = read_kernel_symvers(kernel_source_path)?;
+
+    let demanded: Vec<&ConsumerEntry> = entries
+        .iter()
+        .filter(|entry| entry.provider == "vmlinux")
+        .collect();
+
+    let mut changed = Vec::new();
+    let mut gone = Vec::new();
+    for entry in &demanded {
+        match built.get(&entry.symbol) {
+            None => gone.push(*entry),
+            Some(crc) if crc != &entry.crc => changed.push((*entry, crc.clone())),
+            Some(_) => {}
+        }
+    }
+    // A move may still be deliberate; naming the symbols keeps it reviewable.
+    changed.retain(|(entry, _)| !baseline.allowed_crc_symbols.contains(&entry.symbol));
+
+    println!(
+        "Stock module ABI {relative}: {} symbol(s) demanded by the vendor modules, {} CRC mismatch, {} no longer exported",
+        demanded.len(),
+        changed.len(),
+        gone.len()
+    );
+    for (entry, got) in changed.iter().take(ABI_REPORT_LIMIT) {
+        println!(
+            "  CRC {}: modules need {}, build exports {} ({} importer(s): {})",
+            entry.symbol, entry.crc, got, entry.importers, entry.examples
+        );
+    }
+    for entry in gone.iter().take(ABI_REPORT_LIMIT) {
+        println!(
+            "  MISSING {}: {} importer(s) ({}) stop loading",
+            entry.symbol, entry.importers, entry.examples
+        );
+    }
+
+    if changed.is_empty() && gone.is_empty() {
+        return Ok(());
+    }
+    Err(anyhow!(
+        "Stock vendor modules would refuse to load: {} symbol(s) changed CRC, {} no longer exported",
+        changed.len(),
+        gone.len()
+    ))
+}
+
 /// Reports fragment entries that the resolved config does not carry.
 ///
 /// Returns `(key, requested)` for every entry whose value is absent from the final
@@ -2918,6 +3094,8 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
     if let Some(baseline) = &proj.abi_baseline {
         verify_abi_baseline(&kernel_source_path, baseline)?;
         println!("Kernel ABI baseline check passed");
+        verify_stock_module_abi(&kernel_source_path, baseline)?;
+        println!("Stock module ABI check passed");
     }
 
     if let Some(gates) = &proj.abi_symbol_gates {

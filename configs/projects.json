@@ -389,6 +389,7 @@
     "kconfig_fragment": "Kokuban/tuning.fragment",
     "abi_baseline": {
       "path": "Kokuban/abi/vmlinux.symvers.golden",
+      "consumer_manifest": "Kokuban/abi/stock_module_imports.tsv",
       "ignore_prefixes": [
         "_R"
       ],

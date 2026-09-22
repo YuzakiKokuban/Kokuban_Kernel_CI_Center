@@ -60,6 +60,13 @@ pub struct AbiBaseline {
     /// Symbols a deliberate change is allowed to move the CRC of.
     #[serde(default)]
     pub allowed_crc_symbols: Vec<String>,
+    /// Path inside the kernel source of the consumer-side manifest: the CRCs the
+    /// stock vendor modules actually demand, read out of their `__versions`
+    /// sections. The baseline above is a reference *build* of this tree, so a
+    /// self-consistent change can satisfy it; this file states the other half of
+    /// the contract, what the modules already on the device require.
+    #[serde(default)]
+    pub consumer_manifest: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
