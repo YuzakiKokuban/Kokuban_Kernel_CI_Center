@@ -29,8 +29,11 @@ jobs:
       - name: Rust check
         run: cargo check --manifest-path ci_core_rs/Cargo.toml
 
+      - name: Rust clippy
+        run: cargo clippy --manifest-path ci_core_rs/Cargo.toml --all-targets -- -D warnings
+
       - name: Rust tests
-        run: cargo test --manifest-path ci_core_rs/Cargo.toml
+        run: cargo test --locked --manifest-path ci_core_rs/Cargo.toml
 
       - name: Wrapper tests
         run: |

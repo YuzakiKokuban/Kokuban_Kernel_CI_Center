@@ -76,7 +76,10 @@ ensure_core() {
 
   if [ "$needs_build" -eq 1 ]; then
     echo "Building kokuban_ci_core release binary..."
-    cargo build --release --manifest-path "$CORE_DIR/Cargo.toml"
+    # `--locked` so the wrapper resolves the same dependency versions CI does; without
+    # it a local run could drift from Cargo.lock and fail for reasons unrelated to the
+    # change under test.
+    cargo build --release --locked --manifest-path "$CORE_DIR/Cargo.toml"
   fi
 }
 

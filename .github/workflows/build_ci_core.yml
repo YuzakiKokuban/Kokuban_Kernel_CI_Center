@@ -25,6 +25,20 @@ jobs:
         with:
           workspaces: ci_core_rs
 
+      # `ci-core-latest` is what every kernel build actually executes, so a core must not
+      # be published merely because it compiles. These three checks duplicate
+      # `local-mode-check`, which only runs *after* a push to main has already been
+      # published: by then the untested core is live for all nine projects and a broken
+      # gate is indistinguishable from a passing one. Cheaper to fail here than there.
+      - name: Rust format
+        run: cargo fmt --manifest-path ci_core_rs/Cargo.toml --check
+
+      - name: Rust clippy
+        run: cargo clippy --manifest-path ci_core_rs/Cargo.toml --all-targets -- -D warnings
+
+      - name: Rust tests
+        run: cargo test --locked --manifest-path ci_core_rs/Cargo.toml
+
       - name: Build CI Core
         run: cargo build --release --locked --manifest-path ci_core_rs/Cargo.toml
 
