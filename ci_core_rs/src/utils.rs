@@ -279,44 +279,6 @@ pub fn run_cmd_with_env(
     Ok(())
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    fn unique_temp_path(name: &str) -> PathBuf {
-        let unique = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        env::temp_dir().join(format!("{name}-{unique}"))
-    }
-
-    #[test]
-    fn cache_file_name_is_stable_and_keeps_filename() {
-        let name = cache_file_name("https://example.com/toolchain.tar.gz").unwrap();
-        assert_eq!(
-            name,
-            "74caec161bcb4f71d8eb363cf7709f7e2132a464e2ef488b473eec8f0ce43249-toolchain.tar.gz"
-        );
-        assert_eq!(
-            name,
-            cache_file_name("https://example.com/toolchain.tar.gz").unwrap()
-        );
-    }
-
-    #[test]
-    fn file_sha256_hashes_file_content() {
-        let path = unique_temp_path("kokuban-sha-test");
-        fs::write(&path, b"abc").unwrap();
-        assert_eq!(
-            file_sha256(&path).unwrap(),
-            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
-        );
-        fs::remove_file(path).unwrap();
-    }
-}
-
 pub fn handle_notify(tag_name: String) -> Result<()> {
     let token = env::var("TELEGRAM_BOT_TOKEN").context("Missing TELEGRAM_BOT_TOKEN")?;
     let projects = load_projects()?;
@@ -524,4 +486,42 @@ pub fn handle_notify(tag_name: String) -> Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn unique_temp_path(name: &str) -> PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        env::temp_dir().join(format!("{name}-{unique}"))
+    }
+
+    #[test]
+    fn cache_file_name_is_stable_and_keeps_filename() {
+        let name = cache_file_name("https://example.com/toolchain.tar.gz").unwrap();
+        assert_eq!(
+            name,
+            "74caec161bcb4f71d8eb363cf7709f7e2132a464e2ef488b473eec8f0ce43249-toolchain.tar.gz"
+        );
+        assert_eq!(
+            name,
+            cache_file_name("https://example.com/toolchain.tar.gz").unwrap()
+        );
+    }
+
+    #[test]
+    fn file_sha256_hashes_file_content() {
+        let path = unique_temp_path("kokuban-sha-test");
+        fs::write(&path, b"abc").unwrap();
+        assert_eq!(
+            file_sha256(&path).unwrap(),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+        fs::remove_file(path).unwrap();
+    }
 }

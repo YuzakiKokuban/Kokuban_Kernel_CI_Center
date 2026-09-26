@@ -426,6 +426,50 @@ pub fn handle_toolchain_checksums(
     Ok(())
 }
 
+pub fn handle_cache_prune(
+    keep_artifacts: usize,
+    older_than_days: Option<i64>,
+    local_root: Option<PathBuf>,
+) -> Result<()> {
+    let root = root_or_default(local_root)?;
+    let artifacts = root.join("artifacts");
+    if !artifacts.is_dir() {
+        println!("No artifact cache found.");
+        return Ok(());
+    }
+
+    let cutoff = older_than_days.map(|days| Utc::now() - Duration::days(days));
+    for project in fs::read_dir(&artifacts)? {
+        let project = project?;
+        if !project.path().is_dir() {
+            continue;
+        }
+
+        let mut entries = Vec::new();
+        for entry in fs::read_dir(project.path())? {
+            let entry = entry?;
+            if entry.file_name() == "latest" {
+                continue;
+            }
+            let metadata = entry.metadata()?;
+            let modified: DateTime<Utc> = metadata.modified()?.into();
+            entries.push((entry.path(), modified));
+        }
+        entries.sort_by_key(|entry| std::cmp::Reverse(entry.1));
+
+        for (idx, (path, modified)) in entries.into_iter().enumerate() {
+            let beyond_keep = idx >= keep_artifacts;
+            let beyond_age = cutoff.map(|cutoff| modified < cutoff).unwrap_or(false);
+            if beyond_keep || beyond_age {
+                remove_path(&path)?;
+                println!("Pruned {}", path.display());
+            }
+        }
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -501,48 +545,4 @@ mod tests {
             let _ = fs::remove_dir_all(&root);
         }
     }
-}
-
-pub fn handle_cache_prune(
-    keep_artifacts: usize,
-    older_than_days: Option<i64>,
-    local_root: Option<PathBuf>,
-) -> Result<()> {
-    let root = root_or_default(local_root)?;
-    let artifacts = root.join("artifacts");
-    if !artifacts.is_dir() {
-        println!("No artifact cache found.");
-        return Ok(());
-    }
-
-    let cutoff = older_than_days.map(|days| Utc::now() - Duration::days(days));
-    for project in fs::read_dir(&artifacts)? {
-        let project = project?;
-        if !project.path().is_dir() {
-            continue;
-        }
-
-        let mut entries = Vec::new();
-        for entry in fs::read_dir(project.path())? {
-            let entry = entry?;
-            if entry.file_name() == "latest" {
-                continue;
-            }
-            let metadata = entry.metadata()?;
-            let modified: DateTime<Utc> = metadata.modified()?.into();
-            entries.push((entry.path(), modified));
-        }
-        entries.sort_by_key(|entry| std::cmp::Reverse(entry.1));
-
-        for (idx, (path, modified)) in entries.into_iter().enumerate() {
-            let beyond_keep = idx >= keep_artifacts;
-            let beyond_age = cutoff.map(|cutoff| modified < cutoff).unwrap_or(false);
-            if beyond_keep || beyond_age {
-                remove_path(&path)?;
-                println!("Pruned {}", path.display());
-            }
-        }
-    }
-
-    Ok(())
 }
