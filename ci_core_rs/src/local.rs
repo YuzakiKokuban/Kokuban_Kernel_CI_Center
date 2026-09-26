@@ -153,8 +153,26 @@ fn lock_holder_pid(path: &Path) -> Option<u32> {
     })
 }
 
+/// Whether a process holding a lock is still running.
+///
+/// This used to test `/proc/<pid>`, which only exists on Linux. On macOS -- where the CLI
+/// builds and runs fine -- the check answered "dead" for every pid, so a lock held by a
+/// *live* build was deleted as stale and two processes could rewrite the same mirror.
+/// The POSIX `kill -0` probe asks the same question without pinning the answer to /proc.
 fn pid_is_alive(pid: u32) -> bool {
-    Path::new("/proc").join(pid.to_string()).exists()
+    match Command::new("kill").arg("-0").arg(pid.to_string()).output() {
+        Ok(output) if output.status.success() => true,
+        // A pid owned by another user answers EPERM and is very much alive, so every
+        // refusal except an explicit "no such process" must count as alive -- treating
+        // EPERM as stale would reintroduce the very bug this replaced.
+        Ok(output) => {
+            let stderr = String::from_utf8_lossy(&output.stderr).to_ascii_lowercase();
+            !stderr.contains("no such process")
+        }
+        // The probe could not run at all; assume the holder is alive so a lock is never
+        // reclaimed on a guess. `--force-lock` stays the explicit escape hatch.
+        Err(_) => true,
+    }
 }
 
 fn acquire_project_lock(local_root: &Path, project: &str, force: bool) -> Result<LocalLock> {

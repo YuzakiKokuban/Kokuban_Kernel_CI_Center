@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use anyhow::{Context, Result, anyhow};
 use chrono::{FixedOffset, Utc};
 use std::collections::HashMap;
 use std::env;
@@ -2808,14 +2808,25 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
         &kernel_version,
     )?;
 
+    // The short sha goes straight into `localversion`, so a failure to read it used to
+    // ship a kernel named `...-gunknown-4k`: the release identity and the ABI baseline
+    // both key off that string, and a version nobody can trace back to a commit is worse
+    // than no release at all.
     let short_sha = run_cmd(
         &["git", "rev-parse", "--short=12", "HEAD"],
         Some(&kernel_source_path),
         true,
-    )?
-    .unwrap_or_else(|| "unknown".to_string())
-    .trim()
-    .to_string();
+    )
+    .context("Failed to read the kernel source HEAD commit")?
+    .map(|sha| sha.trim().to_string())
+    .filter(|sha| !sha.is_empty())
+    .ok_or_else(|| {
+        anyhow!(
+            "Could not determine the kernel source commit in {}; refusing to build a \
+             localversion with an unknown commit",
+            kernel_source_path.display()
+        )
+    })?;
 
     let mut make_args = vec![
         "O=out",
