@@ -166,6 +166,50 @@ pub fn save_json<T: serde::Serialize>(path: &Path, data: &T) -> Result<()> {
     Ok(())
 }
 
+/// Send one Telegram Bot API request and prove it was accepted.
+///
+/// The Bot API reports failures with HTTP 200 and a JSON body of
+/// `{"ok":false,"description":"..."}` -- an expired token, a wrong chat id, a bot
+/// muted in the channel or a 429 rate limit all look like a successful POST. The
+/// earlier code dropped the response entirely, so every one of those turned into a
+/// published release with no announcement and no error.
+fn telegram_post<F>(token: &str, method: &str, build: F) -> Result<()>
+where
+    F: FnOnce(reqwest::blocking::RequestBuilder) -> reqwest::blocking::RequestBuilder,
+{
+    let url = format!("https://api.telegram.org/bot{token}/{method}");
+
+    let response = build(
+        reqwest::blocking::Client::new()
+            .post(&url)
+            // Without a ceiling a hung Telegram endpoint stalls the release job until the
+            // workflow timeout, which reports nothing about where it stopped.
+            .timeout(Duration::from_secs(120)),
+    )
+    .send()
+    .with_context(|| format!("Telegram {method} request failed"))?;
+
+    let status = response.status();
+    let body = response
+        .text()
+        .with_context(|| format!("Telegram {method} returned an unreadable body"))?;
+
+    let parsed: serde_json::Value = serde_json::from_str(&body)
+        .with_context(|| format!("Telegram {method} returned a non-JSON body: {body}"))?;
+
+    if parsed["ok"].as_bool() != Some(true) {
+        let description = parsed["description"].as_str().unwrap_or("no description");
+        let error_code = parsed["error_code"]
+            .as_i64()
+            .unwrap_or(status.as_u16() as i64);
+        return Err(anyhow!(
+            "Telegram {method} was rejected (HTTP {status}, error_code {error_code}): {description}"
+        ));
+    }
+
+    Ok(())
+}
+
 fn write_github_kv(var_name: &str, key: &str, value: &str) -> Result<()> {
     if let Ok(path) = env::var(var_name) {
         let mut file = OpenOptions::new().append(true).create(true).open(path)?;
@@ -281,11 +325,21 @@ pub fn handle_notify(tag_name: String) -> Result<()> {
         .get("_globals")
         .cloned()
         .unwrap_or(serde_json::Value::Null);
-    let globals: GlobalConfig = serde_json::from_value(globals_val).unwrap_or(GlobalConfig {
-        broadcast_channel: None,
-        resukisu_chat_id: None,
-        resukisu_topic_id: None,
-    });
+    // A malformed `_globals` used to fall back to "no destinations" silently, which reads
+    // exactly like a release that legitimately had nowhere to go. Say so instead.
+    let globals: GlobalConfig = match serde_json::from_value(globals_val) {
+        Ok(globals) => globals,
+        Err(err) => {
+            eprintln!(
+                "Warning: configs/projects.json `_globals` is malformed ({err}); no notification destinations will be used."
+            );
+            GlobalConfig {
+                broadcast_channel: None,
+                resukisu_chat_id: None,
+                resukisu_topic_id: None,
+            }
+        }
+    };
 
     let mut target_project: Option<ProjectConfig> = None;
     let mut repo_url = "Unknown/Repo".to_string();
@@ -380,7 +434,6 @@ pub fn handle_notify(tag_name: String) -> Result<()> {
         repo_url, tag_name, name, author, url
     );
 
-    let client = reqwest::blocking::Client::new();
     let temp_download_dir = env::temp_dir().join(format!(
         "kokuban_notify_{}_{}",
         std::process::id(),
@@ -399,16 +452,18 @@ pub fn handle_notify(tag_name: String) -> Result<()> {
             json_body.insert("message_thread_id", serde_json::to_value(tid)?);
         }
 
-        let _ = client
-            .post(format!("https://api.telegram.org/bot{}/sendMessage", token))
-            .json(&json_body)
-            .send();
+        telegram_post(&token, "sendMessage", |request| request.json(&json_body))?;
     }
 
     let assets = release_info["assets"].as_array();
     if let Some(asset_list) = assets {
         for asset in asset_list {
-            let name = asset["name"].as_str().unwrap();
+            // `gh release view --json` is a remote payload: a missing name must not bring
+            // the release job down with a panic.
+            let Some(name) = asset["name"].as_str() else {
+                eprintln!("Skipping release asset without a name: {asset}");
+                continue;
+            };
             let size = asset["size"].as_i64().unwrap_or(0);
 
             if size > 50 * 1024 * 1024 {
@@ -456,13 +511,7 @@ pub fn handle_notify(tag_name: String) -> Result<()> {
                     .file_name(name.to_owned());
                 let form = form.part("document", part);
 
-                let _ = client
-                    .post(format!(
-                        "https://api.telegram.org/bot{}/sendDocument",
-                        token
-                    ))
-                    .multipart(form)
-                    .send();
+                telegram_post(&token, "sendDocument", |request| request.multipart(form))?;
             }
             if asset_path.exists() {
                 fs::remove_file(&asset_path)?;
