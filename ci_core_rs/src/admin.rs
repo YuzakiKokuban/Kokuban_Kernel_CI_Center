@@ -1,5 +1,6 @@
 use anyhow::{Result, anyhow};
 use chrono::{DateTime, Duration, Utc};
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -8,7 +9,7 @@ use crate::config::ProjectConfig;
 use crate::local::{default_local_root, ensure_local_host, sanitize_path_component};
 use crate::settings::{self, Preset};
 use crate::utils::{cache_file_name, file_sha256};
-use crate::utils::{load_project, load_projects};
+use crate::utils::{load_anykernel_configs, load_project, load_projects};
 
 fn dir_size(path: &Path) -> u64 {
     let Ok(metadata) = fs::symlink_metadata(path) else {
@@ -165,9 +166,155 @@ pub fn handle_features(project: Option<String>) -> Result<()> {
     Ok(())
 }
 
-pub fn handle_validate() -> Result<()> {
+/// Cross-reference checks the non-empty pass above cannot see.
+///
+/// Every one of these failures is currently invisible until a build reaches the step that
+/// consumes the value, which is the worst possible time to learn that an AnyKernel key is
+/// misspelled or a digest is missing. Kept as a pure function of the loaded config so the
+/// rules can be tested without a repository on disk.
+fn validate_project_cross_references(
+    projects: &[(String, ProjectConfig)],
+    anykernel_keys: &BTreeSet<String>,
+) -> (Vec<String>, Vec<String>) {
     let mut errors = Vec::new();
-    for (key, proj) in project_values()? {
+    let mut warnings = Vec::new();
+
+    // `handle_notify` decides which project a release tag belongs to with
+    // `tag_name.starts_with(prefix)` while iterating an unordered map, so an equal prefix --
+    // or one that is a prefix of another -- makes that lookup ambiguous and dependent on
+    // iteration order.
+    let prefixes: Vec<(&str, &str)> = projects
+        .iter()
+        .filter_map(|(key, proj)| {
+            proj.zip_name_prefix
+                .as_deref()
+                .map(str::trim)
+                .filter(|prefix| !prefix.is_empty())
+                .map(|prefix| (prefix, key.as_str()))
+        })
+        .collect();
+
+    for (index, (left, left_key)) in prefixes.iter().enumerate() {
+        for (right, right_key) in &prefixes[index + 1..] {
+            if left == right {
+                errors.push(format!(
+                    "{left_key}/{right_key}: duplicate zip_name_prefix {left:?}; release-tag matching is ambiguous"
+                ));
+            } else if left.starts_with(right) || right.starts_with(left) {
+                warnings.push(format!(
+                    "{left_key}/{right_key}: zip_name_prefix {left:?} and {right:?} -- one is a prefix of the other, so tag matching depends on iteration order"
+                ));
+            }
+        }
+    }
+
+    for (key, proj) in projects {
+        if let Some(reference) = proj
+            .anykernel_config
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            && !anykernel_keys.contains(reference)
+        {
+            errors.push(format!(
+                "{key}: anykernel_config {reference:?} is not defined in configs/anykernel_configs.json"
+            ));
+        }
+
+        let urls = proj.toolchain_urls.as_deref().unwrap_or_default();
+        let digests = proj.toolchain_sha256.as_ref();
+
+        for url in urls {
+            if !digests.is_some_and(|digests| digests.contains_key(url)) {
+                warnings.push(format!(
+                    "{key}: toolchain_sha256 has no digest for {url}; the download is unverified"
+                ));
+            }
+        }
+
+        if let Some(digests) = digests {
+            for (url, digest) in digests {
+                if !urls.contains(url) {
+                    errors.push(format!(
+                        "{key}: toolchain_sha256 names {url:?}, which is not in toolchain_urls (stale or misspelled)"
+                    ));
+                }
+                if digest.len() != 64 || !digest.chars().all(|c| c.is_ascii_hexdigit()) {
+                    errors.push(format!(
+                        "{key}: toolchain_sha256[{url:?}] is not a 64-character hex digest"
+                    ));
+                }
+            }
+        }
+
+        // These paths are resolved inside the checked-out kernel source, so an absolute path
+        // or a parent component could silently point outside the tree being graded.
+        let relative_paths = [
+            (
+                "abi_baseline.path",
+                proj.abi_baseline.as_ref().map(|b| b.path.as_str()),
+            ),
+            (
+                "abi_baseline.consumer_manifest",
+                proj.abi_baseline
+                    .as_ref()
+                    .and_then(|b| b.consumer_manifest.as_deref()),
+            ),
+            ("kconfig_fragment", proj.kconfig_fragment.as_deref()),
+            (
+                "susfs.patch_path",
+                proj.susfs.as_ref().map(|s| s.patch_path.as_str()),
+            ),
+            (
+                "susfs.fs_patch_dir",
+                proj.susfs.as_ref().and_then(|s| s.fs_patch_dir.as_deref()),
+            ),
+            (
+                "susfs.include_linux_patch_dir",
+                proj.susfs
+                    .as_ref()
+                    .and_then(|s| s.include_linux_patch_dir.as_deref()),
+            ),
+        ];
+
+        for (label, path) in relative_paths {
+            if let Some(path) = path.map(str::trim).filter(|value| !value.is_empty())
+                && !is_kernel_relative_path(path)
+            {
+                errors.push(format!(
+                    "{key}: {label} must be relative and stay inside the kernel source, got {path:?}"
+                ));
+            }
+        }
+
+        if let Some(susfs) = &proj.susfs {
+            for (label, value) in [
+                ("repo", &susfs.repo),
+                ("branch", &susfs.branch),
+                ("patch_path", &susfs.patch_path),
+            ] {
+                if value.trim().is_empty() {
+                    errors.push(format!("{key}: susfs.{label} must not be empty"));
+                }
+            }
+        }
+    }
+
+    (errors, warnings)
+}
+
+fn is_kernel_relative_path(path: &str) -> bool {
+    let path = Path::new(path);
+    !path.is_absolute()
+        && !path
+            .components()
+            .any(|component| matches!(component, std::path::Component::ParentDir))
+}
+
+pub fn handle_validate(strict: bool) -> Result<()> {
+    let mut errors = Vec::new();
+    let projects = project_values()?;
+    for (key, proj) in &projects {
         if proj.repo.trim().is_empty() {
             errors.push(format!("{key}: missing repo"));
         }
@@ -208,11 +355,31 @@ pub fn handle_validate() -> Result<()> {
         }
     }
 
+    let anykernel_keys = load_anykernel_configs()?.into_keys().collect();
+    let (cross_errors, warnings) = validate_project_cross_references(&projects, &anykernel_keys);
+    errors.extend(cross_errors);
+
+    // Off by default: the current configuration has no toolchain digests recorded yet, and
+    // failing on that today would turn a missing safety net into a broken build. Opt in with
+    // `validate --strict` once the digests are filled in.
+    let warning_count = warnings.len();
+    if strict {
+        errors.extend(warnings);
+    } else {
+        for warning in &warnings {
+            eprintln!("warning: {warning}");
+        }
+    }
+
     if !errors.is_empty() {
         return Err(anyhow!(errors.join("\n")));
     }
 
-    println!("OK: project configuration is valid.");
+    if warning_count == 0 {
+        println!("OK: project configuration is valid.");
+    } else {
+        println!("OK: project configuration is valid, with {warning_count} warning(s) above.");
+    }
     Ok(())
 }
 
@@ -544,5 +711,160 @@ mod tests {
             assert!(root.exists(), "root must survive rejected name {:?}", name);
             let _ = fs::remove_dir_all(&root);
         }
+    }
+
+    fn project_with(key: &str, prefix: &str, ak3: &str) -> (String, ProjectConfig) {
+        let json = serde_json::json!({
+            "repo": format!("owner/{key}"),
+            "defconfig": "cfg_defconfig",
+            "localversion_base": "-android16-Kokuban-Test",
+            "zip_name_prefix": prefix,
+            "anykernel_config": ak3,
+            "toolchain_urls": ["https://example.com/tc.zip"],
+            "susfs": {
+                "repo": "https://example.com/susfs.git",
+                "branch": "main",
+                "patch_path": "kernel_patches/50_add.patch"
+            }
+        });
+        (
+            key.to_string(),
+            serde_json::from_value(json).expect("project fixture must parse"),
+        )
+    }
+
+    fn ak3_keys(keys: &[&str]) -> BTreeSet<String> {
+        keys.iter().map(|key| key.to_string()).collect()
+    }
+
+    #[test]
+    fn cross_reference_accepts_a_consistent_project() {
+        let projects = vec![project_with("a_sm1", "A_Kernel", "canoe")];
+        let (errors, warnings) =
+            validate_project_cross_references(&projects, &ak3_keys(&["canoe"]));
+
+        assert!(errors.is_empty(), "unexpected errors: {errors:?}");
+        // The fixture names one toolchain URL with no digest, which is a warning, not an error.
+        assert_eq!(warnings.len(), 1);
+        assert!(warnings[0].contains("no digest"));
+    }
+
+    #[test]
+    fn cross_reference_rejects_an_unknown_anykernel_key() {
+        let projects = vec![project_with("a_sm1", "A_Kernel", "typo_key")];
+        let (errors, _) = validate_project_cross_references(&projects, &ak3_keys(&["canoe"]));
+
+        assert!(
+            errors.iter().any(|e| e.contains("typo_key")),
+            "an AnyKernel key absent from anykernel_configs.json must be an error: {errors:?}"
+        );
+    }
+
+    #[test]
+    fn cross_reference_rejects_duplicate_and_overlapping_tag_prefixes() {
+        let duplicate = vec![
+            project_with("a_sm1", "Kernel", "canoe"),
+            project_with("b_sm2", "Kernel", "canoe"),
+        ];
+        let (errors, _) = validate_project_cross_references(&duplicate, &ak3_keys(&["canoe"]));
+        assert!(
+            errors
+                .iter()
+                .any(|e| e.contains("duplicate zip_name_prefix")),
+            "identical prefixes make tag matching ambiguous: {errors:?}"
+        );
+
+        // Distinct but nested prefixes stay a warning: which project a tag resolves to then
+        // depends on map iteration order, which is the bug worth surfacing.
+        let nested = vec![
+            project_with("a_sm1", "Kernel", "canoe"),
+            project_with("b_sm2", "Kernel_Pro", "canoe"),
+        ];
+        let (errors, warnings) = validate_project_cross_references(&nested, &ak3_keys(&["canoe"]));
+        assert!(
+            errors.is_empty(),
+            "nested prefixes are not a hard error: {errors:?}"
+        );
+        assert!(
+            warnings.iter().any(|w| w.contains("prefix of the other")),
+            "nested prefixes must be flagged: {warnings:?}"
+        );
+    }
+
+    #[test]
+    fn cross_reference_rejects_absolute_and_bad_digest_values() {
+        let mut proj = project_with("a_sm1", "A_Kernel", "canoe").1;
+        proj.toolchain_sha256 = Some(std::collections::HashMap::from([(
+            "https://example.com/tc.zip".to_string(),
+            "not-a-digest".to_string(),
+        )]));
+        proj.abi_baseline = Some(crate::config::AbiBaseline {
+            path: "/abs/path/symvers".to_string(),
+            consumer_manifest: None,
+            ignore_prefixes: Vec::new(),
+            allow_crc_mismatch: 0,
+            allow_missing: 0,
+            allowed_missing_symbols: Vec::new(),
+            allowed_crc_symbols: Vec::new(),
+        });
+
+        let projects = vec![("a_sm1".to_string(), proj)];
+        let (errors, _) = validate_project_cross_references(&projects, &ak3_keys(&["canoe"]));
+
+        assert!(
+            errors.iter().any(|e| e.contains("64-character hex digest")),
+            "a malformed digest must be rejected: {errors:?}"
+        );
+        assert!(
+            errors.iter().any(|e| e.contains("must be relative")),
+            "an absolute in-tree path must be rejected: {errors:?}"
+        );
+    }
+
+    #[test]
+    fn cross_reference_rejects_paths_that_escape_with_parent_components() {
+        let mut proj = project_with("a_sm1", "A_Kernel", "canoe").1;
+        proj.kconfig_fragment = Some("Kokuban/../outside.fragment".to_string());
+        proj.susfs = Some(crate::config::SusfsConfig {
+            repo: "https://example.com/susfs.git".to_string(),
+            branch: "main".to_string(),
+            patch_path: "kernel_patches/50_add.patch".to_string(),
+            fs_patch_dir: Some("../outside".to_string()),
+            include_linux_patch_dir: None,
+        });
+
+        let projects = vec![("a_sm1".to_string(), proj)];
+        let (errors, _) = validate_project_cross_references(&projects, &ak3_keys(&["canoe"]));
+
+        assert_eq!(
+            errors
+                .iter()
+                .filter(|error| error.contains("must be relative"))
+                .count(),
+            2,
+            "parent components must be rejected for every kernel-relative path: {errors:?}"
+        );
+    }
+
+    #[test]
+    fn cross_reference_rejects_a_digest_for_an_undeclared_url() {
+        let mut proj = project_with("a_sm1", "A_Kernel", "canoe").1;
+        proj.toolchain_sha256 = Some(std::collections::HashMap::from([
+            ("https://example.com/tc.zip".to_string(), "a".repeat(64)),
+            ("https://example.com/stale.zip".to_string(), "b".repeat(64)),
+        ]));
+
+        let projects = vec![("a_sm1".to_string(), proj)];
+        let (errors, warnings) =
+            validate_project_cross_references(&projects, &ak3_keys(&["canoe"]));
+
+        assert!(
+            errors.iter().any(|e| e.contains("stale.zip")),
+            "a digest for a URL that is not declared must be rejected: {errors:?}"
+        );
+        assert!(
+            warnings.iter().all(|w| !w.contains("tc.zip")),
+            "a declared URL with a digest must not warn: {warnings:?}"
+        );
     }
 }

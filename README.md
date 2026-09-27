@@ -123,6 +123,7 @@ sudo apt-get install -y build-essential git libncurses5-dev bc bison flex \
 ./kokuban features             # 查看所有项目的 Hybrid Mount / SuSFS / BBG 支持状态
 ./kokuban features s25_sm8750  # 查看单个项目的扩展能力配置
 ./kokuban validate             # 校验项目配置完整性
+./kokuban validate --strict    # 将未配置工具链摘要等警告视为失败
 ./kokuban doctor               # 检查本地依赖
 ./kokuban cache status         # 查看本地缓存占用
 ./kokuban cache prune --keep-artifacts 5 --older-than-days 14

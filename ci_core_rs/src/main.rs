@@ -71,7 +71,11 @@ enum Commands {
     Features {
         project: Option<String>,
     },
-    Validate,
+    Validate {
+        /// Treat warnings (such as a toolchain URL with no recorded digest) as failures.
+        #[arg(long)]
+        strict: bool,
+    },
     Cache {
         #[command(subcommand)]
         command: CacheCommands,
@@ -291,7 +295,7 @@ fn main() -> Result<()> {
         },
         Commands::Run { name, extra_args } => admin::handle_run_preset(name, extra_args),
         Commands::Features { project } => admin::handle_features(project),
-        Commands::Validate => admin::handle_validate(),
+        Commands::Validate { strict } => admin::handle_validate(strict),
         Commands::Cache { command } => match command {
             CacheCommands::Status { local_root } => admin::handle_cache_status(local_root),
             CacheCommands::Clean {
