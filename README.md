@@ -73,6 +73,15 @@ Kokuban Kernel CI Center 是一个专为 Android Linux 内核编译设计的集�
 
 `Watch Upstream KernelSU` 会读取每个项目的 `supported_ksu`，对所有支持对应上游变体的项目生效；当前项目均支持 `resukisu`，以 [configs/projects.json](configs/projects.json) 为准。
 
+为避免 Actions 使用量过高（触发过频、短时间大量并发），上游监听与构建按**每周一波**运行：
+
+- 触发时间：每周一 00:00 UTC（GitHub 定时队列通常有数小时延迟）；需要立即处理时可用 `workflow_dispatch` 手动发起一波。
+- 波内严格串行：`update-projects` 与 `build-projects` 都设为 `max-parallel: 1`，同一时刻只有 1 个设备仓库在同步、1 个内核在编译。
+- 检测与构建同频：只有这一周内上游 SHA 发生变化才会产生一波；无变化时整波只跑一次 `check`。
+- 同步提交带 `[skip ci]`，因此设备仓库自身的 `Trigger Central Build` 不再被自动同步触发；构建由中心仓库在波内统一串行发起（设备仓库上的手动 push 仍会正常触发构建）。
+
+单次波次内某个设备仓库同步失败时，该波的构建阶段会因 `needs` 依赖被跳过；重跑失败的同步任务后，手动 `workflow_dispatch` 一波或直接手动触发对应项目的构建即可。
+
 ### 4. 本地模式：x86-64 Linux / Ubuntu 快速编译
 
 本地模式会自动准备内核源码，不要求当前目录已经存在 `./kernel_source`。它会在本机缓存根目录中按项目、分支与构建变体隔离工作区，方便多个设备同时保留缓存：
