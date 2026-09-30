@@ -1008,7 +1008,13 @@ fn handle_update(
                 "git",
                 "commit",
                 "-m",
-                &format!("ci: update {} to {}", normalized_variant, commit_id),
+                // "[skip ci]": the automated source update must not trigger the device
+                // repo's Trigger Central Build. Builds are started centrally, in a
+                // serialized weekly wave (see .github/workflows/upstream-watcher.yml).
+                &format!(
+                    "[skip ci] ci: update {} to {}",
+                    normalized_variant, commit_id
+                ),
             ],
             Some(&target_dir),
             false,

@@ -105,6 +105,13 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # At most one build per project: a second request for the same project waits for the
+    # running one instead of piling up. Different projects land in different groups, so a
+    # serialized wave is unaffected. Job-level so that it also applies when this workflow
+    # is called as a reusable workflow.
+    concurrency:
+      group: kernel-build-${{ inputs.project || github.event.client_payload.project || github.run_id }}
+      cancel-in-progress: false
     permissions:
       contents: write
     env:

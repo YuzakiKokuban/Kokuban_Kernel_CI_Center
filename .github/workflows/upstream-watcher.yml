@@ -1,7 +1,10 @@
 name: Watch Upstream KernelSU
 on:
   schedule:
-    - cron: '0 0 * * *'
+    # Weekly wave (Mondays 00:00 UTC). Detection cadence == build cadence on purpose:
+    # one wave per week keeps Actions usage flat and avoids bursts of upstream traffic.
+    - cron: '0 0 * * 1'
+  # Manual escape hatch: run a wave immediately without waiting for Monday.
   workflow_dispatch:
 
 permissions:
@@ -34,11 +37,13 @@ jobs:
           git commit -m "ci: update upstream records"
           git push
 
+  # Serialized fan-out: one kernel repo updated at a time (no burst of clones/pushes).
   update-projects:
     needs: check
     if: needs.check.outputs.found_updates == 'true'
     strategy:
       fail-fast: false
+      max-parallel: 1
       matrix:
         include: ${{ fromJson(needs.check.outputs.matrix) }}
     runs-on: ubuntu-latest
@@ -62,3 +67,25 @@ jobs:
             --project "$MATRIX_PROJECT" \
             --variant "$MATRIX_VARIANT" \
             --commit-id "$MATRIX_COMMIT_ID"
+
+  # The wave's build stage. The update commits carry "[skip ci]", so a kernel repo's
+  # own Trigger Central Build no longer fires: this job is what starts the builds,
+  # strictly one at a time, from the central repo.
+  build-projects:
+    needs: [check, update-projects]
+    if: needs.check.outputs.found_updates == 'true'
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include: ${{ fromJson(needs.check.outputs.matrix) }}
+    uses: ./.github/workflows/build_kernel.yml
+    with:
+      project: ${{ matrix.project }}
+      branch: ${{ matrix.variant }}
+      ksu_variant: default
+      do_release: true
+      apply_susfs: true
+      apply_bbg: false
+      apply_hybridmount: true
+    secrets: inherit

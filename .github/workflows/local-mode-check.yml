@@ -4,7 +4,17 @@ on:
   push:
     branches:
       - main
+    # ci_core_rs pushes are already fully gated by build_ci_core.yml (fmt/clippy/test)
+    # before it publishes ci-core-latest; re-running the same Rust gates here just
+    # doubles Actions usage. Pull requests still run everything.
+    paths-ignore:
+      - 'ci_core_rs/**'
   pull_request:
+
+# Superseded runs on the same ref are dropped instead of queueing up.
+concurrency:
+  group: local-mode-check-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   rust-and-wrapper:

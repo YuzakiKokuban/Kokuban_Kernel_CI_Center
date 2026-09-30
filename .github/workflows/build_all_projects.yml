@@ -37,6 +37,8 @@ jobs:
     strategy:
       matrix: ${{ fromJson(needs.matrix.outputs.matrix) }}
       fail-fast: false
+      # One kernel build at a time: a mass rebuild must not fan out to N runners at once.
+      max-parallel: 1
     uses: ./.github/workflows/build_kernel.yml
     with:
       project: ${{ matrix.project }}
