@@ -177,6 +177,12 @@ sudo apt-get install -y build-essential git libncurses5-dev bc bison flex \
 
 如果只想使用已有源码、不主动拉取远端更新，可使用 `--no-fetch`。如果希望清理内核源码工作区中的未跟踪文件，可使用 `--clean`。
 
+编译并行度默认取 `nproc`。可以通过 `KOKUBAN_MAKE_JOBS` 指定正整数；留空时使用默认值，`0`、负数或其他非法值会使构建报错：
+
+```bash
+KOKUBAN_MAKE_JOBS=16 ./kokuban build s23_sm8550
+```
+
 构建完成后，产物会保留在工作区，同时归档到 `artifacts/<project>/<build-id>`，并更新 `artifacts/<project>/latest` 软链接。归档内容包含刷机包、`.config`、`vmlinux.symvers` 与本次构建日志。
 
 每次构建还会写入 `build-info.json`，记录项目、源码提交、Hybrid Mount / SuSFS / BBG 状态、主机信息、工具链缓存路径与 SHA-256。构建失败时，CLI 会从日志中提取关键错误行和最后一段日志，直接打印失败摘要。

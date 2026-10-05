@@ -39,17 +39,30 @@ fi
 actual=""
 
 for attempt in $(seq 1 "$attempts"); do
+  actual=""
   if gh release download ci-core-latest -p "kokuban_ci_core" --clobber -O "$output"; then
-    chmod +x "$output" 2>/dev/null || true
-    # A binary that cannot even run is not the same finding as a binary with the wrong
-    # stamp, and reporting it as a plain mismatch is how the PATH bug above stayed
-    # invisible. Surface the reason; never let it read as 'just stale'.
-    if ! actual="$("$output" stamp 2>/dev/null)"; then
-      why="$("$output" stamp 2>&1 | head -n 1 || true)"
-      actual=""
-      echo "::warning::released core could not report its stamp (${why:-no output})"
+    checksum_valid=true
+    if gh release download ci-core-latest -p "kokuban_ci_core.sha256" --clobber -O "$output.sha256" 2>/dev/null; then
+      expected_hash="$(awk '$2 == "kokuban_ci_core" { print $1; exit }' "$output.sha256")"
+      downloaded_hash="$(sha256sum "$output" | cut -d' ' -f1)"
+      if [ "$downloaded_hash" != "$expected_hash" ]; then
+        checksum_valid=false
+        echo "::warning::CI Core checksum mismatch; refusing to execute it and waiting for a matching release"
+      fi
+    else
+      # Older releases did not publish a checksum. They must still pass the stamp gate.
+      echo "::warning::CI Core checksum asset unavailable; the source stamp is still required"
     fi
-    actual="${actual//[[:space:]]/}"
+    if "$checksum_valid"; then
+      chmod +x "$output" 2>/dev/null || true
+      # Report binaries that cannot run separately from binaries with an old stamp.
+      if ! actual="$("$output" stamp 2>/dev/null)"; then
+        why="$("$output" stamp 2>&1 | head -n 1 || true)"
+        actual=""
+        echo "::warning::released core could not report its stamp (${why:-no output})"
+      fi
+      actual="${actual//[[:space:]]/}"
+    fi
   fi
   if [ "$actual" = "$expected" ]; then
     echo "CI Core stamp matches the tree being driven ($expected)"

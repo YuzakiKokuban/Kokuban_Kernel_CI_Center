@@ -34,7 +34,7 @@ jobs:
         run: cargo fmt --manifest-path ci_core_rs/Cargo.toml --check
 
       - name: Rust clippy
-        run: cargo clippy --manifest-path ci_core_rs/Cargo.toml --all-targets -- -D warnings
+        run: cargo clippy --manifest-path ci_core_rs/Cargo.toml --all-targets --locked -- -D warnings
 
       - name: Rust tests
         run: cargo test --locked --manifest-path ci_core_rs/Cargo.toml
@@ -42,9 +42,17 @@ jobs:
       - name: Build CI Core
         run: cargo build --release --locked --manifest-path ci_core_rs/Cargo.toml
 
+      - name: Checksum binary
+        run: |
+          cd ci_core_rs/target/release
+          sha256sum kokuban_ci_core > kokuban_ci_core.sha256
+
       - name: Release CI Core
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ci-core-latest
           name: CI Core Latest Build
-          files: ci_core_rs/target/release/kokuban_ci_core
+          body: Built from commit ${{ github.sha }} on ${{ github.ref_name }}
+          files: |
+            ci_core_rs/target/release/kokuban_ci_core
+            ci_core_rs/target/release/kokuban_ci_core.sha256

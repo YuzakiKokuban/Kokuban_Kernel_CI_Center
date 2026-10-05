@@ -3073,8 +3073,11 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
         build_env.insert("LOCALVERSION".to_string(), "".to_string());
     }
 
-    let threads = run_cmd(&["nproc"], None, true)?.unwrap().trim().to_string();
-    let jobs = format!("-j{}", threads);
+    let detected_cpus =
+        run_cmd(&["nproc"], None, true)?.context("nproc did not return the available CPU count")?;
+    let override_jobs = env::var("KOKUBAN_MAKE_JOBS").ok();
+    let jobs = crate::build_jobs::make_jobs_arg(override_jobs.as_deref(), &detected_cpus)
+        .context("KOKUBAN_MAKE_JOBS or the detected CPU count must be a positive integer")?;
 
     if is_gki_612 {
         let mut cmd_str = format!(

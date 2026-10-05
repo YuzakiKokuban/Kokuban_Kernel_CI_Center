@@ -1,2 +1,10 @@
 ci_core_rs/target
 .claude/
+
+# CI and local build temporary files
+.ccache/
+build_artifacts/
+toolchain_download/
+.compiler_wrappers/
+kernel_source/
+AnyKernel3/

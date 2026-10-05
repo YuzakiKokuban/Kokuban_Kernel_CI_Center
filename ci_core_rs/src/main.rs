@@ -1,5 +1,6 @@
 mod admin;
 mod build;
+mod build_jobs;
 mod config;
 mod local;
 mod settings;
