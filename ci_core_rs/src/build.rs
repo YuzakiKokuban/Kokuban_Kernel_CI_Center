@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 
 use crate::config::{AbiBaseline, AnyKernelConfig, BbgConfig, ProjectConfig, SusfsConfig};
 use crate::utils::{
-    cache_file_name, command_exists, env_flag, file_sha256, handle_notify, is_resukisu_variant,
+    cache_file_name, command_exists, env_flag, file_sha256, handle_notify, is_bakasu_variant,
     load_anykernel_config, load_project, run_cmd, run_cmd_with_env, set_github_output,
     url_file_name, variant_suffix,
 };
@@ -2511,7 +2511,7 @@ pub struct BuildOptions {
     pub branch: String,
     pub do_release: bool,
     pub custom_localversion: Option<String>,
-    pub resukisu_setup_arg: Option<String>,
+    pub bakasu_setup_arg: Option<String>,
     pub apply_susfs: bool,
     pub apply_bbg: bool,
     pub apply_hybridmount: bool,
@@ -2528,7 +2528,7 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
         branch,
         do_release,
         custom_localversion,
-        resukisu_setup_arg,
+        bakasu_setup_arg,
         apply_susfs,
         apply_bbg,
         apply_hybridmount,
@@ -2737,16 +2737,16 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
         );
     }
 
-    let resukisu_setup_arg = resukisu_setup_arg
+    let bakasu_setup_arg = bakasu_setup_arg
         .as_deref()
         .map(str::trim)
         .filter(|arg| !arg.is_empty())
         .unwrap_or("main");
 
     let setup_url = match branch.as_str() {
-        _ if is_resukisu_variant(&branch) => Some((
-            "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh",
-            resukisu_setup_arg,
+        _ if is_bakasu_variant(&branch) => Some((
+            "https://raw.githubusercontent.com/Baka-SU/BakaSU/main/kernel/setup.sh",
+            bakasu_setup_arg,
         )),
         _ => None,
     };
@@ -2764,7 +2764,7 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
     }
 
     if apply_susfs {
-        if is_resukisu_variant(&branch) {
+        if is_bakasu_variant(&branch) {
             let susfs = proj
                 .susfs
                 .as_ref()
@@ -2775,7 +2775,7 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
             feature_suffixes.push("susfs".to_string());
         } else {
             println!(
-                "Skipping SuSFS for branch '{}': SuSFS is only enabled for ReSukiSU builds.",
+                "Skipping SuSFS for branch '{}': SuSFS is only enabled for BakaSU builds.",
                 branch
             );
         }
@@ -3039,7 +3039,7 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
             validate_kconfig_entries(&final_config, GKI_KSU_KCONFIG_ENTRIES)?;
         }
     }
-    if apply_susfs && is_resukisu_variant(&branch) {
+    if apply_susfs && is_bakasu_variant(&branch) {
         validate_kconfig_entries(&final_config, SUSFS_KCONFIG_ENTRIES)?;
     }
 

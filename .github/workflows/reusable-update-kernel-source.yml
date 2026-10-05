@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       ksu_type:
-        description: 'The type of KernelSU to update (resukisu only)'
+        description: 'The type of KernelSU to update (bakasu only)'
         required: true
         type: string
       latest_commit_short:
@@ -43,11 +43,11 @@ jobs:
           COMMIT_MESSAGE: ${{ inputs.commit_message }}
         run: |
           # --- Configuration ---
-          if [[ "$KSU_TYPE" != "resukisu" ]]; then
+          if [[ "$KSU_TYPE" != "bakasu" ]]; then
             echo "Unsupported ksu_type: $KSU_TYPE"
             exit 1
           fi
-          SETUP_URL="https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh"
+          SETUP_URL="https://raw.githubusercontent.com/Baka-SU/BakaSU/main/kernel/setup.sh"
 
           echo "Updating projects with commit message: '$COMMIT_MESSAGE'"
           

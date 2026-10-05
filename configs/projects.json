@@ -1,8 +1,8 @@
 {
   "_globals": {
     "broadcast_channel": "@BLBDSBD",
-    "resukisu_chat_id": "@BakaSU_Grp",
-    "resukisu_topic_id": 36
+    "bakasu_chat_id": "@ReSukiSU_Grp",
+    "bakasu_topic_id": 36
   },
   "z5_sm8550": {
     "repo": "YuzakiKokuban/android_kernel_samsung_sm8550_Z5",
@@ -10,7 +10,7 @@
     "localversion_base": "-android13-Kokuban-Mei-FZB2",
     "lto": "thin",
     "supported_ksu": [
-      "resukisu"
+      "bakasu"
     ],
     "readme_placeholders": {
       "DEVICE_NAME_CN": "三星 Galaxy Z5 系列",
@@ -53,7 +53,7 @@
     "localversion_base": "-android15-Kokuban-Herta-CZF1",
     "lto": "none",
     "supported_ksu": [
-      "resukisu"
+      "bakasu"
     ],
     "version_method": "file",
     "extra_host_env": true,
@@ -100,7 +100,7 @@
     "localversion_base": "-android13-Kokuban-Firefly-EZB6",
     "lto": "thin",
     "supported_ksu": [
-      "resukisu"
+      "bakasu"
     ],
     "readme_placeholders": {
       "DEVICE_NAME_CN": "三星 Galaxy S23 系列",
@@ -144,7 +144,7 @@
     "localversion_base": "-android13-Kokuban-Hutao-DZA1",
     "lto": "thin",
     "supported_ksu": [
-      "resukisu"
+      "bakasu"
     ],
     "readme_placeholders": {
       "DEVICE_NAME_CN": "三星 Galaxy Tab S9 系列",
@@ -188,7 +188,7 @@
     "localversion_base": "-android14-Kokuban-Elysia-DZE1",
     "lto": "none",
     "supported_ksu": [
-      "resukisu"
+      "bakasu"
     ],
     "readme_placeholders": {
       "DEVICE_NAME_CN": "三星 Galaxy S24 Snapdragon 系列",
@@ -232,7 +232,7 @@
     "localversion_base": "-android14-Kokuban-Exusiai-DZG1",
     "lto": "none",
     "supported_ksu": [
-      "resukisu"
+      "bakasu"
     ],
     "readme_placeholders": {
       "DEVICE_NAME_CN": "三星 Galaxy Tab S10 系列",
@@ -275,7 +275,7 @@
     "localversion_base": "-android14-Kokuban-Cyrene-CYI7",
     "lto": "none",
     "supported_ksu": [
-      "resukisu"
+      "bakasu"
     ],
     "toolchain_urls": [
       "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8650/releases/download/toolchain/toolchainS24.tar.gz.00",
@@ -322,7 +322,7 @@
     "localversion_base": "-android16-Kokuban-SilverWolf",
     "expected_kernel_version": "6.12.69",
     "supported_ksu": [
-      "resukisu"
+      "bakasu"
     ],
     "version_method": "file",
     "toolchain_urls": [
@@ -359,7 +359,7 @@
     "expected_kernel_version": "6.12.38",
     "build_style": "gki-6.12",
     "supported_ksu": [
-      "resukisu"
+      "bakasu"
     ],
     "version_method": "file",
     "toolchain_urls": [

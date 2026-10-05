@@ -11,7 +11,7 @@ on:
         description: 'Variant (KernelSU Type)'
         required: true
         type: choice
-        options: [resukisu]
+        options: [bakasu]
       commit_id:
         description: 'Commit Short Hash (Optional, defaults to latest)'
         required: false
@@ -40,7 +40,7 @@ jobs:
           set -euo pipefail
 
           if [ "$INPUT_COMMIT_ID" = "latest" ]; then
-            repo="https://github.com/ReSukiSU/ReSukiSU.git"
+            repo="https://github.com/Baka-SU/BakaSU.git"
             branch="main"
             echo "COMMIT_ID=$(git ls-remote "$repo" "$branch" | cut -c1-7)" >> "$GITHUB_ENV"
           else

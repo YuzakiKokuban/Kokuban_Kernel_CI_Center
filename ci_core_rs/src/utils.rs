@@ -145,19 +145,22 @@ pub fn load_anykernel_config(config_key: &str) -> Result<AnyKernelConfig> {
 }
 
 pub fn normalize_variant_name(variant: &str) -> String {
-    variant.replace("sukisuultra", "resukisu")
+    match variant {
+        "resukisu" | "sukisuultra" => "bakasu".to_string(),
+        _ => variant.to_string(),
+    }
 }
 
 pub fn variant_suffix(variant: &str) -> String {
     match normalize_variant_name(variant).as_str() {
         "main" | "lkm" => "LKM".to_string(),
-        "resukisu" => "ReSuki".to_string(),
+        "bakasu" => "BakaSU".to_string(),
         _ => variant.to_uppercase(),
     }
 }
 
-pub fn is_resukisu_variant(variant: &str) -> bool {
-    normalize_variant_name(variant) == "resukisu"
+pub fn is_bakasu_variant(variant: &str) -> bool {
+    normalize_variant_name(variant) == "bakasu"
 }
 
 pub fn save_json<T: serde::Serialize>(path: &Path, data: &T) -> Result<()> {
@@ -297,8 +300,8 @@ pub fn handle_notify(tag_name: String) -> Result<()> {
             );
             GlobalConfig {
                 broadcast_channel: None,
-                resukisu_chat_id: None,
-                resukisu_topic_id: None,
+                bakasu_chat_id: None,
+                bakasu_topic_id: None,
             }
         }
     };
@@ -329,10 +332,10 @@ pub fn handle_notify(tag_name: String) -> Result<()> {
     if let Some(chan) = globals.broadcast_channel {
         destinations.push((chan, None));
     }
-    if tag_name.contains("ReSuki")
-        && let Some(chat) = globals.resukisu_chat_id
+    if tag_name.contains("BakaSU")
+        && let Some(chat) = globals.bakasu_chat_id
     {
-        destinations.push((chat, globals.resukisu_topic_id));
+        destinations.push((chat, globals.bakasu_topic_id));
     }
 
     if destinations.is_empty() {
@@ -491,6 +494,23 @@ pub fn handle_notify(tag_name: String) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bakasu_and_legacy_variants_share_release_identity() {
+        for variant in ["bakasu", "resukisu", "sukisuultra"] {
+            assert_eq!(normalize_variant_name(variant), "bakasu");
+            assert_eq!(variant_suffix(variant), "BakaSU");
+            assert!(is_bakasu_variant(variant));
+        }
+        assert_eq!(variant_suffix("main"), "LKM");
+        assert_eq!(variant_suffix("lkm"), "LKM");
+        assert!(!is_bakasu_variant("main"));
+        assert_eq!(
+            normalize_variant_name("feature-resukisu"),
+            "feature-resukisu"
+        );
+    }
+
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn unique_temp_path(name: &str) -> PathBuf {

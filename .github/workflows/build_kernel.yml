@@ -25,7 +25,7 @@ on:
         type: choice
         options:
           - default
-          - resukisu
+          - bakasu
           - lkm
         default: 'default'
       do_release:
@@ -37,8 +37,8 @@ on:
         type: string
         required: false
         default: ''
-      resukisu_setup_arg:
-        description: 'ReSukiSU setup.sh argument override'
+      bakasu_setup_arg:
+        description: 'BakaSU setup.sh argument override'
         type: string
         required: false
         default: ''
@@ -83,7 +83,7 @@ on:
       custom_localversion:
         type: string
         default: ''
-      resukisu_setup_arg:
+      bakasu_setup_arg:
         type: string
         default: ''
       apply_susfs:
@@ -132,7 +132,7 @@ jobs:
           INPUT_KSU_VARIANT: ${{ inputs.ksu_variant }}
           INPUT_DO_RELEASE: ${{ inputs.do_release }}
           INPUT_CUSTOM_LOCALVERSION: ${{ inputs.custom_localversion }}
-          INPUT_RESUKISU_SETUP_ARG: ${{ inputs.resukisu_setup_arg }}
+          INPUT_BAKASU_SETUP_ARG: ${{ inputs.bakasu_setup_arg }}
           INPUT_APPLY_SUSFS: ${{ inputs.apply_susfs }}
           INPUT_APPLY_BBG: ${{ inputs.apply_bbg }}
           INPUT_APPLY_HYBRIDMOUNT: ${{ inputs.apply_hybridmount }}
@@ -145,7 +145,7 @@ jobs:
             variant="default"
             release="true"
             custom_localversion=""
-            resukisu_setup_arg=""
+            bakasu_setup_arg=""
             apply_susfs="$PAYLOAD_APPLY_SUSFS"
             apply_bbg="$PAYLOAD_APPLY_BBG"
             apply_hybridmount="$PAYLOAD_APPLY_HYBRIDMOUNT"
@@ -166,7 +166,7 @@ jobs:
             variant="$INPUT_KSU_VARIANT"
             release="$INPUT_DO_RELEASE"
             custom_localversion="$INPUT_CUSTOM_LOCALVERSION"
-            resukisu_setup_arg="$INPUT_RESUKISU_SETUP_ARG"
+            bakasu_setup_arg="$INPUT_BAKASU_SETUP_ARG"
             apply_susfs="$INPUT_APPLY_SUSFS"
             apply_bbg="$INPUT_APPLY_BBG"
             apply_hybridmount="$INPUT_APPLY_HYBRIDMOUNT"
@@ -198,7 +198,7 @@ jobs:
             echo "VARIANT=$resolved_variant"
             echo "DO_RELEASE=$release"
             echo "CUSTOM_LOCALVERSION=$custom_localversion"
-            echo "RESUKISU_SETUP_ARG=$resukisu_setup_arg"
+            echo "BAKASU_SETUP_ARG=$bakasu_setup_arg"
             echo "APPLY_SUSFS=$apply_susfs"
             echo "APPLY_BBG=$apply_bbg"
             echo "APPLY_HYBRIDMOUNT=$apply_hybridmount"
@@ -265,8 +265,8 @@ jobs:
           if [ -n "$CUSTOM_LOCALVERSION" ]; then
             ARGS+=("--custom-localversion=$CUSTOM_LOCALVERSION")
           fi
-          if [ -n "$RESUKISU_SETUP_ARG" ]; then
-            ARGS+=("--resukisu-setup-arg=$RESUKISU_SETUP_ARG")
+          if [ -n "$BAKASU_SETUP_ARG" ]; then
+            ARGS+=("--bakasu-setup-arg=$BAKASU_SETUP_ARG")
           fi
           if [ -n "$KCONFIG_FRAGMENT" ]; then
             ARGS+=("--kconfig-fragment=$KCONFIG_FRAGMENT")

@@ -20,8 +20,8 @@ trap 'rm -rf "$tmpdir"' EXIT
 
 export KOKUBAN_CONFIG="$tmpdir/config"
 
-output="$(KOKUBAN_CORE=/bin/echo "$KOKUBAN" build s25_sm8750 resukisu resukisu --no-bbg --no-hybridmount)"
-assert_contains "$output" "local --project s25_sm8750 --branch resukisu --variant resukisu"
+output="$(KOKUBAN_CORE=/bin/echo "$KOKUBAN" build s25_sm8750 bakasu bakasu --no-bbg --no-hybridmount)"
+assert_contains "$output" "local --project s25_sm8750 --branch bakasu --variant bakasu"
 assert_contains "$output" "--apply-bbg false"
 assert_contains "$output" "--apply-hybridmount false"
 
@@ -35,7 +35,7 @@ output="$("$KOKUBAN" plan s23_sm8550)"
 assert_contains "$output" "apply_susfs: false"
 assert_contains "$output" "apply_hybridmount: true"
 
-"$KOKUBAN" preset set daily s25_sm8750 resukisu resukisu --no-bbg >/dev/null
+"$KOKUBAN" preset set daily s25_sm8750 bakasu bakasu --no-bbg >/dev/null
 output="$("$KOKUBAN" run daily --offline --dry-run)"
 assert_contains "$output" "apply_bbg: false"
 assert_contains "$output" "offline: true"

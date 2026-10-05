@@ -2,7 +2,7 @@
 
 ## 项目概述
 
-Kokuban Kernel CI Center 是一个专为 Android Linux 内核编译设计的集中式持续集成与交付（CI/CD）平台。该项目旨在通过标准化的构建流程，解决多设备内核维护中的重复性工作问题，并将构建模式收敛到当前仍在维护的 `LKM` 与 `ReSukiSU` 两条路径。
+Kokuban Kernel CI Center 是一个专为 Android Linux 内核编译设计的集中式持续集成与交付（CI/CD）平台。该项目旨在通过标准化的构建流程，解决多设备内核维护中的重复性工作问题，并将构建模式收敛到当前仍在维护的 `LKM` 与 `BakaSU` 两条路径。
 
 核心架构采用 **Rust** 编写的 CLI 工具（`kokuban_ci_core`）作为逻辑中枢，配合 **GitHub Actions** 进行流程编排，实现了从源码同步、工具链配置、KernelSU 集成到最终构建发布的完全自动化。
 
@@ -10,8 +10,8 @@ Kokuban Kernel CI Center 是一个专为 Android Linux 内核编译设计的集�
 
 * **集中化构建编排**：通过统一的 Rust 核心程序管理所有构建逻辑，替代了传统的碎片化 Shell 脚本，确保了构建过程的类型安全与逻辑严密性。
 * **多设备支持**：支持通过配置文件定义不同设备的构建参数（Defconfig、工具链、源码仓库），当前已覆盖三星与小米多个平台。
-* **精简的构建模式**：围绕 `LKM` 与 `ReSukiSU` 两种模式提供自动补丁与集成支持，已移除旧的 `KSU/MKSU` 内置分支流转。
-* **动态特性注入**：支持在构建阶段按需注入 `Hybrid Mount`、`SuSFS` 与 `BBG`。Hybrid Mount 适用于所有内核，自动构建默认集成并可通过 workflow 选项关闭；`SuSFS` 仅在 `ReSukiSU` 构建中启用，BBG 仅对声明支持的项目可用。
+* **精简的构建模式**：围绕 `LKM` 与 `BakaSU` 两种模式提供自动补丁与集成支持，已移除旧的 `KSU/MKSU` 内置分支流转。
+* **动态特性注入**：支持在构建阶段按需注入 `Hybrid Mount`、`SuSFS` 与 `BBG`。Hybrid Mount 适用于所有内核，自动构建默认集成并可通过 workflow 选项关闭；`SuSFS` 仅在 `BakaSU` 构建中启用，BBG 仅对声明支持的项目可用。
 * **智能工具链管理**：支持从远程 URL 自动下载、校验并解压编译工具链，兼容分卷压缩格式，并自动配置交叉编译环境变量（CLANG, GCC, Binutils）。
 * **发布工作流闭环**：构建完成后自动打包 AnyKernel3 刷机包，推送到对应的 GitHub Releases 页面，并通过 Telegram Bot API 发送详细的发布通知。
 * **上游监听**：`Watch Upstream KernelSU` 会对所有支持对应 KernelSU 变体的项目生效，并自动同步上游变更。
@@ -29,12 +29,12 @@ Kokuban Kernel CI Center 是一个专为 Android Linux 内核编译设计的集�
 当前结构围绕两个源码分支工作：
 
 * `main`：默认源码分支，对应 `LKM` 构建路径。
-* `resukisu`：`ReSukiSU` 专用源码分支。
+* `bakasu`：`BakaSU` 专用源码分支。
 
 工作流中的 **Build Mode Override** 目前只保留以下选项：
 
 * `default`：跟随当前源码分支。
-* `resukisu`：强制按 `ReSukiSU` 模式构建。
+* `bakasu`：强制按 `BakaSU` 模式构建。
 * `lkm`：强制按 `LKM` 模式构建。
 
 ## 支持设备列表
@@ -60,18 +60,18 @@ Kokuban Kernel CI Center 是一个专为 Android Linux 内核编译设计的集�
 在 GitHub Actions 页面选择 "Build Kernel" 工作流，并配置以下参数：
 
 * **Select Project**: 选择目标设备（如 `s23_sm8550`）。
-* **Git Branch/Tag**: 指定内核源码分支，通常使用 `main` 或 `resukisu`。
+* **Git Branch/Tag**: 指定内核源码分支，通常使用 `main` 或 `bakasu`。
 * **Build Mode Override**: 选择构建模式（默认为 `default`，即跟随分支策略）。
 * **Create Release**: 是否在构建成功后创建 GitHub Release。
-* **Apply Hybrid Mount / SuSFS / BBG**: workflow 中 Hybrid Mount 与 SuSFS 默认开启，BBG 默认关闭；可按需取消勾选 Hybrid Mount。其中 Hybrid Mount 适用于所有项目，`SuSFS` 仅在 `ReSukiSU` 构建时真正生效。
+* **Apply Hybrid Mount / SuSFS / BBG**: workflow 中 Hybrid Mount 与 SuSFS 默认开启，BBG 默认关闭；可按需取消勾选 Hybrid Mount。其中 Hybrid Mount 适用于所有项目，`SuSFS` 仅在 `BakaSU` 构建时真正生效。
 
 ### 2. 仓库初始化与分支整理
 
-运行 `Setup Kernel Repos` 后，中心仓库会同步设备仓库通用文件，并额外尝试删除历史遗留的 `ksu` / `mksu` 远端分支，使设备仓库结构统一到当前的 `main` / `resukisu` 模型。
+运行 `Setup Kernel Repos` 后，中心仓库会同步设备仓库通用文件，将旧的 `resukisu`（或更早的 `sukisuultra`）分支迁移为 `bakasu`，并额外尝试删除历史遗留的 `ksu` / `mksu` 远端分支，使设备仓库结构统一到当前的 `main` / `bakasu` 模型。
 
 ### 3. 上游监听
 
-`Watch Upstream KernelSU` 会读取每个项目的 `supported_ksu`，对所有支持对应上游变体的项目生效；当前项目均支持 `resukisu`，以 [configs/projects.json](configs/projects.json) 为准。
+`Watch Upstream KernelSU` 会读取每个项目的 `supported_ksu`，对所有支持对应上游变体的项目生效；当前项目均支持 `bakasu`，以 [configs/projects.json](configs/projects.json) 为准。
 
 为避免 Actions 使用量过高（触发过频、短时间大量并发），上游监听与构建按**每周一波**运行：
 
@@ -113,16 +113,16 @@ sudo apt-get install -y build-essential git libncurses5-dev bc bison flex \
 # LKM / main
 ./kokuban build s23_sm8550
 
-# ReSukiSU
-./kokuban build s25_sm8750 resukisu resukisu
+# BakaSU
+./kokuban build s25_sm8750 bakasu bakasu
 
 # 本地 CLI 仍默认启用 Hybrid Mount；可用开关覆盖 Hybrid Mount、SuSFS 与 BBG
-./kokuban build s25_sm8750 resukisu resukisu --no-susfs
-./kokuban build s25_sm8750 resukisu resukisu --with-bbg
-./kokuban build s25_sm8750 resukisu resukisu --no-hybridmount
+./kokuban build s25_sm8750 bakasu bakasu --no-susfs
+./kokuban build s25_sm8750 bakasu bakasu --with-bbg
+./kokuban build s25_sm8750 bakasu bakasu --no-hybridmount
 
 # 指定自定义缓存根目录
-./kokuban build mi17_sm8850 resukisu resukisu --local-root ~/kokuban-local-cache
+./kokuban build mi17_sm8850 bakasu bakasu --local-root ~/kokuban-local-cache
 ```
 
 `./kokuban` 是仓库根目录中的轻量 CLI 包装器。第一次运行会自动编译 `kokuban_ci_core` 的 release 版，之后会直接复用 `ci_core_rs/target/release/kokuban_ci_core`。常用命令：
@@ -144,7 +144,7 @@ sudo apt-get install -y build-essential git libncurses5-dev bc bison flex \
 正式构建前可以先看计划，不会改动源码或缓存：
 
 ```bash
-./kokuban plan s25_sm8750 resukisu resukisu
+./kokuban plan s25_sm8750 bakasu bakasu
 ```
 
 本地 CLI 默认会给构建传入 `apply_hybridmount=true`、`apply_susfs=true` 与 `apply_bbg=false`。也可以写入本地默认配置：
@@ -163,7 +163,7 @@ sudo apt-get install -y build-essential git libncurses5-dev bc bison flex \
 可以把常用构建保存为预设：
 
 ```bash
-./kokuban preset set daily-s25 s25_sm8750 resukisu resukisu
+./kokuban preset set daily-s25 s25_sm8750 bakasu bakasu
 ./kokuban preset list
 ./kokuban preset show daily-s25
 ./kokuban run daily-s25
@@ -225,5 +225,5 @@ cargo run --bin kokuban_ci_core -- parse --project s23_sm8550
 # 执行构建流程 (需自行准备环境)
 cargo run --bin kokuban_ci_core -- build --project s23_sm8550 --branch main --do-release false
 
-# 执行 ReSukiSU 构建
-cargo run --bin kokuban_ci_core -- build --project s25_sm8750 --branch resukisu --do-release false
+# 执行 BakaSU 构建
+cargo run --bin kokuban_ci_core -- build --project s25_sm8750 --branch bakasu --do-release false
