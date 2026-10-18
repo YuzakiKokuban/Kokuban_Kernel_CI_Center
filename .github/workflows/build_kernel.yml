@@ -223,7 +223,7 @@ jobs:
 
       - name: Setup Rust for preview builds
         if: github.ref != 'refs/heads/main'
-        uses: dtolnay/rust-toolchain@1.92.0
+        uses: dtolnay/rust-toolchain@1.120.0
 
       - name: Build preview CI Core
         if: github.ref != 'refs/heads/main'
