@@ -44,7 +44,7 @@ const GKI_CUSTOM_KCONFIG_ENTRIES: &[(&str, &str)] = &[
     ("CONFIG_TMPFS_INODE64", "y"),
     ("CONFIG_TMPFS_QUOTA", "y"),
 ];
-const GKI_KSU_KCONFIG_ENTRIES: &[(&str, &str)] = &[
+const COMMON_KSU_KCONFIG_ENTRIES: &[(&str, &str)] = &[
     ("CONFIG_KSU", "y"),
     ("CONFIG_KSU_MULTI_MANAGER_SUPPORT", "y"),
     (
@@ -2119,7 +2119,7 @@ fn prepare_gki_build(
     ];
     entries.extend_from_slice(GKI_CUSTOM_KCONFIG_ENTRIES);
     if enable_ksu {
-        entries.extend_from_slice(GKI_KSU_KCONFIG_ENTRIES);
+        entries.extend_from_slice(COMMON_KSU_KCONFIG_ENTRIES);
     }
     update_kconfig_file(&defconfig_file, &entries)
 }
@@ -3056,6 +3056,13 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
         )?;
     }
 
+    if is_pixel4 {
+        update_kconfig_file(
+            &kernel_source_path.join("out/.config"),
+            COMMON_KSU_KCONFIG_ENTRIES,
+        )?;
+    }
+
     let lto_setting = lto_override
         .as_deref()
         .map(str::trim)
@@ -3124,6 +3131,7 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
         report_unapplied_fragment_entries(&final_config, &kernel_source_path.join(fragment))?;
     }
     if is_pixel4 {
+        validate_kconfig_entries(&final_config, COMMON_KSU_KCONFIG_ENTRIES)?;
         validate_kconfig_entries(
             &final_config,
             &[
@@ -3139,7 +3147,7 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
     if is_gki_612 {
         validate_kconfig_entries(&final_config, GKI_CUSTOM_KCONFIG_ENTRIES)?;
         if setup_url.is_some() {
-            validate_kconfig_entries(&final_config, GKI_KSU_KCONFIG_ENTRIES)?;
+            validate_kconfig_entries(&final_config, COMMON_KSU_KCONFIG_ENTRIES)?;
         }
     }
     if apply_susfs && is_bakasu_variant(&branch) {
