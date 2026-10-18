@@ -240,6 +240,9 @@ cargo run --bin kokuban_ci_core -- build --project s25_sm8750 --branch bakasu --
 在 **Build Kernel** 中选择该项目与 `bakasu` 分支；构建模式选择 `bakasu`
 （`default` 也会自动解析）。`Release All Branches` 和自动构建矩阵仅构建这个分支。
 
+版本格式为 `4.14.357-Kokuban-Kaltsit-BakaSU-g<内核提交>`，沿用 CI 的 12 位提交标识；
+不包含旧的 WireShark 后缀。
+
 该项目使用 `pixel4-4.14` 流程：LLVM 12、GNU AArch64 binutils、无 LTO/CFI、
 BakaSU 手动 hooks，以及内核内建的 Hybrid Mount VFS。每次构建拉取 BakaSU `main`
 最新代码，不在内核中保存 BakaSU gitlink 或固定提交。实际版本和提交哈希写入构建日志。

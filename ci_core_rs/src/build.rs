@@ -2938,6 +2938,16 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
         format!("{}-{}", proj.localversion_base, build_variant_suffix)
     };
 
+    if is_pixel4 {
+        localversion = crate::pixel4::localversion(&localversion, &short_sha)?;
+        if kernel_version.len() + localversion.len() > 64 {
+            return Err(anyhow!(
+                "Pixel 4 kernel release exceeds the UTS length limit"
+            ));
+        }
+        println!("Pixel 4 kernel release: {}{}", kernel_version, localversion);
+    }
+
     if target_soc_str == "sm8750" {
         let sm8750_base = custom_localversion
             .as_deref()
@@ -3014,6 +3024,7 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
         update_kconfig_file(
             &kernel_source_path.join("out/.config"),
             &[
+                ("CONFIG_LOCALVERSION", "\"\""),
                 ("CONFIG_KSU", "y"),
                 ("CONFIG_KSU_MANUAL_HOOK", "y"),
                 ("CONFIG_KSU_MANUAL_HOOK_AUTO_SETUID_HOOK", "y"),
