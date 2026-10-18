@@ -407,5 +407,35 @@
       "DEVICE_NAME_CN": "摩托罗拉 Razr Fold",
       "DEVICE_NAME_EN": "Motorola Razr Fold"
     }
+  },
+  "floral_sm8150": {
+    "repo": "YuzakiKokuban/infinity_cnb_kernel_google_msm-4.14",
+    "defconfig": "floral_defconfig",
+    "localversion_base": "-Kokuban-Pixel4",
+    "expected_kernel_version": "4.14.357-WireShark",
+    "lto": "none",
+    "build_style": "pixel4-4.14",
+    "supported_ksu": [
+      "bakasu"
+    ],
+    "toolchain_urls": [
+      "https://github.com/llvm/llvm-project/releases/download/llvmorg-12.0.1/clang%2Bllvm-12.0.1-x86_64-linux-gnu-ubuntu-16.04.tar.xz"
+    ],
+    "toolchain_sha256": {
+      "https://github.com/llvm/llvm-project/releases/download/llvmorg-12.0.1/clang%2Bllvm-12.0.1-x86_64-linux-gnu-ubuntu-16.04.tar.xz": "6b3cc55d3ef413be79785c4dc02828ab3bd6b887872b143e3091692fc6acefe7"
+    },
+    "toolchain_path_prefix": "",
+    "toolchain_path_exports": [
+      "clang+llvm-12.0.1-x86_64-linux-gnu-ubuntu-16.04/bin"
+    ],
+    "anykernel_config": "floral",
+    "zip_name_prefix": "Pixel4_Kernel",
+    "readme_placeholders": {
+      "DEVICE_NAME_CN": "谷歌 Pixel 4 / Pixel 4 XL",
+      "DEVICE_NAME_EN": "Google Pixel 4 / Pixel 4 XL"
+    },
+    "watch_upstream_variants": [
+      "bakasu"
+    ]
   }
 }

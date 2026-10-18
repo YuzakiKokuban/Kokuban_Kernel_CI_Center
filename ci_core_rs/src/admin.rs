@@ -124,7 +124,9 @@ pub fn handle_features(project: Option<String>) -> Result<()> {
         println!("project={}", project);
         println!("repo={}", proj.repo);
         println!("defconfig={}", proj.defconfig);
-        if let Some(susfs) = proj.susfs {
+        if crate::pixel4::is_pixel4(proj.build_style.as_deref()) {
+            println!("susfs=disabled");
+        } else if let Some(susfs) = proj.susfs {
             println!("susfs=enabled");
             println!("susfs_repo={}", susfs.repo);
             println!("susfs_branch={}", susfs.branch);
@@ -151,7 +153,9 @@ pub fn handle_features(project: Option<String>) -> Result<()> {
         println!(
             "{}\tsusfs={}\tbbg={}\thybridmount=enabled",
             key,
-            if proj.susfs.is_some() {
+            if crate::pixel4::is_pixel4(proj.build_style.as_deref()) {
+                "disabled"
+            } else if proj.susfs.is_some() {
                 "enabled"
             } else {
                 "missing"
@@ -350,7 +354,7 @@ pub fn handle_validate(strict: bool) -> Result<()> {
         {
             errors.push(format!("{key}: missing toolchain_urls"));
         }
-        if proj.susfs.is_none() {
+        if proj.susfs.is_none() && !crate::pixel4::is_pixel4(proj.build_style.as_deref()) {
             errors.push(format!("{key}: missing susfs"));
         }
     }

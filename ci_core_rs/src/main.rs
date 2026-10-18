@@ -3,6 +3,7 @@ mod build;
 mod build_jobs;
 mod config;
 mod local;
+mod pixel4;
 mod settings;
 mod utils;
 
@@ -473,6 +474,13 @@ fn build_project_matrix_entries(
     project_key: &str,
     proj: &ProjectConfig,
 ) -> Vec<HashMap<String, String>> {
+    if crate::pixel4::is_pixel4(proj.build_style.as_deref()) {
+        return vec![HashMap::from([
+            ("project".to_string(), project_key.to_string()),
+            ("branch".to_string(), "bakasu".to_string()),
+            ("ksu_variant".to_string(), "bakasu".to_string()),
+        ])];
+    }
     let raw_supported = proj.supported_ksu.clone().unwrap_or_default();
     let mut include = vec![HashMap::from([
         ("project".to_string(), project_key.to_string()),

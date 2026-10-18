@@ -233,3 +233,22 @@ cargo run --bin kokuban_ci_core -- build --project s23_sm8550 --branch main --do
 
 # 执行 BakaSU 构建
 cargo run --bin kokuban_ci_core -- build --project s25_sm8750 --branch bakasu --do-release false
+
+### Pixel 4 / Pixel 4 XL（floral，Linux 4.14）
+
+项目键为 `floral_sm8150`，源码分支为 `bakasu`，配置为 `floral_defconfig`。
+在 **Build Kernel** 中选择该项目与 `bakasu` 分支；构建模式选择 `bakasu`
+（`default` 也会自动解析）。`Release All Branches` 和自动构建矩阵仅构建这个分支。
+
+该项目使用 `pixel4-4.14` 流程：LLVM 12、GNU AArch64 binutils、无 LTO/CFI、
+BakaSU 手动 hooks，以及内核内建的 Hybrid Mount VFS。每次构建拉取 BakaSU `main`
+最新代码，不在内核中保存 BakaSU gitlink 或固定提交。实际版本和提交哈希写入构建日志。
+SUSFS 始终关闭，
+不受工作流或本地全局默认值影响；Baseband Guard 不适用于此项目。
+Hybrid Mount 由内核源码提供，CI 保留其 4.14 适配，不用 GKI 模块覆盖。
+最终配置必须通过 BakaSU/Hybrid Mount/KEYS/TMPFS_XATTR 检查。
+
+刷机包包含 `Image.lz4`，限制 `flame` / `coral`，使用当前 A/B 槽位。
+打包沿用当前 boot 的 DTB、DTBO 和 ramdisk，不刷写其他槽位或分区。
+内核树内的模块会参与编译，但刷机包保留 ROM 现有模块；首次刷入前仍需验证模块 ABI、启动、
+触控、Wi-Fi、BakaSU 授权及 Hybrid Mount VFS 功能。

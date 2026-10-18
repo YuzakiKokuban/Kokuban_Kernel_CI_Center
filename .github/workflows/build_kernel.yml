@@ -16,6 +16,7 @@ on:
           - z6_sm8650
           - mi17_sm8850
           - razrfold_sm8845
+          - floral_sm8150
       branch:
         description: 'Git Branch/Tag'
         required: true
@@ -180,6 +181,18 @@ jobs:
             resolved_variant="$variant"
           fi
 
+          if [ "$project" = "floral_sm8150" ]; then
+            # The Pixel 4 tree carries BakaSU manual hooks and built-in Hybrid Mount.
+            # Never apply the global GKI/SUSFS defaults to this legacy kernel.
+            if [ "$branch" = "main" ]; then branch="bakasu"; fi
+            if [ "$variant" = "default" ] || [ -z "$variant" ]; then
+              resolved_variant="bakasu"
+            fi
+            apply_susfs="false"
+            apply_bbg="false"
+            apply_hybridmount="true"
+          fi
+
           safe_artifact_branch=$(printf '%s' "$branch" | sed 's#[^A-Za-z0-9._-]#-#g')
           artifact_name="${project}-kernel-${safe_artifact_branch}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
 
@@ -208,7 +221,18 @@ jobs:
             echo "ARTIFACT_NAME=$artifact_name"
           } >> "$GITHUB_ENV"
 
+      - name: Setup Rust for preview builds
+        if: github.ref != 'refs/heads/main'
+        uses: dtolnay/rust-toolchain@1.92.0
+
+      - name: Build preview CI Core
+        if: github.ref != 'refs/heads/main'
+        run: |
+          cargo build --release --locked --manifest-path ci_core_rs/Cargo.toml
+          cp ci_core_rs/target/release/kokuban_ci_core ./kokuban_ci_core
+
       - name: Download CI Core
+        if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
@@ -241,7 +265,7 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential git libncurses5-dev bc bison flex libssl-dev p7zip-full pigz lz4 cpio curl libelf-dev dwarves jq lld pahole libdw-dev
+          sudo apt-get install -y build-essential git libncurses5-dev bc bison flex libssl-dev p7zip-full pigz lz4 cpio curl libelf-dev dwarves jq lld pahole libdw-dev binutils-aarch64-linux-gnu binutils-arm-linux-gnueabi gcc-arm-linux-gnueabi
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Ensure compat cross-linker

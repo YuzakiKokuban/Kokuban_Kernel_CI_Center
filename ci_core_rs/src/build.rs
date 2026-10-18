@@ -617,6 +617,26 @@ fn apply_anykernel_config(anykernel_dir: &Path, config: &AnyKernelConfig) -> Res
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn disabled_config_validation_accepts_kconfig_not_set_syntax() {
+        let unique = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("pixel4-disabled-config-{unique}"));
+        fs::write(
+            &path,
+            "# CONFIG_KSU_SUSFS is not set\nCONFIG_HYBRIDMOUNT=y\n",
+        )
+        .unwrap();
+        let required = &[("CONFIG_KSU_SUSFS", "n"), ("CONFIG_HYBRIDMOUNT", "y")];
+        assert!(validate_kconfig_entries(&path, required).is_ok());
+        fs::write(&path, "CONFIG_KSU_SUSFS=y\nCONFIG_HYBRIDMOUNT=y\n").unwrap();
+        assert!(validate_kconfig_entries(&path, required).is_err());
+        fs::remove_file(path).unwrap();
+    }
+
     use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
@@ -1937,7 +1957,10 @@ fn validate_kconfig_entries(path: &Path, entries: &[(&str, &str)]) -> Result<()>
         .iter()
         .filter_map(|(key, value)| {
             let expected = format!("{key}={value}");
-            (!content.lines().any(|line| line == expected)).then_some(*key)
+            (!content.lines().any(|line| {
+                line == expected || (*value == "n" && line == format!("# {key} is not set"))
+            }))
+            .then_some(*key)
         })
         .collect();
 
@@ -2544,6 +2567,18 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
 
     let target_soc_str = project_key.split('_').nth(1).unwrap_or("unknown");
     let is_gki_612 = uses_gki_612_pipeline(&project_key, &proj);
+    let is_pixel4 = crate::pixel4::is_pixel4(proj.build_style.as_deref());
+    let apply_susfs = crate::pixel4::apply_susfs(proj.build_style.as_deref(), apply_susfs);
+    if is_pixel4 && !is_bakasu_variant(&branch) {
+        return Err(anyhow!(
+            "Pixel 4 requires the bakasu variant (source branch may be selected separately)"
+        ));
+    }
+    if is_pixel4 && (apply_bbg || !apply_hybridmount) {
+        return Err(anyhow!(
+            "Pixel 4 requires Hybrid Mount and does not support Baseband Guard"
+        ));
+    }
 
     let wrapper_dir = env::current_dir()?.join(".compiler_wrappers");
     let _ = fs::create_dir_all(&wrapper_dir);
@@ -2848,6 +2883,26 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
 
     let soc_arg = format!("TARGET_SOC={}", target_soc_str);
     make_args.push(&soc_arg);
+    if is_pixel4 {
+        // This 4.14 tree predates LLVM=1 and uses GNU binutils for AArch64.
+        make_args.retain(|arg| {
+            !arg.starts_with("LLVM")
+                && !arg.starts_with("HOSTLD=")
+                && !arg.starts_with("AR=")
+                && !arg.starts_with("NM=")
+                && !arg.starts_with("OBJCOPY=")
+                && !arg.starts_with("OBJDUMP=")
+                && !arg.starts_with("OBJSIZE=")
+                && !arg.starts_with("READELF=")
+                && !arg.starts_with("STRIP=")
+        });
+        make_args.extend_from_slice(&[
+            "CLANG_TRIPLE=aarch64-linux-gnu-",
+            "CROSS_COMPILE=aarch64-linux-gnu-",
+            "CROSS_COMPILE_ARM32=arm-linux-gnueabi-",
+            "HOSTCFLAGS=-fcommon",
+        ]);
+    }
 
     make_args.push(&rustc_arg);
     make_args.push(&hostrustc_arg);
@@ -2946,6 +3001,30 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
     )?;
 
     let mut disable_configs = vec!["TRIM_UNUSED_KSYMS"];
+    if is_pixel4 {
+        disable_configs.extend_from_slice(&[
+            "LTO",
+            "LTO_CLANG",
+            "CFI",
+            "CFI_CLANG",
+            "CFI_PERMISSIVE",
+            "KSU_SUSFS",
+            "KSU_TRACEPOINT_HOOK",
+        ]);
+        update_kconfig_file(
+            &kernel_source_path.join("out/.config"),
+            &[
+                ("CONFIG_KSU", "y"),
+                ("CONFIG_KSU_MANUAL_HOOK", "y"),
+                ("CONFIG_KSU_MANUAL_HOOK_AUTO_SETUID_HOOK", "y"),
+                ("CONFIG_KSU_MANUAL_HOOK_AUTO_INITRC_HOOK", "y"),
+                ("CONFIG_KSU_MANUAL_HOOK_AUTO_INPUT_HOOK", "y"),
+                ("CONFIG_HYBRIDMOUNT", "y"),
+                ("CONFIG_TMPFS_XATTR", "y"),
+                ("CONFIG_KEYS", "y"),
+            ],
+        )?;
+    }
     if let Some(disables) = &proj.disable_security {
         for d in disables {
             disable_configs.push(d);
@@ -3033,6 +3112,19 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
     if let Some(fragment) = kconfig_fragment.as_deref() {
         report_unapplied_fragment_entries(&final_config, &kernel_source_path.join(fragment))?;
     }
+    if is_pixel4 {
+        validate_kconfig_entries(
+            &final_config,
+            &[
+                ("CONFIG_KSU", "y"),
+                ("CONFIG_KSU_MANUAL_HOOK", "y"),
+                ("CONFIG_KSU_SUSFS", "n"),
+                ("CONFIG_HYBRIDMOUNT", "y"),
+                ("CONFIG_TMPFS_XATTR", "y"),
+                ("CONFIG_KEYS", "y"),
+            ],
+        )?;
+    }
     if is_gki_612 {
         validate_kconfig_entries(&final_config, GKI_CUSTOM_KCONFIG_ENTRIES)?;
         if setup_url.is_some() {
@@ -3093,7 +3185,13 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
             &build_env,
         )?;
     } else {
-        let mut build_cmd = vec!["make", &jobs, "Image", "modules"];
+        let targets = if is_pixel4 {
+            vec!["Image.lz4", "modules"]
+        } else {
+            vec!["Image", "modules"]
+        };
+        let mut build_cmd = vec!["make", &jobs];
+        build_cmd.extend_from_slice(&targets);
         build_cmd.extend_from_slice(&make_args);
         run_cmd_with_env(&build_cmd, Some(&kernel_source_path), &build_env)?;
     }
@@ -3124,12 +3222,15 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
         apply_anykernel_config(Path::new("AnyKernel3"), &anykernel_config)?;
     }
 
-    let image_path = kernel_source_path.join("out/arch/arm64/boot/Image");
+    let image_name = if is_pixel4 { "Image.lz4" } else { "Image" };
+    let image_path = kernel_source_path
+        .join("out/arch/arm64/boot")
+        .join(image_name);
     if !image_path.exists() {
         return Err(anyhow!("Image not found at {:?}", image_path));
     }
 
-    fs::copy(image_path, "AnyKernel3/Image")?;
+    fs::copy(image_path, Path::new("AnyKernel3").join(image_name))?;
 
     let hkt = FixedOffset::east_opt(8 * 3600).ok_or_else(|| anyhow!("Invalid HKT offset"))?;
     let date_str = Utc::now()

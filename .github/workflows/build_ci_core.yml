@@ -48,6 +48,8 @@ jobs:
           sha256sum kokuban_ci_core > kokuban_ci_core.sha256
 
       - name: Release CI Core
+        # Development branches run the gates without replacing the shared live binary.
+        if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ci-core-latest
