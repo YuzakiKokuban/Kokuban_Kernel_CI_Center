@@ -240,8 +240,12 @@ cargo run --bin kokuban_ci_core -- build --project s25_sm8750 --branch bakasu --
 在 **Build Kernel** 中选择该项目与 `bakasu` 分支；构建模式选择 `bakasu`
 （`default` 也会自动解析）。`Release All Branches` 和自动构建矩阵仅构建这个分支。
 
-版本格式为 `4.14.357-Kokuban-Kaltsit-BakaSU-g<内核提交>`，沿用 CI 的 12 位提交标识；
-不包含旧的 WireShark 后缀。
+源码使用 `YuzakiKokuban/android_kernel_google_msm-4.14` 的 `bakasu` 分支。
+版本格式为 `<源码内核版本>-Kokuban-Kaltsit-BakaSU-g<内核提交>-openela`，
+例如 `4.14.355-Kokuban-Kaltsit-BakaSU-g0123456789ab-openela`，沿用 CI 的 12 位提交标识。
+版本号由源码 Makefile 的 `kernelversion` 读取，不固定为 4.14.357。
+`openela` 是发行后缀，与数字版本分开。以后迁移到 5.10 或更高基线时继续保留品牌格式，
+但必须另行适配并验证构建流程、设备驱动和启动兼容性；当前 `pixel4-4.14` 流程仅验证 4.14。
 
 该项目使用 `pixel4-4.14` 流程：LLVM 12、GNU AArch64 binutils、无 LTO/CFI、
 BakaSU 手动 hooks，以及内核内建的 Hybrid Mount VFS。每次构建拉取 BakaSU `main`

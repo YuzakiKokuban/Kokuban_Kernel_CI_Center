@@ -409,10 +409,9 @@
     }
   },
   "floral_sm8150": {
-    "repo": "YuzakiKokuban/infinity_cnb_kernel_google_msm-4.14",
+    "repo": "YuzakiKokuban/android_kernel_google_msm-4.14",
     "defconfig": "floral_defconfig",
     "localversion_base": "-Kokuban-Kaltsit",
-    "expected_kernel_version": "4.14.357",
     "lto": "none",
     "build_style": "pixel4-4.14",
     "supported_ksu": [

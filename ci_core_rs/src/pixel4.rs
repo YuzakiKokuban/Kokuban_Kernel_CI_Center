@@ -13,7 +13,11 @@ pub fn localversion(base: &str, sha: &str) -> anyhow::Result<String> {
     if sha.is_empty() || !sha.bytes().all(|byte| byte.is_ascii_hexdigit()) {
         return Err(anyhow::anyhow!("Invalid kernel source commit: {sha}"));
     }
-    Ok(format!("-{}-g{}", base.trim_start_matches('-'), sha))
+    Ok(format!(
+        "-{}-g{}-openela",
+        base.trim_start_matches('-').trim_end_matches("-openela"),
+        sha
+    ))
 }
 
 #[cfg(test)]
@@ -24,7 +28,11 @@ mod tests {
     fn release_uses_kaltsit_and_preserves_the_ci_kernel_hash() {
         assert_eq!(
             localversion("-Kokuban-Kaltsit-BakaSU", "abcdef012345").unwrap(),
-            "-Kokuban-Kaltsit-BakaSU-gabcdef012345"
+            "-Kokuban-Kaltsit-BakaSU-gabcdef012345-openela"
+        );
+        assert_eq!(
+            localversion("-Custom-openela", "abcdef012345").unwrap(),
+            "-Custom-gabcdef012345-openela"
         );
         assert!(localversion("-Kokuban-Kaltsit-BakaSU", "unknown").is_err());
         assert!(localversion("-Kokuban-Kaltsit-BakaSU", "").is_err());
