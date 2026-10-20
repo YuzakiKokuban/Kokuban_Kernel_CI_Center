@@ -9,8 +9,8 @@ use std::path::{Path, PathBuf};
 use crate::config::{AbiBaseline, AnyKernelConfig, BbgConfig, ProjectConfig};
 use crate::utils::{
     cache_file_name, command_exists, env_flag, file_sha256, handle_notify, is_bakasu_variant,
-    load_anykernel_config, load_project, run_cmd, run_cmd_with_env, set_github_output, url_file_name,
-    variant_suffix,
+    load_anykernel_config, load_project, run_cmd, run_cmd_with_env, set_github_output,
+    url_file_name, variant_suffix,
 };
 
 const ANYKERNEL_REPO: &str = "https://github.com/YuzakiKokuban/AnyKernel3.git";
@@ -1927,7 +1927,9 @@ pub fn integrate_bakasu_hooks(
     if let Some(config) = final_config {
         command.arg("--check-config").arg(config);
     }
-    let status = command.status().context("Cannot run BakaSU hook integration")?;
+    let status = command
+        .status()
+        .context("Cannot run BakaSU hook integration")?;
     if !status.success() {
         return Err(anyhow!(
             "BakaSU hook integration failed for {project}: {status}"
