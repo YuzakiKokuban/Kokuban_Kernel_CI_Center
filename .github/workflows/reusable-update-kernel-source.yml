@@ -32,6 +32,9 @@ jobs:
         with:
           sparse-checkout: |
             configs/universal.gitignore
+            configs/projects.json
+            configs/bakasu
+            scripts/bakasu-hooks.py
           sparse-checkout-cone-mode: false
 
       - name: Update Kernel Source for each project
@@ -42,6 +45,7 @@ jobs:
           LATEST_COMMIT_SHORT: ${{ inputs.latest_commit_short }}
           COMMIT_MESSAGE: ${{ inputs.commit_message }}
         run: |
+          set -euo pipefail
           # --- Configuration ---
           if [[ "$KSU_TYPE" != "bakasu" ]]; then
             echo "Unsupported ksu_type: $KSU_TYPE"
@@ -68,7 +72,10 @@ jobs:
             cp ${{ github.workspace }}/configs/universal.gitignore ./.gitignore
 
             echo "Running setup.sh from $SETUP_URL..."
-            curl -LSs "$SETUP_URL" | bash -s main
+            curl -fLSs "$SETUP_URL" | bash -s main
+            DEFCONFIG=$(jq -er --arg key "$PROJECT_KEY" '.[$key].defconfig' "$GITHUB_WORKSPACE/configs/projects.json")
+            python3 "$GITHUB_WORKSPACE/scripts/bakasu-hooks.py" \
+              --source "$PWD" --project "$PROJECT_KEY" --defconfig "$DEFCONFIG"
             
             git config --global user.name "GitHub Actions"
             git config --global user.email "actions@github.com"

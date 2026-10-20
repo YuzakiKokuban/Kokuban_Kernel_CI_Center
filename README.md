@@ -11,7 +11,7 @@ Kokuban Kernel CI Center 是一个专为 Android Linux 内核编译设计的集�
 * **集中化构建编排**：通过统一的 Rust 核心程序管理所有构建逻辑，替代了传统的碎片化 Shell 脚本，确保了构建过程的类型安全与逻辑严密性。
 * **多设备支持**：支持通过配置文件定义不同设备的构建参数（Defconfig、工具链、源码仓库），当前已覆盖三星与小米多个平台。
 * **精简的构建模式**：围绕 `LKM` 与 `BakaSU` 两种模式提供自动补丁与集成支持，已移除旧的 `KSU/MKSU` 内置分支流转。
-* **动态特性注入**：支持在构建阶段按需注入 `Hybrid Mount`、`SuSFS` 与 `BBG`。Hybrid Mount 适用于所有内核，自动构建默认集成并可通过 workflow 选项关闭；`SuSFS` 仅在 `BakaSU` 构建中启用，BBG 仅对声明支持的项目可用。
+* **动态特性注入**：支持在构建阶段按需注入 `Hybrid Mount` 与 `BBG`。Hybrid Mount 适用于所有内核，自动构建默认集成并可通过 workflow 选项关闭，BBG 仅对声明支持的项目可用。
 * **智能工具链管理**：支持从远程 URL 自动下载、校验并解压编译工具链，兼容分卷压缩格式，并自动配置交叉编译环境变量（CLANG, GCC, Binutils）。
 * **发布工作流闭环**：构建完成后自动打包 AnyKernel3 刷机包，推送到对应的 GitHub Releases 页面，并通过 Telegram Bot API 发送详细的发布通知。
 * **上游监听**：`Watch Upstream KernelSU` 会对所有支持对应 KernelSU 变体的项目生效，并自动同步上游变更。
@@ -63,7 +63,7 @@ Kokuban Kernel CI Center 是一个专为 Android Linux 内核编译设计的集�
 * **Git Branch/Tag**: 指定内核源码分支，通常使用 `main` 或 `bakasu`。
 * **Build Mode Override**: 选择构建模式（默认为 `default`，即跟随分支策略）。
 * **Create Release**: 是否在构建成功后创建 GitHub Release。
-* **Apply Hybrid Mount / SuSFS / BBG**: workflow 中 Hybrid Mount 与 SuSFS 默认开启，BBG 默认关闭；可按需取消勾选 Hybrid Mount。其中 Hybrid Mount 适用于所有项目，`SuSFS` 仅在 `BakaSU` 构建时真正生效。
+* **Apply Hybrid Mount / BBG**: Hybrid Mount 默认开启，BBG 默认关闭，仅对声明支持的项目可用。
 
 ### 2. 仓库初始化与分支整理
 
@@ -116,8 +116,7 @@ sudo apt-get install -y build-essential git libncurses5-dev bc bison flex \
 # BakaSU
 ./kokuban build s25_sm8750 bakasu bakasu
 
-# 本地 CLI 仍默认启用 Hybrid Mount；可用开关覆盖 Hybrid Mount、SuSFS 与 BBG
-./kokuban build s25_sm8750 bakasu bakasu --no-susfs
+# 本地 CLI 仍默认启用 Hybrid Mount；可用开关覆盖 Hybrid Mount 与 BBG
 ./kokuban build s25_sm8750 bakasu bakasu --with-bbg
 ./kokuban build s25_sm8750 bakasu bakasu --no-hybridmount
 
@@ -129,7 +128,7 @@ sudo apt-get install -y build-essential git libncurses5-dev bc bison flex \
 
 ```bash
 ./kokuban list                 # 列出可用项目
-./kokuban features             # 查看所有项目的 Hybrid Mount / SuSFS / BBG 支持状态
+./kokuban features             # 查看所有项目的 Hybrid Mount / BBG 支持状态
 ./kokuban features s25_sm8750  # 查看单个项目的扩展能力配置
 ./kokuban validate             # 校验项目配置完整性
 ./kokuban validate --strict    # 将未配置工具链摘要等警告视为失败
@@ -147,11 +146,10 @@ sudo apt-get install -y build-essential git libncurses5-dev bc bison flex \
 ./kokuban plan s25_sm8750 bakasu bakasu
 ```
 
-本地 CLI 默认会给构建传入 `apply_hybridmount=true`、`apply_susfs=true` 与 `apply_bbg=false`。也可以写入本地默认配置：
+本地 CLI 默认会给构建传入 `apply_hybridmount=true` 与 `apply_bbg=false`。也可以写入本地默认配置：
 
 ```bash
 ./kokuban config show
-./kokuban config set apply_susfs true
 ./kokuban config set apply_bbg false
 ./kokuban config set apply_hybridmount true
 ./kokuban config set local_root ~/kokuban-local-cache
@@ -185,7 +183,7 @@ KOKUBAN_MAKE_JOBS=16 ./kokuban build s23_sm8550
 
 构建完成后，产物会保留在工作区，同时归档到 `artifacts/<project>/<build-id>`，并更新 `artifacts/<project>/latest` 软链接。归档内容包含刷机包、`.config`、`vmlinux.symvers` 与本次构建日志。
 
-每次构建还会写入 `build-info.json`，记录项目、源码提交、Hybrid Mount / SuSFS / BBG 状态、主机信息、工具链缓存路径与 SHA-256。构建失败时，CLI 会从日志中提取关键错误行和最后一段日志，直接打印失败摘要。
+每次构建还会写入 `build-info.json`，记录项目、源码提交、Hybrid Mount / BBG 状态、主机信息、工具链缓存路径与 SHA-256。构建失败时，CLI 会从日志中提取关键错误行和最后一段日志，直接打印失败摘要。
 
 缓存清理示例：
 
@@ -250,8 +248,7 @@ cargo run --bin kokuban_ci_core -- build --project s25_sm8750 --branch bakasu --
 该项目使用 `pixel4-4.14` 流程：LLVM 12、GNU AArch64 binutils、无 LTO/CFI、
 BakaSU 手动 hooks，以及内核内建的 Hybrid Mount VFS。每次构建拉取 BakaSU `main`
 最新代码，不在内核中保存 BakaSU gitlink 或固定提交。实际版本和提交哈希写入构建日志。
-SUSFS 始终关闭，
-不受工作流或本地全局默认值影响；Baseband Guard 不适用于此项目。
+Baseband Guard 不适用于此项目。
 Hybrid Mount 由内核源码提供，CI 保留其 4.14 适配，不用 GKI 模块覆盖。
 最终配置必须通过 BakaSU/Hybrid Mount/KEYS/TMPFS_XATTR 检查。
 
@@ -259,3 +256,14 @@ Hybrid Mount 由内核源码提供，CI 保留其 4.14 适配，不用 GKI 模�
 打包沿用当前 boot 的 DTB、DTBO 和 ramdisk，不刷写其他槽位或分区。
 内核树内的模块会参与编译，但刷机包保留 ROM 现有模块；首次刷入前仍需验证模块 ABI、启动、
 触控、Wi-Fi、BakaSU 授权及 Hybrid Mount VFS 功能。
+
+### BakaSU hook 校验
+
+所有 BakaSU 构建在 setup 后、生成配置前执行 `scripts/bakasu-hooks.py`，
+按项目应用 `configs/bakasu/` 中的手动 hook 补丁；Pixel 4 已内置相应调用点。
+`Setup Kernel Repos` 同样将补丁及配置写入各仓库的 `bakasu` 分支。
+所有项目启用 `KSU_MANUAL_HOOK`；6.8 以下使用自动 LSM setuid/initrc，
+6.8 及以上显式接入 setresuid/read，input 使用自动 handler。
+exec 的前后调用保留 filename 引用，分别适配普通及 atomic 引用计数。
+最终 `olddefconfig` 后再次检查调用点和配置；不完整、旧接口冲突、补丁不匹配均中止构建。
+SUSFS 编译选项、下载和注入机制已移除，旧 CLI 开关不再接受。

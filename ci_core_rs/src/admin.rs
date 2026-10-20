@@ -124,16 +124,6 @@ pub fn handle_features(project: Option<String>) -> Result<()> {
         println!("project={}", project);
         println!("repo={}", proj.repo);
         println!("defconfig={}", proj.defconfig);
-        if crate::pixel4::is_pixel4(proj.build_style.as_deref()) {
-            println!("susfs=disabled");
-        } else if let Some(susfs) = proj.susfs {
-            println!("susfs=enabled");
-            println!("susfs_repo={}", susfs.repo);
-            println!("susfs_branch={}", susfs.branch);
-            println!("susfs_patch={}", susfs.patch_path);
-        } else {
-            println!("susfs=missing");
-        }
         if let Some(bbg) = proj.bbg {
             println!("bbg=enabled");
             println!(
@@ -151,15 +141,8 @@ pub fn handle_features(project: Option<String>) -> Result<()> {
 
     for (key, proj) in project_values()? {
         println!(
-            "{}\tsusfs={}\tbbg={}\thybridmount=enabled",
+            "{}\tbbg={}\thybridmount=enabled",
             key,
-            if crate::pixel4::is_pixel4(proj.build_style.as_deref()) {
-                "disabled"
-            } else if proj.susfs.is_some() {
-                "enabled"
-            } else {
-                "missing"
-            },
             if proj.bbg.is_some() {
                 "enabled"
             } else {
@@ -265,20 +248,6 @@ fn validate_project_cross_references(
                     .and_then(|b| b.consumer_manifest.as_deref()),
             ),
             ("kconfig_fragment", proj.kconfig_fragment.as_deref()),
-            (
-                "susfs.patch_path",
-                proj.susfs.as_ref().map(|s| s.patch_path.as_str()),
-            ),
-            (
-                "susfs.fs_patch_dir",
-                proj.susfs.as_ref().and_then(|s| s.fs_patch_dir.as_deref()),
-            ),
-            (
-                "susfs.include_linux_patch_dir",
-                proj.susfs
-                    .as_ref()
-                    .and_then(|s| s.include_linux_patch_dir.as_deref()),
-            ),
         ];
 
         for (label, path) in relative_paths {
@@ -288,18 +257,6 @@ fn validate_project_cross_references(
                 errors.push(format!(
                     "{key}: {label} must be relative and stay inside the kernel source, got {path:?}"
                 ));
-            }
-        }
-
-        if let Some(susfs) = &proj.susfs {
-            for (label, value) in [
-                ("repo", &susfs.repo),
-                ("branch", &susfs.branch),
-                ("patch_path", &susfs.patch_path),
-            ] {
-                if value.trim().is_empty() {
-                    errors.push(format!("{key}: susfs.{label} must not be empty"));
-                }
             }
         }
     }
@@ -353,9 +310,6 @@ pub fn handle_validate(strict: bool) -> Result<()> {
             .unwrap_or(true)
         {
             errors.push(format!("{key}: missing toolchain_urls"));
-        }
-        if proj.susfs.is_none() && !crate::pixel4::is_pixel4(proj.build_style.as_deref()) {
-            errors.push(format!("{key}: missing susfs"));
         }
     }
 
@@ -469,7 +423,6 @@ pub fn handle_cache_clean(
 pub fn handle_config_show() -> Result<()> {
     let settings = settings::load_settings()?;
     println!("config_file={}", settings::config_file()?.display());
-    println!("apply_susfs={}", settings.apply_susfs);
     println!("apply_bbg={}", settings.apply_bbg);
     println!("apply_hybridmount={}", settings.apply_hybridmount);
     println!(
@@ -725,11 +678,6 @@ mod tests {
             "zip_name_prefix": prefix,
             "anykernel_config": ak3,
             "toolchain_urls": ["https://example.com/tc.zip"],
-            "susfs": {
-                "repo": "https://example.com/susfs.git",
-                "branch": "main",
-                "patch_path": "kernel_patches/50_add.patch"
-            }
         });
         (
             key.to_string(),
@@ -829,13 +777,6 @@ mod tests {
     fn cross_reference_rejects_paths_that_escape_with_parent_components() {
         let mut proj = project_with("a_sm1", "A_Kernel", "canoe").1;
         proj.kconfig_fragment = Some("Kokuban/../outside.fragment".to_string());
-        proj.susfs = Some(crate::config::SusfsConfig {
-            repo: "https://example.com/susfs.git".to_string(),
-            branch: "main".to_string(),
-            patch_path: "kernel_patches/50_add.patch".to_string(),
-            fs_patch_dir: Some("../outside".to_string()),
-            include_linux_patch_dir: None,
-        });
 
         let projects = vec![("a_sm1".to_string(), proj)];
         let (errors, _) = validate_project_cross_references(&projects, &ak3_keys(&["canoe"]));
@@ -845,7 +786,7 @@ mod tests {
                 .iter()
                 .filter(|error| error.contains("must be relative"))
                 .count(),
-            2,
+            1,
             "parent components must be rejected for every kernel-relative path: {errors:?}"
         );
     }
