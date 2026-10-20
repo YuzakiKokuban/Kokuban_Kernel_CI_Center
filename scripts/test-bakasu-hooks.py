@@ -30,7 +30,7 @@ class HookGateTests(unittest.TestCase):
     def test_retired_config_is_removed_and_rejected_if_reenabled(self):
         with tempfile.TemporaryDirectory() as tmp:
             cfg = Path(tmp) / 'defconfig'
-            cfg.write_text('CONFIG_KSU_SUSFS=y\nCONFIG_KSU_SUSFS_SUS_PATH=y\nCONFIG_KEYS=y\n')
+            cfg.write_text('# KernelSU - SUSFS\nCONFIG_KSU_SUSFS=y\nCONFIG_KSU_SUSFS_SUS_PATH=y\n# end of KernelSU - SUSFS\nCONFIG_KEYS=y\n')
             hooks.configure(cfg, (6, 12))
             self.assertNotIn('SUSFS', cfg.read_text())
             self.assertIn('CONFIG_KEYS=y', cfg.read_text())

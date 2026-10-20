@@ -41,14 +41,29 @@ Verification performed:
   and reusable update workflow were repaired and reviewed again.
 
 Limits: these are source/configuration and tool checks, not full kernel builds
-or device boot tests. rustfmt, clippy, and shellcheck are not installed in this
-environment. Remote kernel repositories have not been pushed or synchronized by
-this session; the prepared changes must be committed/deployed, then repository
-setup/update will persist the hooks to their `bakasu` branches. Build-time
-integration also handles source branches that have not yet been synchronized.
+or device boot tests. rustfmt, clippy, and shellcheck were unavailable locally during the initial
+implementation. On 2026-10-20, the cloud Build CI Core workflow passed Rust
+formatting, clippy, tests, binary compilation, checksums, and release publication.
+All 10 remote `bakasu` branches are now synchronized and read back; their core
+source blob hashes match the locally validated files. The 9 existing `main`
+branches also have their retired config/payload fields and feature claims removed.
+Pixel 4 has no `main` branch. Build-time integration remains active to cover
+future source updates. See `bakasu-sync-2026-10-20.json` for exact commits.
 
 SUSFS options, defaults, source configuration, overlay downloads, patching,
 release suffixes, and CLI/workflow plumbing were removed. Remaining references
 are negative validation, regression coverage, and this migration description.
 Upstream BakaSU itself is fetched unchanged; its optional driver-side code is
 not maintained by this CI repository and is not enabled by this integration.
+
+## Remote synchronization — 2026-10-20
+
+- CI implementation: `c78b643d059d7d83f9e84df1e0d05ab8b4bb7a65`.
+- Rust format correction: `daa7ace41c62ad083c8d6c95c1137546631dccbf`.
+- [Build CI Core passed](https://github.com/YuzakiKokuban/Kokuban_Kernel_CI_Center/actions/runs/39402920061), including release publication.
+- Re-fetched all 10 source trees at pinned commit IDs, applied patches, checked
+  repeat integration and ran the current upstream manual hook checker again.
+- Read back every synchronized branch and checked configs and payloads for any
+  remaining retired feature references. S25's stale menu comments were also
+  removed, and the regression test now covers them.
+- No full kernel compilation or device boot test was performed by this change.

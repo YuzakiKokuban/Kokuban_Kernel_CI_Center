@@ -1,0 +1,397 @@
+{
+  "date": "2026-10-20",
+  "central_commit": "daa7ace41c62ad083c8d6c95c1137546631dccbf",
+  "kernel_sources": [
+    {
+      "project": "z5_sm8550",
+      "repo": "YuzakiKokuban/android_kernel_samsung_sm8550_Z5",
+      "sha": "7d8b7f1c3a5a3e9669519f859bb69388a3106c90",
+      "files": [
+        "fs/exec.c",
+        "fs/open.c",
+        "fs/stat.c",
+        "kernel/reboot.c",
+        "arch/arm64/configs/defconfig",
+        ".github/workflows/trigger-central-build.yml"
+      ]
+    },
+    {
+      "project": "s25_sm8750",
+      "repo": "YuzakiKokuban/android_kernel_samsung_sm8750",
+      "sha": "f4725f0e5403ae871acf522475718c273cd3aecf",
+      "files": [
+        "fs/exec.c",
+        "fs/open.c",
+        "fs/stat.c",
+        "kernel/reboot.c",
+        "arch/arm64/configs/defconfig",
+        ".github/workflows/trigger-central-build.yml"
+      ]
+    },
+    {
+      "project": "s23_sm8550",
+      "repo": "YuzakiKokuban/android_kernel_samsung_sm8550_S23",
+      "sha": "31a77be31b1de803b701eedebe5015d11c969b7d",
+      "files": [
+        "fs/exec.c",
+        "fs/open.c",
+        "fs/stat.c",
+        "kernel/reboot.c",
+        "arch/arm64/configs/defconfig",
+        ".github/workflows/trigger-central-build.yml"
+      ]
+    },
+    {
+      "project": "tabs9_sm8550",
+      "repo": "YuzakiKokuban/android_kernel_samsung_sm8550_TabS9",
+      "sha": "e291e6e6ff0b07efee9e05fcb70e9b64836933b7",
+      "files": [
+        "fs/exec.c",
+        "fs/open.c",
+        "fs/stat.c",
+        "kernel/reboot.c",
+        "arch/arm64/configs/defconfig",
+        ".github/workflows/trigger-central-build.yml"
+      ]
+    },
+    {
+      "project": "s24_sm8650",
+      "repo": "YuzakiKokuban/android_kernel_samsung_sm8650",
+      "sha": "218f44ecdd7459f265a5788d44017eadf3cd4631",
+      "files": [
+        "fs/exec.c",
+        "fs/open.c",
+        "fs/stat.c",
+        "kernel/reboot.c",
+        "arch/arm64/configs/defconfig",
+        ".github/workflows/trigger-central-build.yml"
+      ]
+    },
+    {
+      "project": "tabs10_mt6989",
+      "repo": "YuzakiKokuban/android_kernel_samsung_mt6989_TabS10",
+      "sha": "a99262bc287c1f48cf0331704cc2ff4151bd7f17",
+      "files": [
+        "fs/exec.c",
+        "fs/open.c",
+        "fs/stat.c",
+        "kernel/reboot.c",
+        "arch/arm64/configs/defconfig",
+        ".github/workflows/trigger-central-build.yml"
+      ]
+    },
+    {
+      "project": "z6_sm8650",
+      "repo": "YuzakiKokuban/android_kernel_samsung_sm8650_Z6",
+      "sha": "2c430009c42ceeceebf59743f608ce72b6440cc8",
+      "files": [
+        "fs/exec.c",
+        "fs/open.c",
+        "fs/stat.c",
+        "kernel/reboot.c",
+        "arch/arm64/configs/defconfig",
+        ".github/workflows/trigger-central-build.yml"
+      ]
+    },
+    {
+      "project": "mi17_sm8850",
+      "repo": "YuzakiKokuban/android_kernel_xiaomi_sm8850",
+      "sha": "f0f101387efa29594d5714de091946f020ce8aaf",
+      "files": [
+        "fs/exec.c",
+        "fs/open.c",
+        "fs/stat.c",
+        "kernel/reboot.c",
+        "kernel/sys.c",
+        "fs/read_write.c",
+        "arch/arm64/configs/gki_defconfig",
+        ".github/workflows/trigger-central-build.yml"
+      ]
+    },
+    {
+      "project": "razrfold_sm8845",
+      "repo": "YuzakiKokuban/android_kernel_motorola_blanc",
+      "sha": "83652009d7122b5f440a3ea3ea5b8f7823ae7f64",
+      "files": [
+        "fs/exec.c",
+        "fs/open.c",
+        "fs/stat.c",
+        "kernel/reboot.c",
+        "kernel/sys.c",
+        "fs/read_write.c",
+        "arch/arm64/configs/blanc_defconfig",
+        ".github/workflows/trigger-central-build.yml"
+      ]
+    },
+    {
+      "project": "floral_sm8150",
+      "repo": "YuzakiKokuban/android_kernel_google_msm-4.14",
+      "sha": "e99e93de6f97aec6f3ddb847245f82a291147989",
+      "files": [
+        "arch/arm64/configs/floral_defconfig",
+        ".github/workflows/trigger-central-build.yml"
+      ]
+    }
+  ],
+  "branches": [
+    {
+      "project": "z5_sm8550",
+      "repo": "YuzakiKokuban/android_kernel_samsung_sm8550_Z5",
+      "branches": [
+        {
+          "branch": "bakasu",
+          "sha": "2f866cadb84b621bf38b9681fa46da3c3b45e918"
+        },
+        {
+          "branch": "main",
+          "sha": "ff881d0dce93974cf6d55098dadd3faeb9c070ff"
+        }
+      ],
+      "result": "PASS"
+    },
+    {
+      "project": "s25_sm8750",
+      "repo": "YuzakiKokuban/android_kernel_samsung_sm8750",
+      "branches": [
+        {
+          "branch": "bakasu",
+          "sha": "29ee25041c627dc7df91e8e031d40d5072947d36"
+        },
+        {
+          "branch": "main",
+          "sha": "aadec03b89aa554a6b77c5e5a2b5822b023520e6"
+        }
+      ],
+      "result": "PASS"
+    },
+    {
+      "project": "s23_sm8550",
+      "repo": "YuzakiKokuban/android_kernel_samsung_sm8550_S23",
+      "branches": [
+        {
+          "branch": "bakasu",
+          "sha": "42ca9f341a666ebed5540c1275817f0037202c5a"
+        },
+        {
+          "branch": "main",
+          "sha": "3aac48ac7f5bdb952d67a26cb0f141b757c7d9bf"
+        }
+      ],
+      "result": "PASS"
+    },
+    {
+      "project": "tabs9_sm8550",
+      "repo": "YuzakiKokuban/android_kernel_samsung_sm8550_TabS9",
+      "branches": [
+        {
+          "branch": "bakasu",
+          "sha": "42ef8a3a5d0fa2bb61db3332520c030d3b1423d8"
+        },
+        {
+          "branch": "main",
+          "sha": "b923c32e3a2e692f9e5da456f7e954dbb283689c"
+        }
+      ],
+      "result": "PASS"
+    },
+    {
+      "project": "s24_sm8650",
+      "repo": "YuzakiKokuban/android_kernel_samsung_sm8650",
+      "branches": [
+        {
+          "branch": "bakasu",
+          "sha": "7b6a78302a92efb231928a355ab644fc9f718a35"
+        },
+        {
+          "branch": "main",
+          "sha": "7c7f8dd8302865246975099b2388475deda2b8f4"
+        }
+      ],
+      "result": "PASS"
+    },
+    {
+      "project": "tabs10_mt6989",
+      "repo": "YuzakiKokuban/android_kernel_samsung_mt6989_TabS10",
+      "branches": [
+        {
+          "branch": "bakasu",
+          "sha": "b94765309b579bc300f7c37d2c8bf3688e2cadc7"
+        },
+        {
+          "branch": "main",
+          "sha": "1eb7701837df933cb55b17bfb462d091df8c303d"
+        }
+      ],
+      "result": "PASS"
+    },
+    {
+      "project": "z6_sm8650",
+      "repo": "YuzakiKokuban/android_kernel_samsung_sm8650_Z6",
+      "branches": [
+        {
+          "branch": "bakasu",
+          "sha": "dc525a2b9b7d9f531de90cad58a096f24b4e8d99"
+        },
+        {
+          "branch": "main",
+          "sha": "44f2e9ef6bb29d242744533262c04237ce01e53d"
+        }
+      ],
+      "result": "PASS"
+    },
+    {
+      "project": "mi17_sm8850",
+      "repo": "YuzakiKokuban/android_kernel_xiaomi_sm8850",
+      "branches": [
+        {
+          "branch": "bakasu",
+          "sha": "9502567f853dd9dcf928fcfefcb61e4bec18ed69"
+        },
+        {
+          "branch": "main",
+          "sha": "800c99a9477cae73e47bb3a19b45a31d9a2c9e7a"
+        }
+      ],
+      "result": "PASS"
+    },
+    {
+      "project": "razrfold_sm8845",
+      "repo": "YuzakiKokuban/android_kernel_motorola_blanc",
+      "branches": [
+        {
+          "branch": "bakasu",
+          "sha": "f7112d422ece254e68d8dfa61c4e490951c7496b"
+        },
+        {
+          "branch": "main",
+          "sha": "60fad92306f327af0576fc9ba4f863fad63d043d"
+        }
+      ],
+      "result": "PASS"
+    },
+    {
+      "project": "floral_sm8150",
+      "repo": "YuzakiKokuban/android_kernel_google_msm-4.14",
+      "branches": [
+        {
+          "branch": "bakasu",
+          "sha": "e99e93de6f97aec6f3ddb847245f82a291147989"
+        }
+      ],
+      "result": "PASS"
+    }
+  ],
+  "source_verification": [
+    {
+      "status": "fulfilled",
+      "value": {
+        "project": "z5_sm8550",
+        "repo": "YuzakiKokuban/android_kernel_samsung_sm8550_Z5",
+        "sha": "2f866cadb84b621bf38b9681fa46da3c3b45e918",
+        "source_hashes": "PASS",
+        "config": "PASS",
+        "trigger": "PASS"
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "project": "s25_sm8750",
+        "repo": "YuzakiKokuban/android_kernel_samsung_sm8750",
+        "sha": "29ee25041c627dc7df91e8e031d40d5072947d36",
+        "source_hashes": "PASS",
+        "config": "PASS",
+        "trigger": "PASS"
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "project": "s23_sm8550",
+        "repo": "YuzakiKokuban/android_kernel_samsung_sm8550_S23",
+        "sha": "42ca9f341a666ebed5540c1275817f0037202c5a",
+        "source_hashes": "PASS",
+        "config": "PASS",
+        "trigger": "PASS"
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "project": "tabs9_sm8550",
+        "repo": "YuzakiKokuban/android_kernel_samsung_sm8550_TabS9",
+        "sha": "42ef8a3a5d0fa2bb61db3332520c030d3b1423d8",
+        "source_hashes": "PASS",
+        "config": "PASS",
+        "trigger": "PASS"
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "project": "s24_sm8650",
+        "repo": "YuzakiKokuban/android_kernel_samsung_sm8650",
+        "sha": "7b6a78302a92efb231928a355ab644fc9f718a35",
+        "source_hashes": "PASS",
+        "config": "PASS",
+        "trigger": "PASS"
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "project": "tabs10_mt6989",
+        "repo": "YuzakiKokuban/android_kernel_samsung_mt6989_TabS10",
+        "sha": "b94765309b579bc300f7c37d2c8bf3688e2cadc7",
+        "source_hashes": "PASS",
+        "config": "PASS",
+        "trigger": "PASS"
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "project": "z6_sm8650",
+        "repo": "YuzakiKokuban/android_kernel_samsung_sm8650_Z6",
+        "sha": "dc525a2b9b7d9f531de90cad58a096f24b4e8d99",
+        "source_hashes": "PASS",
+        "config": "PASS",
+        "trigger": "PASS"
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "project": "mi17_sm8850",
+        "repo": "YuzakiKokuban/android_kernel_xiaomi_sm8850",
+        "sha": "9502567f853dd9dcf928fcfefcb61e4bec18ed69",
+        "source_hashes": "PASS",
+        "config": "PASS",
+        "trigger": "PASS"
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "project": "razrfold_sm8845",
+        "repo": "YuzakiKokuban/android_kernel_motorola_blanc",
+        "sha": "f7112d422ece254e68d8dfa61c4e490951c7496b",
+        "source_hashes": "PASS",
+        "config": "PASS",
+        "trigger": "PASS"
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "project": "floral_sm8150",
+        "repo": "YuzakiKokuban/android_kernel_google_msm-4.14",
+        "sha": "e99e93de6f97aec6f3ddb847245f82a291147989",
+        "source_hashes": "PASS",
+        "config": "PASS",
+        "trigger": "PASS"
+      }
+    }
+  ],
+  "ci_core_run": "https://github.com/YuzakiKokuban/Kokuban_Kernel_CI_Center/actions/runs/39402920061"
+}

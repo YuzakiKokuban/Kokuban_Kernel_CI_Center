@@ -111,7 +111,7 @@ def configure(path, version):
     lines = []
     for line in path.read_text().splitlines():
         match = re.match(r'(?:# )?(CONFIG_\w+)(?:=| is not set)', line)
-        if match and (match[1] in entries or 'SUSFS' in match[1]):
+        if 'SUSFS' in line or (match and match[1] in entries):
             continue
         lines.append(line)
     for key, value in entries.items():
