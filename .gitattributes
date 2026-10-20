@@ -1,0 +1,2 @@
+# Unified-diff context retains a leading space before source tabs/blank lines.
+configs/bakasu/*.patch -whitespace
