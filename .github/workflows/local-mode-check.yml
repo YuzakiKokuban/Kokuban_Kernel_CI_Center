@@ -24,8 +24,9 @@ jobs:
 
       - name: Setup Rust
         # Must match rust-toolchain.toml; see build_ci_core.yml for why the channel is pinned.
-        uses: dtolnay/rust-toolchain@1.120.0
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
         with:
+          toolchain: 1.92.0
           components: rustfmt, clippy
 
       - name: Cache Rust
@@ -50,6 +51,9 @@ jobs:
       - name: Rust tests
         run: cargo test --locked --manifest-path ci_core_rs/Cargo.toml
 
+      - name: BakaSU hook gate tests
+        run: python3 scripts/test-bakasu-hooks.py
+
       - name: Wrapper tests
         run: |
           ./scripts/check-shell.sh
@@ -59,7 +63,7 @@ jobs:
       - name: Kokuban validation
         run: |
           ./kokuban validate
-          ./kokuban plan s23_sm8550 main default --no-susfs --no-bbg
+          ./kokuban plan s23_sm8550 main default --no-bbg
 
   docker-smoke:
     runs-on: ubuntu-latest
@@ -72,4 +76,4 @@ jobs:
       - name: Smoke test in container
         run: |
           docker run --rm -v "$PWD":/workspace kokuban-local ./kokuban validate
-          docker run --rm -v "$PWD":/workspace kokuban-local ./kokuban plan s23_sm8550 main default --no-susfs --no-bbg
+          docker run --rm -v "$PWD":/workspace kokuban-local ./kokuban plan s23_sm8550 main default --no-bbg

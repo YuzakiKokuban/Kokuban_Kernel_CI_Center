@@ -145,8 +145,6 @@ enum Commands {
         #[arg(long, allow_hyphen_values = true)]
         bakasu_setup_arg: Option<String>,
         #[arg(long, action = clap::ArgAction::Set)]
-        apply_susfs: bool,
-        #[arg(long, action = clap::ArgAction::Set)]
         apply_bbg: bool,
         #[arg(long, action = clap::ArgAction::Set, default_value_t = true)]
         apply_hybridmount: bool,
@@ -170,12 +168,6 @@ enum Commands {
         custom_localversion: Option<String>,
         #[arg(long, allow_hyphen_values = true)]
         bakasu_setup_arg: Option<String>,
-        #[arg(long, action = clap::ArgAction::Set)]
-        apply_susfs: Option<bool>,
-        #[arg(long, action = clap::ArgAction::SetTrue)]
-        with_susfs: bool,
-        #[arg(long, action = clap::ArgAction::SetTrue)]
-        no_susfs: bool,
         #[arg(long, action = clap::ArgAction::Set)]
         apply_bbg: Option<bool>,
         #[arg(long, action = clap::ArgAction::SetTrue)]
@@ -345,7 +337,6 @@ fn main() -> Result<()> {
             do_release,
             custom_localversion,
             bakasu_setup_arg,
-            apply_susfs,
             apply_bbg,
             apply_hybridmount,
             kconfig_fragment,
@@ -356,7 +347,6 @@ fn main() -> Result<()> {
             do_release,
             custom_localversion,
             bakasu_setup_arg,
-            apply_susfs,
             apply_bbg,
             apply_hybridmount,
             kconfig_fragment,
@@ -369,9 +359,6 @@ fn main() -> Result<()> {
             do_release,
             custom_localversion,
             bakasu_setup_arg,
-            apply_susfs,
-            with_susfs,
-            no_susfs,
             apply_bbg,
             with_bbg,
             no_bbg,
@@ -388,13 +375,6 @@ fn main() -> Result<()> {
             force_lock,
         } => {
             let settings = settings::load_settings()?;
-            let resolved_susfs = if no_susfs {
-                false
-            } else if with_susfs {
-                true
-            } else {
-                apply_susfs.unwrap_or(settings.apply_susfs)
-            };
             let resolved_bbg = if no_bbg {
                 false
             } else if with_bbg {
@@ -416,7 +396,6 @@ fn main() -> Result<()> {
                 do_release,
                 custom_localversion,
                 bakasu_setup_arg,
-                apply_susfs: resolved_susfs,
                 apply_bbg: resolved_bbg,
                 apply_hybridmount: resolved_hybridmount,
                 kconfig_fragment,
@@ -600,7 +579,6 @@ fn handle_add(options: AddOptions) -> Result<()> {
         extra_host_env: None,
         disable_security: None,
         readme_placeholders: Some(placeholders),
-        susfs: None,
         bbg: None,
         watch_upstream_variants: None,
     };
@@ -703,6 +681,10 @@ fn handle_setup(
                 run_cmd(&["git", "checkout", branch], Some(&target_dir), false)?;
             } else {
                 continue;
+            }
+
+            if branch == "bakasu" {
+                build::integrate_bakasu_hooks(&target_dir, &key, &proj.defconfig, None)?;
             }
 
             fs::write(target_dir.join("README.md"), &readme_content)?;
@@ -1000,6 +982,9 @@ fn handle_update(
 
         run_cmd(&args, Some(&target_dir), false)?;
         fs::remove_file(setup_script)?;
+        if normalized_variant == "bakasu" {
+            build::integrate_bakasu_hooks(&target_dir, &project_key, &proj.defconfig, None)?;
+        }
     }
 
     run_cmd(
@@ -1038,4 +1023,23 @@ fn handle_update(
 
     fs::remove_dir_all(target_dir)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod removed_options_tests {
+    use super::*;
+    #[test]
+    fn rejects_removed_build_option() {
+        assert!(
+            Cli::try_parse_from([
+                "kokuban_ci_core",
+                "local",
+                "--project",
+                "s23_sm8550",
+                "--apply-susfs",
+                "true"
+            ])
+            .is_err()
+        );
+    }
 }

@@ -43,10 +43,6 @@ on:
         type: string
         required: false
         default: ''
-      apply_susfs:
-        description: 'Apply SuSFS dynamically during build'
-        type: boolean
-        default: true
       apply_bbg:
         description: 'Apply Baseband Guard dynamically during build'
         type: boolean
@@ -87,9 +83,6 @@ on:
       bakasu_setup_arg:
         type: string
         default: ''
-      apply_susfs:
-        type: boolean
-        default: true
       apply_bbg:
         type: boolean
         default: false
@@ -125,7 +118,6 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           PAYLOAD_PROJECT: ${{ github.event.client_payload.project }}
           PAYLOAD_BRANCH: ${{ github.event.client_payload.branch }}
-          PAYLOAD_APPLY_SUSFS: ${{ github.event.client_payload.apply_susfs }}
           PAYLOAD_APPLY_BBG: ${{ github.event.client_payload.apply_bbg }}
           PAYLOAD_APPLY_HYBRIDMOUNT: ${{ github.event.client_payload.apply_hybridmount }}
           INPUT_PROJECT: ${{ inputs.project }}
@@ -134,7 +126,6 @@ jobs:
           INPUT_DO_RELEASE: ${{ inputs.do_release }}
           INPUT_CUSTOM_LOCALVERSION: ${{ inputs.custom_localversion }}
           INPUT_BAKASU_SETUP_ARG: ${{ inputs.bakasu_setup_arg }}
-          INPUT_APPLY_SUSFS: ${{ inputs.apply_susfs }}
           INPUT_APPLY_BBG: ${{ inputs.apply_bbg }}
           INPUT_APPLY_HYBRIDMOUNT: ${{ inputs.apply_hybridmount }}
           INPUT_KCONFIG_FRAGMENT: ${{ inputs.kconfig_fragment }}
@@ -147,14 +138,10 @@ jobs:
             release="true"
             custom_localversion=""
             bakasu_setup_arg=""
-            apply_susfs="$PAYLOAD_APPLY_SUSFS"
             apply_bbg="$PAYLOAD_APPLY_BBG"
             apply_hybridmount="$PAYLOAD_APPLY_HYBRIDMOUNT"
             kconfig_fragment=""
             lto=""
-            if [ -z "$apply_susfs" ]; then
-              apply_susfs="true"
-            fi
             if [ -z "$apply_bbg" ]; then
               apply_bbg="false"
             fi
@@ -168,7 +155,6 @@ jobs:
             release="$INPUT_DO_RELEASE"
             custom_localversion="$INPUT_CUSTOM_LOCALVERSION"
             bakasu_setup_arg="$INPUT_BAKASU_SETUP_ARG"
-            apply_susfs="$INPUT_APPLY_SUSFS"
             apply_bbg="$INPUT_APPLY_BBG"
             apply_hybridmount="$INPUT_APPLY_HYBRIDMOUNT"
             kconfig_fragment="$INPUT_KCONFIG_FRAGMENT"
@@ -183,12 +169,11 @@ jobs:
 
           if [ "$project" = "floral_sm8150" ]; then
             # The Pixel 4 tree carries BakaSU manual hooks and built-in Hybrid Mount.
-            # Never apply the global GKI/SUSFS defaults to this legacy kernel.
+            # Never apply the global GKI defaults to this legacy kernel.
             if [ "$branch" = "main" ]; then branch="bakasu"; fi
             if [ "$variant" = "default" ] || [ -z "$variant" ]; then
               resolved_variant="bakasu"
             fi
-            apply_susfs="false"
             apply_bbg="false"
             apply_hybridmount="true"
           fi
@@ -200,7 +185,7 @@ jobs:
           # the feature flags all change the sources, and two runs sharing one key race
           # on restore ("tar: Error is not recoverable") instead of missing the cache.
           profile_slug=$(printf '%s' \
-            "${resolved_variant}-${kconfig_fragment:-default}-${lto:-none}-s${apply_susfs}-h${apply_hybridmount}-b${apply_bbg}" \
+            "${resolved_variant}-${kconfig_fragment:-default}-${lto:-none}-h${apply_hybridmount}-b${apply_bbg}" \
             | sed 's#[^A-Za-z0-9]#-#g')
           cache_key_suffix="${profile_slug}"
 
@@ -212,7 +197,6 @@ jobs:
             echo "DO_RELEASE=$release"
             echo "CUSTOM_LOCALVERSION=$custom_localversion"
             echo "BAKASU_SETUP_ARG=$bakasu_setup_arg"
-            echo "APPLY_SUSFS=$apply_susfs"
             echo "APPLY_BBG=$apply_bbg"
             echo "APPLY_HYBRIDMOUNT=$apply_hybridmount"
             echo "KCONFIG_FRAGMENT=$kconfig_fragment"
@@ -223,7 +207,9 @@ jobs:
 
       - name: Setup Rust for preview builds
         if: github.ref != 'refs/heads/main'
-        uses: dtolnay/rust-toolchain@1.120.0
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: 1.92.0
 
       - name: Build preview CI Core
         if: github.ref != 'refs/heads/main'
@@ -265,7 +251,7 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential git libncurses5-dev bc bison flex libssl-dev p7zip-full pigz lz4 cpio curl libelf-dev dwarves jq lld pahole libdw-dev binutils-aarch64-linux-gnu binutils-arm-linux-gnueabi gcc-arm-linux-gnueabi
+          sudo apt-get install -y python3 patch build-essential git libncurses5-dev bc bison flex libssl-dev p7zip-full pigz lz4 cpio curl libelf-dev dwarves jq lld pahole libdw-dev binutils-aarch64-linux-gnu binutils-arm-linux-gnueabi gcc-arm-linux-gnueabi
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Ensure compat cross-linker
@@ -298,7 +284,6 @@ jobs:
           if [ -n "$LTO_OVERRIDE" ]; then
             ARGS+=("--lto=$LTO_OVERRIDE")
           fi
-          ARGS+=("--apply-susfs" "$APPLY_SUSFS")
           ARGS+=("--apply-bbg" "$APPLY_BBG")
           ARGS+=("--apply-hybridmount" "$APPLY_HYBRIDMOUNT")
           ./kokuban_ci_core build "${ARGS[@]}"

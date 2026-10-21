@@ -16,8 +16,9 @@ jobs:
       - name: Setup Rust
         # Must match rust-toolchain.toml: the floating @stable tag is what let a new rustfmt
         # release break the format check on unrelated code (PR #54).
-        uses: dtolnay/rust-toolchain@1.120.0
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
         with:
+          toolchain: 1.92.0
           components: rustfmt, clippy
 
       - name: Cache Rust

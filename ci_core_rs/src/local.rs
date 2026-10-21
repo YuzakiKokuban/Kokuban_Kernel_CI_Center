@@ -64,7 +64,6 @@ struct BuildInfo {
     branch: String,
     variant: String,
     kernel_commit: Option<String>,
-    apply_susfs: bool,
     apply_bbg: bool,
     apply_hybridmount: bool,
     local_root: String,
@@ -89,7 +88,6 @@ pub struct LocalBuildOptions {
     pub do_release: bool,
     pub custom_localversion: Option<String>,
     pub bakasu_setup_arg: Option<String>,
-    pub apply_susfs: bool,
     pub apply_bbg: bool,
     pub apply_hybridmount: bool,
     pub kconfig_fragment: Option<String>,
@@ -457,8 +455,6 @@ fn run_build_command(
         .arg(variant)
         .arg("--do-release")
         .arg(options.do_release.to_string())
-        .arg("--apply-susfs")
-        .arg(options.apply_susfs.to_string())
         .arg("--apply-bbg")
         .arg(options.apply_bbg.to_string())
         .arg("--apply-hybridmount")
@@ -760,7 +756,6 @@ fn print_plan(plan: &LocalBuildPlan<'_>) {
     println!("  branch: {}", plan.options.branch);
     println!("  variant: {}", plan.variant);
     println!("  release: {}", plan.options.do_release);
-    println!("  apply_susfs: {}", plan.options.apply_susfs);
     println!("  apply_bbg: {}", plan.options.apply_bbg);
     println!("  apply_hybridmount: {}", plan.options.apply_hybridmount);
     println!("  offline: {}", plan.options.offline);
@@ -887,7 +882,6 @@ pub fn handle_local_build(options: LocalBuildOptions) -> Result<()> {
         branch: options.branch.clone(),
         variant: variant.clone(),
         kernel_commit,
-        apply_susfs: options.apply_susfs,
         apply_bbg: options.apply_bbg,
         apply_hybridmount: options.apply_hybridmount,
         local_root: local_root.display().to_string(),

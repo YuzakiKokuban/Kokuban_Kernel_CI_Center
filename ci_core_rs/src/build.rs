@@ -6,7 +6,7 @@ use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
-use crate::config::{AbiBaseline, AnyKernelConfig, BbgConfig, ProjectConfig, SusfsConfig};
+use crate::config::{AbiBaseline, AnyKernelConfig, BbgConfig, ProjectConfig};
 use crate::utils::{
     cache_file_name, command_exists, env_flag, file_sha256, handle_notify, is_bakasu_variant,
     load_anykernel_config, load_project, run_cmd, run_cmd_with_env, set_github_output,
@@ -17,18 +17,6 @@ const ANYKERNEL_REPO: &str = "https://github.com/YuzakiKokuban/AnyKernel3.git";
 const ANYKERNEL_BRANCH: &str = "master";
 const HYBRIDMOUNT_REPO: &str = "https://github.com/Hybrid-Mount/meta-hybrid_mount.git";
 const HYBRIDMOUNT_BRANCH: &str = "dev";
-const SUSFS_KCONFIG_ENTRIES: &[(&str, &str)] = &[
-    ("CONFIG_KSU_SUSFS", "y"),
-    ("CONFIG_KSU_SUSFS_SUS_PATH", "y"),
-    ("CONFIG_KSU_SUSFS_SUS_MOUNT", "y"),
-    ("CONFIG_KSU_SUSFS_SUS_KSTAT", "y"),
-    ("CONFIG_KSU_SUSFS_SPOOF_UNAME", "y"),
-    ("CONFIG_KSU_SUSFS_ENABLE_LOG", "y"),
-    ("CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS", "y"),
-    ("CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG", "y"),
-    ("CONFIG_KSU_SUSFS_OPEN_REDIRECT", "y"),
-    ("CONFIG_KSU_SUSFS_SUS_MAP", "y"),
-];
 /// `build_style` value opting a project into the ACK/GKI-6.12 pipeline.
 const GKI_612_BUILD_STYLE: &str = "gki-6.12";
 /// Soc suffix that historically selected the same pipeline via the project key
@@ -627,12 +615,12 @@ mod tests {
         let path = std::env::temp_dir().join(format!("pixel4-disabled-config-{unique}"));
         fs::write(
             &path,
-            "# CONFIG_KSU_SUSFS is not set\nCONFIG_HYBRIDMOUNT=y\n",
+            "# CONFIG_TEST_DISABLED is not set\nCONFIG_HYBRIDMOUNT=y\n",
         )
         .unwrap();
-        let required = &[("CONFIG_KSU_SUSFS", "n"), ("CONFIG_HYBRIDMOUNT", "y")];
+        let required = &[("CONFIG_TEST_DISABLED", "n"), ("CONFIG_HYBRIDMOUNT", "y")];
         assert!(validate_kconfig_entries(&path, required).is_ok());
-        fs::write(&path, "CONFIG_KSU_SUSFS=y\nCONFIG_HYBRIDMOUNT=y\n").unwrap();
+        fs::write(&path, "CONFIG_TEST_DISABLED=y\nCONFIG_HYBRIDMOUNT=y\n").unwrap();
         assert!(validate_kconfig_entries(&path, required).is_err());
         fs::remove_file(path).unwrap();
     }
@@ -735,22 +723,6 @@ write_boot; # use flash_boot to skip ramdisk repack, e.g. for devices with init_
             "start setup local env\nROOT_DIR=/tmp/kernel\nend of setup local env\n6.12.69\n";
 
         assert_eq!(last_nonempty_output_line(output), Some("6.12.69"));
-    }
-
-    #[test]
-    fn writes_and_validates_required_susfs_configs() {
-        let unique = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let config_path = std::env::temp_dir().join(format!("susfs-config-test-{unique}"));
-        fs::write(&config_path, "# CONFIG_KSU_SUSFS is not set\n").unwrap();
-
-        update_kconfig_file(&config_path, SUSFS_KCONFIG_ENTRIES).unwrap();
-        let result = validate_kconfig_entries(&config_path, SUSFS_KCONFIG_ENTRIES);
-
-        assert!(result.is_ok(), "SuSFS config validation failed: {result:?}");
-        fs::remove_file(config_path).unwrap();
     }
 
     #[test]
@@ -871,7 +843,6 @@ write_boot; # use flash_boot to skip ramdisk repack, e.g. for devices with init_
             extra_host_env: None,
             disable_security: None,
             readme_placeholders: None,
-            susfs: None,
             bbg: None,
             watch_upstream_variants: None,
         }
@@ -1399,10 +1370,10 @@ write_boot; # use flash_boot to skip ramdisk repack, e.g. for devices with init_
         fs::write(&script, "echo \"ARG=$1\" > got_arg.txt\n").unwrap();
         let url = format!("file://{}", script.display());
 
-        run_setup_script(&url, Some("susfs"), &temp_dir).unwrap();
+        run_setup_script(&url, Some("main"), &temp_dir).unwrap();
 
         let got = fs::read_to_string(temp_dir.join("got_arg.txt")).unwrap();
-        assert_eq!(got.trim(), "ARG=susfs");
+        assert_eq!(got.trim(), "ARG=main");
         fs::remove_dir_all(temp_dir).unwrap();
     }
 
@@ -1464,98 +1435,6 @@ fn last_nonempty_output_line(output: &str) -> Option<&str> {
         .find(|line| !line.is_empty())
 }
 
-fn copy_dir_files(source: &Path, dest: &Path) -> Result<()> {
-    if !source.is_dir() {
-        return Err(anyhow!("Source directory not found: {:?}", source));
-    }
-
-    fs::create_dir_all(dest)?;
-    for entry in fs::read_dir(source)? {
-        let entry = entry?;
-        let path = entry.path();
-        if path.is_file() {
-            let file_name = path
-                .file_name()
-                .ok_or_else(|| anyhow!("Invalid file path: {:?}", path))?;
-            fs::copy(&path, dest.join(file_name))?;
-        }
-    }
-
-    Ok(())
-}
-
-fn stage_patch_in_cwd(patch_file: &Path, cwd: &Path) -> Result<PathBuf> {
-    let file_name = patch_file
-        .file_name()
-        .ok_or_else(|| anyhow!("Invalid patch file path: {:?}", patch_file))?;
-    let staged_patch = cwd.join(file_name);
-    fs::copy(patch_file, &staged_patch)?;
-    Ok(staged_patch)
-}
-
-fn cleanup_staged_patch(staged_patch: &Path, original_patch: &Path) {
-    if staged_patch != original_patch {
-        let _ = fs::remove_file(staged_patch);
-    }
-}
-
-fn run_patch_command(patch_file: &Path, cwd: &Path, dry_run: bool) -> Result<bool> {
-    let staged_patch = stage_patch_in_cwd(patch_file, cwd)?;
-    let result = (|| {
-        let patch_name = staged_patch
-            .file_name()
-            .ok_or_else(|| anyhow!("Invalid staged patch path: {:?}", staged_patch))?;
-
-        let mut command = std::process::Command::new("patch");
-        command.arg("-p1").arg("-N").arg("-F").arg("3");
-        if dry_run {
-            command.arg("--dry-run");
-        }
-        let status = command
-            .arg("-i")
-            .arg(patch_name)
-            .current_dir(cwd)
-            .status()?;
-        Ok(status.success())
-    })();
-    cleanup_staged_patch(&staged_patch, patch_file);
-    result
-}
-
-fn can_apply_patch(patch_file: &Path, cwd: &Path) -> Result<bool> {
-    run_patch_command(patch_file, cwd, true)
-}
-
-fn run_patch(patch_file: &Path, cwd: &Path) -> Result<bool> {
-    run_patch_command(patch_file, cwd, false)
-}
-
-fn apply_patch_once(patch_file: &Path, cwd: &Path) -> Result<bool> {
-    if can_apply_patch(patch_file, cwd)? {
-        return run_patch(patch_file, cwd);
-    }
-    Ok(false)
-}
-
-fn apply_patch_with_fallbacks(
-    patch_file: &Path,
-    kernel_source_path: &Path,
-    fallback_dirs: &[String],
-) -> Result<()> {
-    if apply_patch_once(patch_file, kernel_source_path)? {
-        return Ok(());
-    }
-
-    for fallback in fallback_dirs {
-        let cwd = kernel_source_path.join(fallback);
-        if cwd.is_dir() && apply_patch_once(patch_file, &cwd)? {
-            return Ok(());
-        }
-    }
-
-    Err(anyhow!("Failed to apply patch {:?}", patch_file))
-}
-
 fn ensure_bbg_lsm(content: &str) -> String {
     let mut lines = Vec::new();
     let mut in_lsm_block = false;
@@ -1586,73 +1465,6 @@ fn ensure_bbg_lsm(content: &str) -> String {
     }
 
     lines.join("\n") + "\n"
-}
-
-fn apply_susfs_overlay(kernel_source_path: &Path, susfs: &SusfsConfig) -> Result<()> {
-    let temp_dir = kernel_source_path.join(".susfs_workspace");
-    if temp_dir.exists() {
-        fs::remove_dir_all(&temp_dir)?;
-    }
-
-    run_cmd(
-        &[
-            "git",
-            "clone",
-            "--depth=1",
-            "--branch",
-            &susfs.branch,
-            &susfs.repo,
-            temp_dir
-                .to_str()
-                .ok_or_else(|| anyhow!("Invalid temp path"))?,
-        ],
-        None,
-        false,
-    )?;
-
-    let patch_path = temp_dir.join(&susfs.patch_path);
-    if !patch_path.exists() {
-        fs::remove_dir_all(&temp_dir)?;
-        return Err(anyhow!("SuSFS patch not found: {:?}", patch_path));
-    }
-
-    let fs_source = temp_dir.join(susfs.fs_patch_dir.as_deref().unwrap_or("kernel_patches/fs"));
-    let fs_target = find_first_existing_dir(
-        kernel_source_path,
-        &[
-            "common/fs".to_string(),
-            "kernel_platform/common/fs".to_string(),
-            "fs".to_string(),
-        ],
-    )
-    .ok_or_else(|| anyhow!("Could not locate kernel fs directory for SuSFS"))?;
-    copy_dir_files(&fs_source, &fs_target)?;
-
-    let include_source = temp_dir.join(
-        susfs
-            .include_linux_patch_dir
-            .as_deref()
-            .unwrap_or("kernel_patches/include/linux"),
-    );
-    let include_target = find_first_existing_dir(
-        kernel_source_path,
-        &[
-            "common/include/linux".to_string(),
-            "kernel_platform/common/include/linux".to_string(),
-            "include/linux".to_string(),
-        ],
-    )
-    .ok_or_else(|| anyhow!("Could not locate kernel include/linux directory for SuSFS"))?;
-    copy_dir_files(&include_source, &include_target)?;
-
-    apply_patch_with_fallbacks(
-        &patch_path,
-        kernel_source_path,
-        &["common".to_string(), "kernel_platform/common".to_string()],
-    )?;
-
-    fs::remove_dir_all(&temp_dir)?;
-    Ok(())
 }
 
 fn set_hybridmount_config(
@@ -2096,6 +1908,36 @@ fn apply_kconfig_fragment(
     Ok(())
 }
 
+pub fn integrate_bakasu_hooks(
+    source: &Path,
+    project: &str,
+    defconfig: &str,
+    final_config: Option<&Path>,
+) -> Result<()> {
+    let script = crate::utils::get_root_dir().join("scripts/bakasu-hooks.py");
+    let mut command = std::process::Command::new("python3");
+    command
+        .arg(script)
+        .arg("--source")
+        .arg(source)
+        .arg("--project")
+        .arg(project)
+        .arg("--defconfig")
+        .arg(defconfig);
+    if let Some(config) = final_config {
+        command.arg("--check-config").arg(config);
+    }
+    let status = command
+        .status()
+        .context("Cannot run BakaSU hook integration")?;
+    if !status.success() {
+        return Err(anyhow!(
+            "BakaSU hook integration failed for {project}: {status}"
+        ));
+    }
+    Ok(())
+}
+
 fn prepare_gki_build(
     kernel_source_path: &Path,
     proj: &ProjectConfig,
@@ -2535,7 +2377,6 @@ pub struct BuildOptions {
     pub do_release: bool,
     pub custom_localversion: Option<String>,
     pub bakasu_setup_arg: Option<String>,
-    pub apply_susfs: bool,
     pub apply_bbg: bool,
     pub apply_hybridmount: bool,
     /// Overrides the project's `kconfig_fragment` for one run, so a tuning profile
@@ -2552,7 +2393,6 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
         do_release,
         custom_localversion,
         bakasu_setup_arg,
-        apply_susfs,
         apply_bbg,
         apply_hybridmount,
         kconfig_fragment: kconfig_fragment_override,
@@ -2568,7 +2408,6 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
     let target_soc_str = project_key.split('_').nth(1).unwrap_or("unknown");
     let is_gki_612 = uses_gki_612_pipeline(&project_key, &proj);
     let is_pixel4 = crate::pixel4::is_pixel4(proj.build_style.as_deref());
-    let apply_susfs = crate::pixel4::apply_susfs(proj.build_style.as_deref(), apply_susfs);
     if is_pixel4 && !is_bakasu_variant(&branch) {
         return Err(anyhow!(
             "Pixel 4 requires the bakasu variant (source branch may be selected separately)"
@@ -2788,6 +2627,7 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
 
     if let Some((url, arg)) = setup_url {
         run_setup_script(url, Some(arg), &kernel_source_path)?;
+        integrate_bakasu_hooks(&kernel_source_path, &project_key, &proj.defconfig, None)?;
     }
 
     let mut feature_suffixes = Vec::new();
@@ -2796,24 +2636,6 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
         feature_suffixes.push("hybridmount".to_string());
     } else {
         set_hybridmount_config(&kernel_source_path, &proj.defconfig, false)?;
-    }
-
-    if apply_susfs {
-        if is_bakasu_variant(&branch) {
-            let susfs = proj
-                .susfs
-                .as_ref()
-                .ok_or_else(|| anyhow!("Project {} does not define a SuSFS source", project_key))?;
-            apply_susfs_overlay(&kernel_source_path, susfs)?;
-            let defconfig_file = project_defconfig_path(&kernel_source_path, &proj.defconfig)?;
-            update_kconfig_file(&defconfig_file, SUSFS_KCONFIG_ENTRIES)?;
-            feature_suffixes.push("susfs".to_string());
-        } else {
-            println!(
-                "Skipping SuSFS for branch '{}': SuSFS is only enabled for BakaSU builds.",
-                branch
-            );
-        }
     }
 
     if apply_bbg {
@@ -3018,7 +2840,6 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
             "CFI",
             "CFI_CLANG",
             "CFI_PERMISSIVE",
-            "KSU_SUSFS",
             "KSU_TRACEPOINT_HOOK",
         ]);
         update_kconfig_file(
@@ -3056,7 +2877,7 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
         )?;
     }
 
-    if is_pixel4 {
+    if setup_url.is_some() {
         update_kconfig_file(
             &kernel_source_path.join("out/.config"),
             COMMON_KSU_KCONFIG_ENTRIES,
@@ -3125,6 +2946,15 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
     )?;
 
     let final_config = kernel_source_path.join("out/.config");
+    if setup_url.is_some() {
+        integrate_bakasu_hooks(
+            &kernel_source_path,
+            &project_key,
+            &proj.defconfig,
+            Some(&final_config),
+        )?;
+        validate_kconfig_entries(&final_config, COMMON_KSU_KCONFIG_ENTRIES)?;
+    }
     // Report dropped fragment entries before the ABI checks: if a tuning experiment
     // silently applied nothing, that is the first thing worth knowing.
     if let Some(fragment) = kconfig_fragment.as_deref() {
@@ -3137,7 +2967,6 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
             &[
                 ("CONFIG_KSU", "y"),
                 ("CONFIG_KSU_MANUAL_HOOK", "y"),
-                ("CONFIG_KSU_SUSFS", "n"),
                 ("CONFIG_HYBRIDMOUNT", "y"),
                 ("CONFIG_TMPFS_XATTR", "y"),
                 ("CONFIG_KEYS", "y"),
@@ -3149,9 +2978,6 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
         if setup_url.is_some() {
             validate_kconfig_entries(&final_config, COMMON_KSU_KCONFIG_ENTRIES)?;
         }
-    }
-    if apply_susfs && is_bakasu_variant(&branch) {
-        validate_kconfig_entries(&final_config, SUSFS_KCONFIG_ENTRIES)?;
     }
 
     if !is_gki_612 {

@@ -46,7 +46,6 @@ jobs:
       branch: ${{ matrix.branch }}
       ksu_variant: ${{ matrix.ksu_variant }}
       do_release: true
-      apply_susfs: true
       apply_bbg: false
       apply_hybridmount: ${{ inputs.apply_hybridmount }}
     secrets: inherit

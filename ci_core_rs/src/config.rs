@@ -32,7 +32,6 @@ pub struct ProjectConfig {
     pub extra_host_env: Option<bool>,
     pub disable_security: Option<Vec<String>>,
     pub readme_placeholders: Option<HashMap<String, String>>,
-    pub susfs: Option<SusfsConfig>,
     pub bbg: Option<BbgConfig>,
     pub watch_upstream_variants: Option<Vec<String>>,
 }
@@ -67,15 +66,6 @@ pub struct AbiBaseline {
     /// the contract, what the modules already on the device require.
     #[serde(default)]
     pub consumer_manifest: Option<String>,
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct SusfsConfig {
-    pub repo: String,
-    pub branch: String,
-    pub patch_path: String,
-    pub fs_patch_dir: Option<String>,
-    pub include_linux_patch_dir: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

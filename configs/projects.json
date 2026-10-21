@@ -28,13 +28,6 @@
     ],
     "anykernel_config": "kalama_z",
     "zip_name_prefix": "Z5_Kernel",
-    "susfs": {
-      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
-      "branch": "gki-android13-5.15",
-      "patch_path": "kernel_patches/50_add_susfs_in_gki-android13-5.15.patch",
-      "fs_patch_dir": "kernel_patches/fs",
-      "include_linux_patch_dir": "kernel_patches/include/linux"
-    },
     "bbg": {
       "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
     },
@@ -83,13 +76,6 @@
     ],
     "anykernel_config": "sun",
     "zip_name_prefix": "S25_Kernel",
-    "susfs": {
-      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
-      "branch": "gki-android15-6.6",
-      "patch_path": "kernel_patches/50_add_susfs_in_gki-android15-6.6.patch",
-      "fs_patch_dir": "kernel_patches/fs",
-      "include_linux_patch_dir": "kernel_patches/include/linux"
-    },
     "bbg": {
       "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
     }
@@ -119,13 +105,6 @@
     ],
     "anykernel_config": "kalama",
     "zip_name_prefix": "S23_kernel",
-    "susfs": {
-      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
-      "branch": "gki-android13-5.15",
-      "patch_path": "kernel_patches/50_add_susfs_in_gki-android13-5.15.patch",
-      "fs_patch_dir": "kernel_patches/fs",
-      "include_linux_patch_dir": "kernel_patches/include/linux"
-    },
     "bbg": {
       "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
     },
@@ -163,13 +142,6 @@
     ],
     "anykernel_config": "kalama_tabs9",
     "zip_name_prefix": "TabS9_kernel",
-    "susfs": {
-      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
-      "branch": "gki-android13-5.15",
-      "patch_path": "kernel_patches/50_add_susfs_in_gki-android13-5.15.patch",
-      "fs_patch_dir": "kernel_patches/fs",
-      "include_linux_patch_dir": "kernel_patches/include/linux"
-    },
     "bbg": {
       "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
     },
@@ -207,13 +179,6 @@
     ],
     "anykernel_config": "pineapple",
     "zip_name_prefix": "S24_Snapdragon_kernel",
-    "susfs": {
-      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
-      "branch": "gki-android14-6.1",
-      "patch_path": "kernel_patches/50_add_susfs_in_gki-android14-6.1.patch",
-      "fs_patch_dir": "kernel_patches/fs",
-      "include_linux_patch_dir": "kernel_patches/include/linux"
-    },
     "bbg": {
       "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
     },
@@ -258,13 +223,6 @@
     ],
     "anykernel_config": "mt6989",
     "zip_name_prefix": "TabS10_kernel",
-    "susfs": {
-      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
-      "branch": "gki-android14-6.1",
-      "patch_path": "kernel_patches/50_add_susfs_in_gki-android14-6.1.patch",
-      "fs_patch_dir": "kernel_patches/fs",
-      "include_linux_patch_dir": "kernel_patches/include/linux"
-    },
     "bbg": {
       "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
     }
@@ -305,13 +263,6 @@
       "DEVICE_NAME_CN": "三星 Galaxy Z6 系列",
       "DEVICE_NAME_EN": "Samsung Galaxy Z6 Series"
     },
-    "susfs": {
-      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
-      "branch": "gki-android14-6.1",
-      "patch_path": "kernel_patches/50_add_susfs_in_gki-android14-6.1.patch",
-      "fs_patch_dir": "kernel_patches/fs",
-      "include_linux_patch_dir": "kernel_patches/include/linux"
-    },
     "bbg": {
       "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
     }
@@ -340,13 +291,6 @@
     "lto": "none",
     "anykernel_config": "canoe",
     "zip_name_prefix": "Mi17_Kernel",
-    "susfs": {
-      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
-      "branch": "gki-android16-6.12",
-      "patch_path": "kernel_patches/50_add_susfs_in_gki-android16-6.12.patch",
-      "fs_patch_dir": "kernel_patches/fs",
-      "include_linux_patch_dir": "kernel_patches/include/linux"
-    },
     "readme_placeholders": {
       "DEVICE_NAME_CN": "小米 17 系列",
       "DEVICE_NAME_EN": "Xiaomi 17 Series"
@@ -396,23 +340,15 @@
       "allow_crc_mismatch": 0,
       "allow_missing": 0
     },
-    "susfs": {
-      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
-      "branch": "gki-android16-6.12",
-      "patch_path": "kernel_patches/50_add_susfs_in_gki-android16-6.12.patch",
-      "fs_patch_dir": "kernel_patches/fs",
-      "include_linux_patch_dir": "kernel_patches/include/linux"
-    },
     "readme_placeholders": {
       "DEVICE_NAME_CN": "摩托罗拉 Razr Fold",
       "DEVICE_NAME_EN": "Motorola Razr Fold"
     }
   },
   "floral_sm8150": {
-    "repo": "YuzakiKokuban/infinity_cnb_kernel_google_msm-4.14",
+    "repo": "YuzakiKokuban/android_kernel_google_msm-4.14",
     "defconfig": "floral_defconfig",
     "localversion_base": "-Kokuban-Kaltsit",
-    "expected_kernel_version": "4.14.357",
     "lto": "none",
     "build_style": "pixel4-4.14",
     "supported_ksu": [
