@@ -2,6 +2,7 @@ mod admin;
 mod build;
 mod build_jobs;
 mod config;
+mod git_auth;
 mod local;
 mod pixel4;
 mod settings;
@@ -19,6 +20,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
+use crate::git_auth::github_clone_url;
 use crate::utils::*;
 
 #[derive(Parser)]
@@ -625,11 +627,7 @@ fn handle_setup(
         println!("Processing project: {} -> {}", key, repo_url);
 
         let target_dir = workspace.join(&key);
-        let auth_url = if let Some(t) = &token {
-            format!("https://{}@github.com/{}.git", t, repo_url)
-        } else {
-            format!("https://github.com/{}.git", repo_url)
-        };
+        let auth_url = github_clone_url(&repo_url, token.as_deref());
 
         if target_dir.exists() {
             fs::remove_dir_all(&target_dir)?;
@@ -948,7 +946,7 @@ fn handle_update(
         fs::remove_dir_all(&target_dir)?;
     }
 
-    let auth_url = format!("https://{}@github.com/{}.git", token, repo_url);
+    let auth_url = github_clone_url(&repo_url, Some(&token));
     run_cmd(
         &[
             "git",
