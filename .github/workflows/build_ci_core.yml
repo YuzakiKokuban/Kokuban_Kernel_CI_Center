@@ -40,6 +40,9 @@ jobs:
       - name: Rust tests
         run: cargo test --locked --manifest-path ci_core_rs/Cargo.toml
 
+      - name: Pixel 4 built-in driver gate tests
+        run: python3 scripts/test-pixel4-builtin.py
+
       - name: Build CI Core
         run: cargo build --release --locked --manifest-path ci_core_rs/Cargo.toml
 

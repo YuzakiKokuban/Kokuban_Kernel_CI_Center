@@ -362,7 +362,7 @@
     },
     "toolchain_path_prefix": "",
     "toolchain_path_exports": [
-      "clang+llvm-12.0.1-x86_64-linux-gnu-ubuntu-16.04/bin"
+      "clang+llvm-12.0.1-x86_64-linux-gnu-ubuntu-/bin"
     ],
     "anykernel_config": "floral",
     "zip_name_prefix": "Pixel4_Kernel",

@@ -54,6 +54,9 @@ jobs:
       - name: BakaSU hook gate tests
         run: python3 scripts/test-bakasu-hooks.py
 
+      - name: Pixel 4 built-in driver gate tests
+        run: python3 scripts/test-pixel4-builtin.py
+
       - name: Wrapper tests
         run: |
           ./scripts/check-shell.sh

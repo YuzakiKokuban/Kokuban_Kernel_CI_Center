@@ -254,8 +254,13 @@ Hybrid Mount 由内核源码提供，CI 保留其 4.14 适配，不用 GKI 模�
 
 刷机包包含 `Image.lz4`，限制 `flame` / `coral`，使用当前 A/B 槽位。
 打包沿用当前 boot 的 DTB、DTBO 和 ramdisk，不刷写其他槽位或分区。
-内核树内的模块会参与编译，但刷机包保留 ROM 现有模块；首次刷入前仍需验证模块 ABI、启动、
-触控、Wi-Fi、BakaSU 授权及 Hybrid Mount VFS 功能。
+Wi-Fi、音频驱动、Incremental FS 和 MSM 11ad 代理均编译为内置，未使用的软件看门狗禁用。
+Wi-Fi 在内核初始化时注册，由 ICNSS 在固件就绪后探测；音频 PDR 会向晚注册的订阅者重放
+最近一次已知状态。驱动启动不依赖 BakaSU 守护程序、附加模块或 `/data/adb` 加载脚本。
+CI 会运行 WLAN/PDR 回归检查，并检查 `modules.order` 为空、关键驱动的内置清单及音频
+初始化函数确实链接到内核，且 AK3 中没有 `.ko` 或模块安装器。BakaSU root 功能本身仍需
+与内核接口匹配的管理器/守护程序。首次刷入前仍需验证启动、触控、Wi-Fi、音频、BakaSU 授权
+及 Hybrid Mount VFS 功能；构建与主机校验通过不能替代设备验证。
 
 ### BakaSU hook 校验
 

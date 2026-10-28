@@ -2504,6 +2504,13 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
         }
     }
 
+    if is_pixel4 && !toolchain_paths_ready(&toolchain_base, &proj) {
+        return Err(anyhow!(
+            "Pixel 4 LLVM 12 toolchain is missing at {}; refusing to use the host compiler",
+            toolchain_base.display()
+        ));
+    }
+
     let mut build_env = HashMap::new();
     let current_path = env::var("PATH").unwrap_or_default();
 
@@ -2706,6 +2713,16 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
     let soc_arg = format!("TARGET_SOC={}", target_soc_str);
     make_args.push(&soc_arg);
     if is_pixel4 {
+        run_cmd(
+            &["python3", "scripts/tests/pixel4-audio-pdr.py"],
+            Some(&kernel_source_path),
+            false,
+        )?;
+        run_cmd(
+            &["python3", "scripts/tests/pixel4-builtin-wlan.py"],
+            Some(&kernel_source_path),
+            false,
+        )?;
         // This 4.14 tree predates LLVM=1 and uses GNU binutils for AArch64.
         make_args.retain(|arg| {
             !arg.starts_with("LLVM")
@@ -2852,6 +2869,7 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
                 ("CONFIG_KSU_MANUAL_HOOK_AUTO_INITRC_HOOK", "y"),
                 ("CONFIG_KSU_MANUAL_HOOK_AUTO_INPUT_HOOK", "y"),
                 ("CONFIG_HYBRIDMOUNT", "y"),
+                ("CONFIG_QCA_CLD_WLAN", "y"),
                 ("CONFIG_TMPFS_XATTR", "y"),
                 ("CONFIG_KEYS", "y"),
             ],
@@ -2968,6 +2986,7 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
                 ("CONFIG_KSU", "y"),
                 ("CONFIG_KSU_MANUAL_HOOK", "y"),
                 ("CONFIG_HYBRIDMOUNT", "y"),
+                ("CONFIG_QCA_CLD_WLAN", "y"),
                 ("CONFIG_TMPFS_XATTR", "y"),
                 ("CONFIG_KEYS", "y"),
             ],
@@ -3076,6 +3095,24 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
     }
 
     fs::copy(image_path, Path::new("AnyKernel3").join(image_name))?;
+
+    if is_pixel4 {
+        run_cmd(
+            &[
+                "python3",
+                "scripts/pixel4-builtin.py",
+                "--out",
+                kernel_source_path
+                    .join("out")
+                    .to_str()
+                    .ok_or_else(|| anyhow!("Invalid Pixel 4 output path"))?,
+                "--anykernel",
+                "AnyKernel3",
+            ],
+            None,
+            false,
+        )?;
+    }
 
     let hkt = FixedOffset::east_opt(8 * 3600).ok_or_else(|| anyhow!("Invalid HKT offset"))?;
     let date_str = Utc::now()
