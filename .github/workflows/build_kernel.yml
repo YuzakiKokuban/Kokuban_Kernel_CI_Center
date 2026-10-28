@@ -98,7 +98,10 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # Keep the host environment aligned with Dockerfile. Ubuntu 26.04's libc
+    # headers trigger const-pointer errors in the older kernels' libbpf host
+    # tools (strchr/strstr), failing resolve_btfids before the kernel can build.
+    runs-on: ubuntu-24.04
     # At most one build per project: a second request for the same project waits for the
     # running one instead of piling up. Different projects land in different groups, so a
     # serialized wave is unaffected. Job-level so that it also applies when this workflow
