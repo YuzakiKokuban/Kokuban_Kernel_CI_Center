@@ -51,6 +51,7 @@ Kokuban Kernel CI Center 是一个专为 Android Linux 内核编译设计的集�
 | **Tab S10** | Galaxy Tab S10 (MT6989) | `tabs10_mt6989` |
 | **Z6** | Galaxy Z Fold/Flip 6 (SM8650) | `z6_sm8650` |
 | **Mi17** | Xiaomi 17 Series (SM8850, Linux 6.12.69, Hybrid Mount, no BBG) | `mi17_sm8850` |
+| **OnePlus 15** | OnePlus 15 (SM8850, Android 16 GKI Linux 6.12.69) | `oneplus15_sm8850` |
 | **Razr Fold** | Motorola Razr Fold 2026 (SM8845 canoe/`blanc`, Linux 6.12.38, Hybrid Mount, no BBG) | `razrfold_sm8845` |
 
 ## 构建与使用
@@ -271,4 +272,29 @@ CI 会运行 WLAN/PDR 回归检查，并检查 `modules.order` 为空、关键�
 6.8 及以上显式接入 setresuid/read，input 使用自动 handler。
 exec 的前后调用保留 filename 引用，分别适配普通及 atomic 引用计数。
 最终 `olddefconfig` 后再次检查调用点和配置；不完整、旧接口冲突、补丁不匹配均中止构建。
-SUSFS 编译选项、下载和注入机制已移除，旧 CLI 开关不再接受。
+默认保留上述手动 hooks 路径；配置了 SUSFS 补丁的项目也可选择独立的 SUSFS Inline Hook 路径，二者互斥。
+
+### OnePlus 15 / SUSFS
+
+`oneplus15_sm8850` 使用 `YuzakiKokuban/android_kernel_oneplus_sm8850` 的 `main` / `bakasu` 分支，
+源码导入自 cctv18 的 `android16-6.12-2026-03`，固定校验 Linux `6.12.69`。
+版本基础后缀为 `-android16-Kokuban-Claire`，刷机包前缀为 `OP15`，
+AnyKernel 配置为 `oneplus15`，显示名称为 `OP15-Kokuban-Kernel`。
+该源码为 Android GKI 基线；编译验证不代表已完成一加 15 的设备启动与 vendor 模块兼容验证。
+
+该项目的 BakaSU 构建默认开启 SUSFS；LKM 默认关闭。其他已配置项目默认关闭，可显式开启：
+
+```bash
+./kokuban build oneplus15_sm8850 bakasu bakasu
+./kokuban build oneplus15_sm8850 bakasu bakasu --no-susfs
+./kokuban build s23_sm8550 bakasu bakasu --with-susfs
+./kokuban config set apply_susfs auto  # auto / true / false
+```
+
+Actions 的 `apply_susfs` 同样支持 `auto` / `true` / `false`。
+`auto` 跟随项目及构建模式；明确在 LKM 中开启 SUSFS 会报错。
+SUSFS 与手动 hooks 使用独立配置及校验，缓存工作区包含 SUSFS 开关，产物名称包含 `susfs`。
+补丁来源固定到完整提交，并在临时目录完成严格应用与 hooks 校验后才写入源码。
+项目的 `susfs.local_patch` 保存针对设备源码调整后的补丁，`susfs.revision` 固定配套实现文件。
+5.15、6.1、6.6、6.12 项目已配置补丁；Pixel 4 的社区 4.14 补丁仍需单独适配，暂不声明支持。
+来源、验证范围及 4.14 社区参考见 [SUSFS 接入说明](docs/susfs-integration.md)。

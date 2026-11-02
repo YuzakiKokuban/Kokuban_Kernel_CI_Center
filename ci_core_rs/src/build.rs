@@ -844,6 +844,7 @@ write_boot; # use flash_boot to skip ramdisk repack, e.g. for devices with init_
             disable_security: None,
             readme_placeholders: None,
             bbg: None,
+            susfs: None,
             watch_upstream_variants: None,
         }
     }
@@ -1938,6 +1939,34 @@ pub fn integrate_bakasu_hooks(
     Ok(())
 }
 
+pub fn integrate_susfs(
+    source: &Path,
+    project: &str,
+    defconfig: &str,
+    final_config: Option<&Path>,
+) -> Result<()> {
+    let mut command = std::process::Command::new("python3");
+    command
+        .arg(crate::utils::get_root_dir().join("scripts/susfs.py"))
+        .arg("--source")
+        .arg(source)
+        .arg("--project")
+        .arg(project)
+        .arg("--defconfig")
+        .arg(defconfig);
+    if let Some(config) = final_config {
+        command.arg("--check-config").arg(config);
+    }
+    if env_flag("KOKUBAN_OFFLINE") {
+        command.arg("--offline");
+    }
+    let status = command.status().context("Cannot run SUSFS integration")?;
+    if !status.success() {
+        return Err(anyhow!("SUSFS integration failed for {project}"));
+    }
+    Ok(())
+}
+
 fn prepare_gki_build(
     kernel_source_path: &Path,
     proj: &ProjectConfig,
@@ -2379,6 +2408,7 @@ pub struct BuildOptions {
     pub bakasu_setup_arg: Option<String>,
     pub apply_bbg: bool,
     pub apply_hybridmount: bool,
+    pub apply_susfs: Option<bool>,
     /// Overrides the project's `kconfig_fragment` for one run, so a tuning profile
     /// can be graded without editing `configs/projects.json`.
     pub kconfig_fragment: Option<String>,
@@ -2395,10 +2425,12 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
         bakasu_setup_arg,
         apply_bbg,
         apply_hybridmount,
+        apply_susfs,
         kconfig_fragment: kconfig_fragment_override,
         lto: lto_override,
     } = options;
     let proj = load_project(&project_key)?;
+    let apply_susfs = crate::susfs::resolve(apply_susfs, &branch, proj.susfs.as_ref())?;
 
     let kernel_source_path = PathBuf::from("kernel_source");
     if !kernel_source_path.exists() {
@@ -2634,10 +2666,17 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
 
     if let Some((url, arg)) = setup_url {
         run_setup_script(url, Some(arg), &kernel_source_path)?;
-        integrate_bakasu_hooks(&kernel_source_path, &project_key, &proj.defconfig, None)?;
+        if apply_susfs {
+            integrate_susfs(&kernel_source_path, &project_key, &proj.defconfig, None)?;
+        } else {
+            integrate_bakasu_hooks(&kernel_source_path, &project_key, &proj.defconfig, None)?;
+        }
     }
 
     let mut feature_suffixes = Vec::new();
+    if apply_susfs {
+        feature_suffixes.push("susfs".to_string());
+    }
     if apply_hybridmount {
         apply_hybridmount_overlay(&kernel_source_path, &proj.defconfig)?;
         feature_suffixes.push("hybridmount".to_string());
@@ -2965,12 +3004,21 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
 
     let final_config = kernel_source_path.join("out/.config");
     if setup_url.is_some() {
-        integrate_bakasu_hooks(
-            &kernel_source_path,
-            &project_key,
-            &proj.defconfig,
-            Some(&final_config),
-        )?;
+        if apply_susfs {
+            integrate_susfs(
+                &kernel_source_path,
+                &project_key,
+                &proj.defconfig,
+                Some(&final_config),
+            )?;
+        } else {
+            integrate_bakasu_hooks(
+                &kernel_source_path,
+                &project_key,
+                &proj.defconfig,
+                Some(&final_config),
+            )?;
+        }
         validate_kconfig_entries(&final_config, COMMON_KSU_KCONFIG_ENTRIES)?;
     }
     // Report dropped fragment entries before the ABI checks: if a tuning experiment

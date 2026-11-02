@@ -1,0 +1,8 @@
+{
+  "pixel4_source_commit": "9bf1df6e86457bf38266d0b1e42e2f49769b65f0",
+  "community_commit": "f59ce26a196508276e54453d0fe98c5a36b2b51b",
+  "patch": "Patches/Patch/susfs_patch_to_4.14.patch",
+  "dry_run_exit": 1,
+  "failed_hunks": 2,
+  "note": "Read-only dry run on a source-file snapshot; no hooks removed or changes applied."
+}

@@ -6,6 +6,7 @@ mod git_auth;
 mod local;
 mod pixel4;
 mod settings;
+mod susfs;
 mod utils;
 
 use anyhow::Result;
@@ -150,6 +151,8 @@ enum Commands {
         apply_bbg: bool,
         #[arg(long, action = clap::ArgAction::Set, default_value_t = true)]
         apply_hybridmount: bool,
+        #[arg(long, action = clap::ArgAction::Set)]
+        apply_susfs: Option<bool>,
         /// Override the project's kconfig fragment for this run (tuning profile).
         #[arg(long)]
         kconfig_fragment: Option<String>,
@@ -178,6 +181,12 @@ enum Commands {
         no_bbg: bool,
         #[arg(long, action = clap::ArgAction::Set)]
         apply_hybridmount: Option<bool>,
+        #[arg(long, action = clap::ArgAction::Set)]
+        apply_susfs: Option<bool>,
+        #[arg(long, conflicts_with_all = ["no_susfs", "apply_susfs"])]
+        with_susfs: bool,
+        #[arg(long, conflicts_with_all = ["with_susfs", "apply_susfs"])]
+        no_susfs: bool,
         #[arg(long, action = clap::ArgAction::SetTrue)]
         with_hybridmount: bool,
         #[arg(long, action = clap::ArgAction::SetTrue)]
@@ -341,6 +350,7 @@ fn main() -> Result<()> {
             bakasu_setup_arg,
             apply_bbg,
             apply_hybridmount,
+            apply_susfs,
             kconfig_fragment,
             lto,
         } => build::handle_build(build::BuildOptions {
@@ -351,6 +361,7 @@ fn main() -> Result<()> {
             bakasu_setup_arg,
             apply_bbg,
             apply_hybridmount,
+            apply_susfs,
             kconfig_fragment,
             lto,
         }),
@@ -365,8 +376,11 @@ fn main() -> Result<()> {
             with_bbg,
             no_bbg,
             apply_hybridmount,
+            apply_susfs,
             with_hybridmount,
             no_hybridmount,
+            with_susfs,
+            no_susfs,
             kconfig_fragment,
             lto,
             local_root,
@@ -400,6 +414,13 @@ fn main() -> Result<()> {
                 bakasu_setup_arg,
                 apply_bbg: resolved_bbg,
                 apply_hybridmount: resolved_hybridmount,
+                apply_susfs: if no_susfs {
+                    Some(false)
+                } else if with_susfs {
+                    Some(true)
+                } else {
+                    apply_susfs.or(settings.apply_susfs)
+                },
                 kconfig_fragment,
                 lto,
                 local_root: local_root.or(settings.local_root),
@@ -582,6 +603,7 @@ fn handle_add(options: AddOptions) -> Result<()> {
         disable_security: None,
         readme_placeholders: Some(placeholders),
         bbg: None,
+        susfs: None,
         watch_upstream_variants: None,
     };
 
@@ -1024,10 +1046,10 @@ fn handle_update(
 }
 
 #[cfg(test)]
-mod removed_options_tests {
+mod feature_options_tests {
     use super::*;
     #[test]
-    fn rejects_removed_build_option() {
+    fn accepts_susfs_build_option() {
         assert!(
             Cli::try_parse_from([
                 "kokuban_ci_core",
@@ -1037,7 +1059,7 @@ mod removed_options_tests {
                 "--apply-susfs",
                 "true"
             ])
-            .is_err()
+            .is_ok()
         );
     }
 }

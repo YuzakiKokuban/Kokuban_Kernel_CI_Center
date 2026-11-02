@@ -43,6 +43,9 @@ jobs:
       - name: Pixel 4 built-in driver gate tests
         run: python3 scripts/test-pixel4-builtin.py
 
+      - name: SUSFS integration tests
+        run: python3 scripts/test-susfs.py
+
       - name: Build CI Core
         run: cargo build --release --locked --manifest-path ci_core_rs/Cargo.toml
 

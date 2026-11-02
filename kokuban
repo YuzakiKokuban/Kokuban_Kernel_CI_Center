@@ -35,6 +35,8 @@ Common local options:
   --no-bbg              Disable Baseband Guard (default)
   --with-hybridmount    Enable Hybrid Mount (default)
   --no-hybridmount      Disable Hybrid Mount
+  --with-susfs          Enable SUSFS (BakaSU with a configured patchset)
+  --no-susfs            Disable SUSFS; default follows project configuration
 EOF
 }
 

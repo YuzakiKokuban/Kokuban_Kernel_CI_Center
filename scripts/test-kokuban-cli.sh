@@ -39,4 +39,27 @@ output="$("$KOKUBAN" run daily --offline --dry-run)"
 assert_contains "$output" "apply_bbg: false"
 assert_contains "$output" "offline: true"
 
+output="$("$KOKUBAN" plan oneplus15_sm8850 bakasu bakasu)"
+assert_contains "$output" "apply_susfs: true"
+assert_contains "$output" "bakasu-bakasu-susfs"
+
+output="$("$KOKUBAN" plan oneplus15_sm8850 bakasu bakasu --no-susfs)"
+assert_contains "$output" "apply_susfs: false"
+if [[ "$output" == *"bakasu-bakasu-susfs"* ]]; then
+  echo "SUSFS and manual builds must use separate source workspaces" >&2
+  exit 1
+fi
+
+output="$("$KOKUBAN" plan oneplus15_sm8850 main default)"
+assert_contains "$output" "apply_susfs: false"
+if "$KOKUBAN" plan oneplus15_sm8850 main default --with-susfs >/dev/null 2>&1; then
+  echo "SUSFS must reject an LKM build" >&2
+  exit 1
+fi
+
+if "$KOKUBAN" plan oneplus15_sm8850 bakasu bakasu --with-susfs --no-susfs >/dev/null 2>&1; then
+  echo "Conflicting SUSFS switches must be rejected" >&2
+  exit 1
+fi
+
 echo "OK: kokuban CLI wrapper tests passed."

@@ -8,6 +8,7 @@ use std::path::PathBuf;
 pub struct Settings {
     pub apply_bbg: bool,
     pub apply_hybridmount: bool,
+    pub apply_susfs: Option<bool>,
     pub local_root: Option<PathBuf>,
 }
 
@@ -24,6 +25,7 @@ impl Default for Settings {
         Self {
             apply_bbg: false,
             apply_hybridmount: true,
+            apply_susfs: None,
             local_root: env::var_os("KOKUBAN_LOCAL_ROOT").map(PathBuf::from),
         }
     }
@@ -76,6 +78,13 @@ pub fn load_settings() -> Result<Settings> {
         match key.trim() {
             "apply_bbg" => settings.apply_bbg = bool_value(value.trim())?,
             "apply_hybridmount" => settings.apply_hybridmount = bool_value(value.trim())?,
+            "apply_susfs" => {
+                settings.apply_susfs = if value.trim() == "auto" {
+                    None
+                } else {
+                    Some(bool_value(value.trim())?)
+                }
+            }
             "local_root" => {
                 let value = value.trim();
                 settings.local_root = if value.is_empty() {
@@ -93,7 +102,8 @@ pub fn load_settings() -> Result<Settings> {
 
 pub fn set_config_value(key: &str, value: &str) -> Result<()> {
     let normalized = match key {
-        "apply_bbg" | "apply_hybridmount" => bool_value(value)?.to_string(),
+        "apply_susfs" if value == "auto" => "auto".to_string(),
+        "apply_susfs" | "apply_bbg" | "apply_hybridmount" => bool_value(value)?.to_string(),
         "local_root" => value.to_string(),
         _ => return Err(anyhow!("Unknown config key: {}", key)),
     };

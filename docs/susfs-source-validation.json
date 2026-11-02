@@ -1,0 +1,53 @@
+{
+  "z5_sm8550": {
+    "success": true,
+    "source_ref": "9864376b3ca73e4f22fe2930b097b9e9eb258aae",
+    "bakasu_inline_checker": true
+  },
+  "s25_sm8750": {
+    "success": true,
+    "source_ref": "8e910c453450f3f8c08d628cd258ba4248d5bf78",
+    "bakasu_inline_checker": true
+  },
+  "s23_sm8550": {
+    "success": true,
+    "source_ref": "919d576929cb5d0ecb686b7aae4bddaac1aaeb67",
+    "bakasu_inline_checker": true
+  },
+  "tabs9_sm8550": {
+    "success": true,
+    "source_ref": "c3130f312916f3393b31acf2d79aba22b104546a",
+    "bakasu_inline_checker": true
+  },
+  "s24_sm8650": {
+    "success": true,
+    "source_ref": "c74bd84be2625cb5fcd86ab3d2a8130b5632e53c",
+    "bakasu_inline_checker": true
+  },
+  "tabs10_mt6989": {
+    "success": true,
+    "source_ref": "711892142329f9f6608465ab0fd8c929dbd4ca89",
+    "bakasu_inline_checker": true
+  },
+  "z6_sm8650": {
+    "success": true,
+    "source_ref": "19a521811cbf8534791001d4036adad07f1371b7",
+    "bakasu_inline_checker": true
+  },
+  "mi17_sm8850": {
+    "success": true,
+    "source_ref": "c9f2f242d8ce69d3669d53ce41f93fa4ecec5c54",
+    "bakasu_inline_checker": true
+  },
+  "razrfold_sm8845": {
+    "success": true,
+    "source_ref": "55b00478825b2df03a0ef2a5ae68e031a471d760",
+    "bakasu_inline_checker": true
+  },
+  "oneplus15_sm8850": {
+    "success": true,
+    "source_ref": "android16-6.12-2026-03",
+    "bakasu_inline_checker": true
+  },
+  "_bakasu_commit": "516d3e87fbc986ccefdde2c2765f1700612441a9"
+}

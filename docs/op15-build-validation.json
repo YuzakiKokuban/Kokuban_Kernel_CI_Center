@@ -1,0 +1,19 @@
+{
+  "project": "oneplus15_sm8850",
+  "kernel_release": "6.12.69-android16-Kokuban-Claire-g623c5276587d-4k",
+  "variant": "bakasu",
+  "features": [
+    "susfs",
+    "hybridmount"
+  ],
+  "full_build": true,
+  "device_tested": false,
+  "source_commit": "623c5276587d4ee595ad22cbd30e72d88cdaa66a",
+  "bakasu_commit": "516d3e87fbc986ccefdde2c2765f1700612441a9",
+  "archive": "OP15-6.12.69-android16-Kokuban-Claire-g623c5276587d-4k-susfs-hybridmount-20261102-1821.zip",
+  "archive_sha256": "98624abe31db5ef42552be8258ecf1a8afd7469fbba03006e69937a78ac0dcbc",
+  "image_sha256": "8c6f45c45a5f398d55046638d9e3dcf3e9eb1e6551aca948166501ec64c5b20e",
+  "zip_integrity": true,
+  "anykernel_name_verified": true,
+  "note": "No stock-module ABI manifest or device boot validation was available. Other devices passed source integration checks, not full builds."
+}
