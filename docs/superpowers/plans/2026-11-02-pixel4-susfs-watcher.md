@@ -13,5 +13,7 @@
 - [x] Complete a full Pixel 4 WSL build and image-only AK3 verification with SUSFS and built-in Hybrid Mount/WLAN/audio checks.
 - [x] Repair detection, immutable upstream pinning, success acknowledgement and retry behavior; test new-project and failed-wave cases.
 - [x] Validate current source integration for every project and run center Rust/Python/shell/workflow checks.
-- [ ] Obtain independent review, publish/merge tested central changes and verify the published core used by scheduled work.
-- [ ] Exercise the watcher safely, preserving pending work until successful builds and avoiding an unrequested mass release wave.
+- [x] Obtain independent review, publish/merge tested central changes and verify the published core used by scheduled work.
+- [x] Exercise the watcher safely, preserving pending work until successful builds and avoiding an unrequested mass release wave.
+
+Completed 2026-11-03: PR #59 merged, main core and local-mode workflows passed, and the live read-only watcher verified all 11 pending projects and source permissions. Exact evidence is in `docs/upstream-watcher-rollout-validation.json`. Pixel 4 test assets were uploaded and all eight remote digests matched local files. No device boot test or full all-device build wave was performed.

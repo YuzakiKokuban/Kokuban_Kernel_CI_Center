@@ -24,6 +24,10 @@
 - Upstream patchsets differ across 4.14, 5.15, 6.1, 6.6 and 6.12.
 - Cache keys and source resets must prevent feature state leaking between builds.
 
+## Historical checkpoint
+
+Superseded on 2026-11-03 by the completed Pixel 4 / all-device SUSFS rollout in `2026-11-02-pixel4-susfs-watcher.md`. PR #59 is merged, Pixel 4 SUSFS is enabled, and the published main core/live watcher checks passed. The entries below preserve the earlier implementation checkpoint.
+
 ## Progress
 
 - Confirmed WSL Ubuntu-26.10, authenticated GitHub CLI, and clean central worktree.

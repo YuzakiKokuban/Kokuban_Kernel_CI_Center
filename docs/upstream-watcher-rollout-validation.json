@@ -1,0 +1,142 @@
+{
+  "verified_date": "2026-11-03",
+  "deployment_commit": "c7d5648eaf1d812f44875681f7faac902c175db9",
+  "pull_request": "https://github.com/YuzakiKokuban/Kokuban_Kernel_CI_Center/pull/59",
+  "ci_core_workflow": "https://github.com/YuzakiKokuban/Kokuban_Kernel_CI_Center/actions/runs/41587046251",
+  "local_mode_workflow": "https://github.com/YuzakiKokuban/Kokuban_Kernel_CI_Center/actions/runs/41587046219",
+  "watcher_workflow": "https://github.com/YuzakiKokuban/Kokuban_Kernel_CI_Center/actions/runs/41587281308",
+  "conclusion": "success",
+  "verify_only": true,
+  "published_core_tree_stamp": "4823f2c9b715225522c43780d2abd52b1116db1c",
+  "pending_matrix": [
+    {
+      "variant": "bakasu",
+      "commit_id": "516d3e87fbc986ccefdde2c2765f1700612441a9",
+      "project": "floral_sm8150"
+    },
+    {
+      "project": "mi17_sm8850",
+      "variant": "bakasu",
+      "commit_id": "516d3e87fbc986ccefdde2c2765f1700612441a9"
+    },
+    {
+      "commit_id": "516d3e87fbc986ccefdde2c2765f1700612441a9",
+      "project": "oneplus15_sm8850",
+      "variant": "bakasu"
+    },
+    {
+      "commit_id": "516d3e87fbc986ccefdde2c2765f1700612441a9",
+      "variant": "bakasu",
+      "project": "razrfold_sm8845"
+    },
+    {
+      "variant": "bakasu",
+      "project": "s23_sm8550",
+      "commit_id": "516d3e87fbc986ccefdde2c2765f1700612441a9"
+    },
+    {
+      "commit_id": "516d3e87fbc986ccefdde2c2765f1700612441a9",
+      "variant": "bakasu",
+      "project": "s24_sm8650"
+    },
+    {
+      "project": "s25_sm8750",
+      "variant": "bakasu",
+      "commit_id": "516d3e87fbc986ccefdde2c2765f1700612441a9"
+    },
+    {
+      "variant": "bakasu",
+      "commit_id": "516d3e87fbc986ccefdde2c2765f1700612441a9",
+      "project": "tabs10_mt6989"
+    },
+    {
+      "project": "tabs9_sm8550",
+      "commit_id": "516d3e87fbc986ccefdde2c2765f1700612441a9",
+      "variant": "bakasu"
+    },
+    {
+      "variant": "bakasu",
+      "project": "z5_sm8550",
+      "commit_id": "516d3e87fbc986ccefdde2c2765f1700612441a9"
+    },
+    {
+      "commit_id": "516d3e87fbc986ccefdde2c2765f1700612441a9",
+      "project": "z6_sm8650",
+      "variant": "bakasu"
+    }
+  ],
+  "source_repositories_verified": [
+    {
+      "project": "z5_sm8550",
+      "repo": "YuzakiKokuban/android_kernel_samsung_sm8550_Z5",
+      "push_permission": true,
+      "bakasu_branch": true
+    },
+    {
+      "project": "s25_sm8750",
+      "repo": "YuzakiKokuban/android_kernel_samsung_sm8750",
+      "push_permission": true,
+      "bakasu_branch": true
+    },
+    {
+      "project": "s23_sm8550",
+      "repo": "YuzakiKokuban/android_kernel_samsung_sm8550_S23",
+      "push_permission": true,
+      "bakasu_branch": true
+    },
+    {
+      "project": "tabs9_sm8550",
+      "repo": "YuzakiKokuban/android_kernel_samsung_sm8550_TabS9",
+      "push_permission": true,
+      "bakasu_branch": true
+    },
+    {
+      "project": "s24_sm8650",
+      "repo": "YuzakiKokuban/android_kernel_samsung_sm8650",
+      "push_permission": true,
+      "bakasu_branch": true
+    },
+    {
+      "project": "tabs10_mt6989",
+      "repo": "YuzakiKokuban/android_kernel_samsung_mt6989_TabS10",
+      "push_permission": true,
+      "bakasu_branch": true
+    },
+    {
+      "project": "z6_sm8650",
+      "repo": "YuzakiKokuban/android_kernel_samsung_sm8650_Z6",
+      "push_permission": true,
+      "bakasu_branch": true
+    },
+    {
+      "project": "mi17_sm8850",
+      "repo": "YuzakiKokuban/android_kernel_xiaomi_sm8850",
+      "push_permission": true,
+      "bakasu_branch": true
+    },
+    {
+      "project": "razrfold_sm8845",
+      "repo": "YuzakiKokuban/android_kernel_motorola_blanc",
+      "push_permission": true,
+      "bakasu_branch": true
+    },
+    {
+      "project": "floral_sm8150",
+      "repo": "YuzakiKokuban/android_kernel_google_msm-4.14",
+      "push_permission": true,
+      "bakasu_branch": true
+    },
+    {
+      "project": "oneplus15_sm8850",
+      "repo": "YuzakiKokuban/android_kernel_oneplus_sm8850",
+      "push_permission": true,
+      "bakasu_branch": true
+    }
+  ],
+  "update_projects": "skipped",
+  "build_projects": "skipped",
+  "acknowledge_wave": "skipped",
+  "tracker_blob_before_and_after": "4317517f9ce31bead554e2306e22657342b7ee35",
+  "device_boot_tested": false,
+  "scope": "Published-core detection and live source access verified; full next-wave builds of all devices were not executed."
+}
