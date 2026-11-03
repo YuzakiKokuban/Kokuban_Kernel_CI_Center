@@ -51,6 +51,7 @@ Kokuban Kernel CI Center 是一个专为 Android Linux 内核编译设计的集�
 | **Tab S10** | Galaxy Tab S10 (MT6989) | `tabs10_mt6989` |
 | **Z6** | Galaxy Z Fold/Flip 6 (SM8650) | `z6_sm8650` |
 | **Mi17** | Xiaomi 17 Series (SM8850, Linux 6.12.69, Hybrid Mount, no BBG) | `mi17_sm8850` |
+| **OnePlus 15** | OnePlus 15 (SM8850, Android 16 GKI Linux 6.12.69) | `oneplus15_sm8850` |
 | **Razr Fold** | Motorola Razr Fold 2026 (SM8845 canoe/`blanc`, Linux 6.12.38, Hybrid Mount, no BBG) | `razrfold_sm8845` |
 
 ## 构建与使用
@@ -77,10 +78,11 @@ Kokuban Kernel CI Center 是一个专为 Android Linux 内核编译设计的集�
 
 - 触发时间：每周一 00:00 UTC（GitHub 定时队列通常有数小时延迟）；需要立即处理时可用 `workflow_dispatch` 手动发起一波。
 - 波内严格串行：`update-projects` 与 `build-projects` 都设为 `max-parallel: 1`，同一时刻只有 1 个设备仓库在同步、1 个内核在编译。
-- 检测与构建同频：只有这一周内上游 SHA 发生变化才会产生一波；无变化时整波只跑一次 `check`。
+- 检测按项目记录：上游 SHA 变化、尚未成功构建的项目或新接入设备会进入下一波；无待处理项目时只跑一次 `check`。
 - 同步提交带 `[skip ci]`，因此设备仓库自身的 `Trigger Central Build` 不再被自动同步触发；构建由中心仓库在波内统一串行发起（设备仓库上的手动 push 仍会正常触发构建）。
 
-单次波次内某个设备仓库同步失败时，该波的构建阶段会因 `needs` 依赖被跳过；重跑失败的同步任务后，手动 `workflow_dispatch` 一波或直接手动触发对应项目的构建即可。
+更新与构建全部成功后才确认本波的项目记录。失败不会提前消耗上游版本，下一次会重试；重试可能重复构建本波已成功的设备。检测、更新与构建均使用同一个完整 BakaSU SHA，并检查 setup 实际安装的提交。
+手动触发时可选择 `verify_only=true`，只检测待处理设备、源码分支和 GitHub 写入权限，不更新源码、不构建、不发布、不确认记录。
 
 ### 4. 本地模式：x86-64 Linux / Ubuntu 快速编译
 
@@ -246,8 +248,9 @@ cargo run --bin kokuban_ci_core -- build --project s25_sm8750 --branch bakasu --
 但必须另行适配并验证构建流程、设备驱动和启动兼容性；当前 `pixel4-4.14` 流程仅验证 4.14。
 
 该项目使用 `pixel4-4.14` 流程：LLVM 12、GNU AArch64 binutils、无 LTO/CFI、
-BakaSU 手动 hooks，以及内核内建的 Hybrid Mount VFS。每次构建拉取 BakaSU `main`
-最新代码，不在内核中保存 BakaSU gitlink 或固定提交。实际版本和提交哈希写入构建日志。
+BakaSU SUSFS Inline Hook（SUSFS 2.3.0），以及内核内建的 Hybrid Mount VFS。
+`--no-susfs` 可使用原有手动 hooks。上游监听固定本波检测到的 BakaSU 完整提交，
+普通构建默认拉取 `main`。不在内核中保存 BakaSU gitlink，实际版本和提交哈希写入日志。
 Baseband Guard 不适用于此项目。
 Hybrid Mount 由内核源码提供，CI 保留其 4.14 适配，不用 GKI 模块覆盖。
 最终配置必须通过 BakaSU/Hybrid Mount/KEYS/TMPFS_XATTR 检查。
@@ -264,11 +267,38 @@ CI 会运行 WLAN/PDR 回归检查，并检查 `modules.order` 为空、关键�
 
 ### BakaSU hook 校验
 
-所有 BakaSU 构建在 setup 后、生成配置前执行 `scripts/bakasu-hooks.py`，
-按项目应用 `configs/bakasu/` 中的手动 hook 补丁；Pixel 4 已内置相应调用点。
+未启用 SUSFS 的 BakaSU 构建在 setup 后、生成配置前执行 `scripts/bakasu-hooks.py`，
+按项目应用 `configs/bakasu/` 中的手动 hook 补丁；Pixel 4 源码基线已内置相应调用点。
 `Setup Kernel Repos` 同样将补丁及配置写入各仓库的 `bakasu` 分支。
-所有项目启用 `KSU_MANUAL_HOOK`；6.8 以下使用自动 LSM setuid/initrc，
+这条路径启用 `KSU_MANUAL_HOOK`；6.8 以下使用自动 LSM setuid/initrc，
 6.8 及以上显式接入 setresuid/read，input 使用自动 handler。
 exec 的前后调用保留 filename 引用，分别适配普通及 atomic 引用计数。
 最终 `olddefconfig` 后再次检查调用点和配置；不完整、旧接口冲突、补丁不匹配均中止构建。
-SUSFS 编译选项、下载和注入机制已移除，旧 CLI 开关不再接受。
+所有项目的 BakaSU 构建默认选择独立的 SUSFS Inline Hook 路径；关闭 SUSFS 后使用上述手动路径，二者互斥。
+
+### OnePlus 15 / SUSFS
+
+`oneplus15_sm8850` 使用 `YuzakiKokuban/android_kernel_oneplus_sm8850` 的 `main` / `bakasu` 分支，
+源码导入自 cctv18 的 `android16-6.12-2026-03`，固定校验 Linux `6.12.69`。
+版本基础后缀为 `-android16-Kokuban-Claire`，刷机包前缀为 `OP15`，
+AnyKernel 配置为 `oneplus15`，显示名称为 `OP15-Kokuban-Kernel`。
+该源码为 Android GKI 基线；编译验证不代表已完成一加 15 的设备启动与 vendor 模块兼容验证。
+
+所有设备的 BakaSU 构建默认开启 SUSFS；LKM 默认关闭。可以按构建关闭或显式开启：
+
+```bash
+./kokuban build oneplus15_sm8850 bakasu bakasu
+./kokuban build oneplus15_sm8850 bakasu bakasu --no-susfs
+./kokuban build s23_sm8550 bakasu bakasu --with-susfs
+./kokuban config set apply_susfs auto  # auto / true / false
+```
+
+Actions 的 `apply_susfs` 同样支持 `auto` / `true` / `false`。
+`auto` 跟随项目及构建模式；明确在 LKM 中开启 SUSFS 会报错。
+SUSFS 与手动 hooks 使用独立配置及校验，缓存工作区包含 SUSFS 开关，产物名称包含 `susfs`。
+补丁来源固定到完整提交，并在临时目录完成严格应用与 hooks 校验后才写入源码。
+项目的 `susfs.local_patch` 保存针对设备源码调整后的补丁，`susfs.revision` 固定配套实现文件。
+4.14、5.15、6.1、6.6、6.12 项目均已配置严格适配补丁。Pixel 4 以社区 2.3.0 补丁为基础，
+补齐独立 SUSFS 调用点，并修复挂载 ID 归属和私有 statx 标记返回问题；主机回归测试直接编译实际 C 函数。
+Razr Fold 保留 golden 符号表和关键 CRC 校验；按用户要求取消了从未提供的原厂模块导入清单要求。
+来源、验证范围及 4.14 社区参考见 [SUSFS 接入说明](docs/susfs-integration.md)。

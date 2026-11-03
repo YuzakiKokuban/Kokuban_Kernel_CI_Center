@@ -620,6 +620,9 @@ mod tests {
         .unwrap();
         let required = &[("CONFIG_TEST_DISABLED", "n"), ("CONFIG_HYBRIDMOUNT", "y")];
         assert!(validate_kconfig_entries(&path, required).is_ok());
+        // Kconfig omits invisible children of an unselected hook mode entirely.
+        fs::write(&path, "CONFIG_HYBRIDMOUNT=y\n").unwrap();
+        assert!(validate_kconfig_entries(&path, required).is_ok());
         fs::write(&path, "CONFIG_TEST_DISABLED=y\nCONFIG_HYBRIDMOUNT=y\n").unwrap();
         assert!(validate_kconfig_entries(&path, required).is_err());
         fs::remove_file(path).unwrap();
@@ -844,6 +847,7 @@ write_boot; # use flash_boot to skip ramdisk repack, e.g. for devices with init_
             disable_security: None,
             readme_placeholders: None,
             bbg: None,
+            susfs: None,
             watch_upstream_variants: None,
         }
     }
@@ -1768,11 +1772,17 @@ fn validate_kconfig_entries(path: &Path, entries: &[(&str, &str)]) -> Result<()>
     let missing: Vec<&str> = entries
         .iter()
         .filter_map(|(key, value)| {
-            let expected = format!("{key}={value}");
-            (!content.lines().any(|line| {
-                line == expected || (*value == "n" && line == format!("# {key} is not set"))
-            }))
-            .then_some(*key)
+            let prefix = format!("{key}=");
+            let not_set = format!("# {key} is not set");
+            let actual = content
+                .lines()
+                .rev()
+                .find_map(|line| {
+                    line.strip_prefix(&prefix)
+                        .or_else(|| (line == not_set).then_some("n"))
+                })
+                .unwrap_or("n");
+            (actual != *value).then_some(*key)
         })
         .collect();
 
@@ -1934,6 +1944,34 @@ pub fn integrate_bakasu_hooks(
         return Err(anyhow!(
             "BakaSU hook integration failed for {project}: {status}"
         ));
+    }
+    Ok(())
+}
+
+pub fn integrate_susfs(
+    source: &Path,
+    project: &str,
+    defconfig: &str,
+    final_config: Option<&Path>,
+) -> Result<()> {
+    let mut command = std::process::Command::new("python3");
+    command
+        .arg(crate::utils::get_root_dir().join("scripts/susfs.py"))
+        .arg("--source")
+        .arg(source)
+        .arg("--project")
+        .arg(project)
+        .arg("--defconfig")
+        .arg(defconfig);
+    if let Some(config) = final_config {
+        command.arg("--check-config").arg(config);
+    }
+    if env_flag("KOKUBAN_OFFLINE") {
+        command.arg("--offline");
+    }
+    let status = command.status().context("Cannot run SUSFS integration")?;
+    if !status.success() {
+        return Err(anyhow!("SUSFS integration failed for {project}"));
     }
     Ok(())
 }
@@ -2379,6 +2417,7 @@ pub struct BuildOptions {
     pub bakasu_setup_arg: Option<String>,
     pub apply_bbg: bool,
     pub apply_hybridmount: bool,
+    pub apply_susfs: Option<bool>,
     /// Overrides the project's `kconfig_fragment` for one run, so a tuning profile
     /// can be graded without editing `configs/projects.json`.
     pub kconfig_fragment: Option<String>,
@@ -2395,10 +2434,12 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
         bakasu_setup_arg,
         apply_bbg,
         apply_hybridmount,
+        apply_susfs,
         kconfig_fragment: kconfig_fragment_override,
         lto: lto_override,
     } = options;
     let proj = load_project(&project_key)?;
+    let apply_susfs = crate::susfs::resolve(apply_susfs, &branch, proj.susfs.as_ref())?;
 
     let kernel_source_path = PathBuf::from("kernel_source");
     if !kernel_source_path.exists() {
@@ -2632,12 +2673,47 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
         _ => None,
     };
 
+    let pinned_setup_url = if bakasu_setup_arg.len() == 40
+        && bakasu_setup_arg
+            .bytes()
+            .all(|value| value.is_ascii_hexdigit())
+    {
+        Some(format!(
+            "https://raw.githubusercontent.com/Baka-SU/BakaSU/{bakasu_setup_arg}/kernel/setup.sh"
+        ))
+    } else {
+        None
+    };
+
     if let Some((url, arg)) = setup_url {
-        run_setup_script(url, Some(arg), &kernel_source_path)?;
-        integrate_bakasu_hooks(&kernel_source_path, &project_key, &proj.defconfig, None)?;
+        run_setup_script(
+            pinned_setup_url.as_deref().unwrap_or(url),
+            Some(arg),
+            &kernel_source_path,
+        )?;
+        if pinned_setup_url.is_some() {
+            let defconfig_path = project_defconfig_path(&kernel_source_path, &proj.defconfig)?;
+            let source_root = defconfig_path
+                .ancestors()
+                .nth(4)
+                .ok_or_else(|| anyhow!("Cannot locate kernel root for BakaSU verification"))?;
+            let driver = fs::canonicalize(source_root.join("drivers/kernelsu"))
+                .context("Cannot locate the installed BakaSU driver")?;
+            let actual =
+                run_cmd(&["git", "rev-parse", "HEAD"], Some(&driver), true)?.unwrap_or_default();
+            crate::watcher::verify_installed_commit(arg, &actual)?;
+        }
+        if apply_susfs {
+            integrate_susfs(&kernel_source_path, &project_key, &proj.defconfig, None)?;
+        } else {
+            integrate_bakasu_hooks(&kernel_source_path, &project_key, &proj.defconfig, None)?;
+        }
     }
 
     let mut feature_suffixes = Vec::new();
+    if apply_susfs {
+        feature_suffixes.push("susfs".to_string());
+    }
     if apply_hybridmount {
         apply_hybridmount_overlay(&kernel_source_path, &proj.defconfig)?;
         feature_suffixes.push("hybridmount".to_string());
@@ -2864,15 +2940,15 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
             &[
                 ("CONFIG_LOCALVERSION", "\"\""),
                 ("CONFIG_KSU", "y"),
-                ("CONFIG_KSU_MANUAL_HOOK", "y"),
-                ("CONFIG_KSU_MANUAL_HOOK_AUTO_SETUID_HOOK", "y"),
-                ("CONFIG_KSU_MANUAL_HOOK_AUTO_INITRC_HOOK", "y"),
-                ("CONFIG_KSU_MANUAL_HOOK_AUTO_INPUT_HOOK", "y"),
                 ("CONFIG_HYBRIDMOUNT", "y"),
                 ("CONFIG_QCA_CLD_WLAN", "y"),
                 ("CONFIG_TMPFS_XATTR", "y"),
                 ("CONFIG_KEYS", "y"),
             ],
+        )?;
+        update_kconfig_file(
+            &kernel_source_path.join("out/.config"),
+            &crate::pixel4::hook_config(apply_susfs),
         )?;
     }
     if let Some(disables) = &proj.disable_security {
@@ -2965,12 +3041,21 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
 
     let final_config = kernel_source_path.join("out/.config");
     if setup_url.is_some() {
-        integrate_bakasu_hooks(
-            &kernel_source_path,
-            &project_key,
-            &proj.defconfig,
-            Some(&final_config),
-        )?;
+        if apply_susfs {
+            integrate_susfs(
+                &kernel_source_path,
+                &project_key,
+                &proj.defconfig,
+                Some(&final_config),
+            )?;
+        } else {
+            integrate_bakasu_hooks(
+                &kernel_source_path,
+                &project_key,
+                &proj.defconfig,
+                Some(&final_config),
+            )?;
+        }
         validate_kconfig_entries(&final_config, COMMON_KSU_KCONFIG_ENTRIES)?;
     }
     // Report dropped fragment entries before the ABI checks: if a tuning experiment
@@ -2984,13 +3069,13 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
             &final_config,
             &[
                 ("CONFIG_KSU", "y"),
-                ("CONFIG_KSU_MANUAL_HOOK", "y"),
                 ("CONFIG_HYBRIDMOUNT", "y"),
                 ("CONFIG_QCA_CLD_WLAN", "y"),
                 ("CONFIG_TMPFS_XATTR", "y"),
                 ("CONFIG_KEYS", "y"),
             ],
         )?;
+        validate_kconfig_entries(&final_config, &crate::pixel4::hook_config(apply_susfs))?;
     }
     if is_gki_612 {
         validate_kconfig_entries(&final_config, GKI_CUSTOM_KCONFIG_ENTRIES)?;
@@ -3100,7 +3185,10 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
         run_cmd(
             &[
                 "python3",
-                "scripts/pixel4-builtin.py",
+                crate::utils::get_root_dir()
+                    .join("scripts/pixel4-builtin.py")
+                    .to_str()
+                    .ok_or_else(|| anyhow!("Invalid Pixel 4 verification script path"))?,
                 "--out",
                 kernel_source_path
                     .join("out")

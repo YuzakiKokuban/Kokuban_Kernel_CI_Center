@@ -5,6 +5,18 @@ pub fn is_pixel4(style: Option<&str>) -> bool {
     style == Some(BUILD_STYLE)
 }
 
+pub fn hook_config(susfs: bool) -> Vec<(&'static str, &'static str)> {
+    let manual = if susfs { "n" } else { "y" };
+    vec![
+        ("CONFIG_KSU_SUSFS", if susfs { "y" } else { "n" }),
+        ("CONFIG_KSU_MANUAL_HOOK", manual),
+        ("CONFIG_KSU_TRACEPOINT_HOOK", "n"),
+        ("CONFIG_KSU_MANUAL_HOOK_AUTO_SETUID_HOOK", manual),
+        ("CONFIG_KSU_MANUAL_HOOK_AUTO_INITRC_HOOK", manual),
+        ("CONFIG_KSU_MANUAL_HOOK_AUTO_INPUT_HOOK", manual),
+    ]
+}
+
 pub fn localversion(base: &str, sha: &str) -> anyhow::Result<String> {
     if sha.is_empty() || !sha.bytes().all(|byte| byte.is_ascii_hexdigit()) {
         return Err(anyhow::anyhow!("Invalid kernel source commit: {sha}"));
@@ -19,6 +31,46 @@ pub fn localversion(base: &str, sha: &str) -> anyhow::Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn pixel4_hook_modes_are_exclusive() {
+        let susfs = hook_config(true);
+        assert!(susfs.contains(&("CONFIG_KSU_SUSFS", "y")));
+        assert!(susfs.contains(&("CONFIG_KSU_MANUAL_HOOK", "n")));
+        assert!(susfs.contains(&("CONFIG_KSU_MANUAL_HOOK_AUTO_INITRC_HOOK", "n")));
+        let manual = hook_config(false);
+        assert!(manual.contains(&("CONFIG_KSU_MANUAL_HOOK", "y")));
+        assert!(manual.contains(&("CONFIG_KSU_SUSFS", "n")));
+        assert!(manual.contains(&("CONFIG_KSU_MANUAL_HOOK_AUTO_INPUT_HOOK", "y")));
+    }
+
+    #[test]
+    fn all_devices_restore_susfs_by_default_for_bakasu() {
+        let projects: serde_json::Value =
+            serde_json::from_str(include_str!("../../configs/projects.json")).unwrap();
+        for (key, value) in projects.as_object().unwrap() {
+            if key.starts_with('_') {
+                continue;
+            }
+            let project: crate::config::ProjectConfig =
+                serde_json::from_value(value.clone()).unwrap();
+            assert!(
+                project
+                    .susfs
+                    .as_ref()
+                    .is_some_and(|config| config.default_enabled),
+                "{key}"
+            );
+            assert!(
+                crate::susfs::resolve(None, "bakasu", project.susfs.as_ref()).unwrap(),
+                "{key}"
+            );
+            assert!(
+                !crate::susfs::resolve(None, "main", project.susfs.as_ref()).unwrap(),
+                "{key}"
+            );
+        }
+    }
 
     #[test]
     fn release_uses_kaltsit_and_preserves_the_ci_kernel_hash() {

@@ -15,6 +15,7 @@ on:
           - tabs10_mt6989
           - z6_sm8650
           - mi17_sm8850
+          - oneplus15_sm8850
           - razrfold_sm8845
           - floral_sm8150
       branch:
@@ -51,6 +52,11 @@ on:
         description: 'Integrate Hybrid Mount VFS dynamically during build'
         type: boolean
         default: true
+      apply_susfs:
+        description: 'SUSFS: auto follows project defaults; true requires BakaSU'
+        type: choice
+        options: ['auto', 'true', 'false']
+        default: 'auto'
       kconfig_fragment:
         description: 'Kconfig fragment override: path in the kernel tree (e.g. Kokuban/profiles/stage3.fragment). Empty = project default'
         type: string
@@ -89,6 +95,10 @@ on:
       apply_hybridmount:
         type: boolean
         default: true
+      apply_susfs:
+        description: 'SUSFS: auto follows project defaults; true requires BakaSU'
+        type: string
+        default: 'auto'
       kconfig_fragment:
         type: string
         default: ''
@@ -121,6 +131,7 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           PAYLOAD_PROJECT: ${{ github.event.client_payload.project }}
           PAYLOAD_BRANCH: ${{ github.event.client_payload.branch }}
+          PAYLOAD_APPLY_SUSFS: ${{ github.event.client_payload.apply_susfs }}
           PAYLOAD_APPLY_BBG: ${{ github.event.client_payload.apply_bbg }}
           PAYLOAD_APPLY_HYBRIDMOUNT: ${{ github.event.client_payload.apply_hybridmount }}
           INPUT_PROJECT: ${{ inputs.project }}
@@ -129,6 +140,7 @@ jobs:
           INPUT_DO_RELEASE: ${{ inputs.do_release }}
           INPUT_CUSTOM_LOCALVERSION: ${{ inputs.custom_localversion }}
           INPUT_BAKASU_SETUP_ARG: ${{ inputs.bakasu_setup_arg }}
+          INPUT_APPLY_SUSFS: ${{ inputs.apply_susfs }}
           INPUT_APPLY_BBG: ${{ inputs.apply_bbg }}
           INPUT_APPLY_HYBRIDMOUNT: ${{ inputs.apply_hybridmount }}
           INPUT_KCONFIG_FRAGMENT: ${{ inputs.kconfig_fragment }}
@@ -141,6 +153,7 @@ jobs:
             release="true"
             custom_localversion=""
             bakasu_setup_arg=""
+            apply_susfs="${PAYLOAD_APPLY_SUSFS:-auto}"
             apply_bbg="$PAYLOAD_APPLY_BBG"
             apply_hybridmount="$PAYLOAD_APPLY_HYBRIDMOUNT"
             kconfig_fragment=""
@@ -158,6 +171,7 @@ jobs:
             release="$INPUT_DO_RELEASE"
             custom_localversion="$INPUT_CUSTOM_LOCALVERSION"
             bakasu_setup_arg="$INPUT_BAKASU_SETUP_ARG"
+            apply_susfs="${INPUT_APPLY_SUSFS:-auto}"
             apply_bbg="$INPUT_APPLY_BBG"
             apply_hybridmount="$INPUT_APPLY_HYBRIDMOUNT"
             kconfig_fragment="$INPUT_KCONFIG_FRAGMENT"
@@ -181,6 +195,8 @@ jobs:
             apply_hybridmount="true"
           fi
 
+          case "$apply_susfs" in auto|true|false) ;; *) echo "Invalid SUSFS selection" >&2; exit 1 ;; esac
+
           safe_artifact_branch=$(printf '%s' "$branch" | sed 's#[^A-Za-z0-9._-]#-#g')
           artifact_name="${project}-kernel-${safe_artifact_branch}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
 
@@ -188,7 +204,7 @@ jobs:
           # the feature flags all change the sources, and two runs sharing one key race
           # on restore ("tar: Error is not recoverable") instead of missing the cache.
           profile_slug=$(printf '%s' \
-            "${resolved_variant}-${kconfig_fragment:-default}-${lto:-none}-h${apply_hybridmount}-b${apply_bbg}" \
+            "${resolved_variant}-${kconfig_fragment:-default}-${lto:-none}-h${apply_hybridmount}-b${apply_bbg}-s${apply_susfs}" \
             | sed 's#[^A-Za-z0-9]#-#g')
           cache_key_suffix="${profile_slug}"
 
@@ -200,6 +216,7 @@ jobs:
             echo "DO_RELEASE=$release"
             echo "CUSTOM_LOCALVERSION=$custom_localversion"
             echo "BAKASU_SETUP_ARG=$bakasu_setup_arg"
+            echo "APPLY_SUSFS=$apply_susfs"
             echo "APPLY_BBG=$apply_bbg"
             echo "APPLY_HYBRIDMOUNT=$apply_hybridmount"
             echo "KCONFIG_FRAGMENT=$kconfig_fragment"
@@ -287,6 +304,7 @@ jobs:
           if [ -n "$LTO_OVERRIDE" ]; then
             ARGS+=("--lto=$LTO_OVERRIDE")
           fi
+          if [ "$APPLY_SUSFS" != "auto" ]; then ARGS+=("--apply-susfs" "$APPLY_SUSFS"); fi
           ARGS+=("--apply-bbg" "$APPLY_BBG")
           ARGS+=("--apply-hybridmount" "$APPLY_HYBRIDMOUNT")
           ./kokuban_ci_core build "${ARGS[@]}"

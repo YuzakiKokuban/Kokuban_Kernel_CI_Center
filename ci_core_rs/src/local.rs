@@ -66,6 +66,7 @@ struct BuildInfo {
     kernel_commit: Option<String>,
     apply_bbg: bool,
     apply_hybridmount: bool,
+    apply_susfs: bool,
     local_root: String,
     workspace: String,
     kernel_source: String,
@@ -90,6 +91,7 @@ pub struct LocalBuildOptions {
     pub bakasu_setup_arg: Option<String>,
     pub apply_bbg: bool,
     pub apply_hybridmount: bool,
+    pub apply_susfs: Option<bool>,
     pub kconfig_fragment: Option<String>,
     pub lto: Option<String>,
     pub local_root: Option<PathBuf>,
@@ -459,6 +461,8 @@ fn run_build_command(
         .arg(options.apply_bbg.to_string())
         .arg("--apply-hybridmount")
         .arg(options.apply_hybridmount.to_string())
+        .arg("--apply-susfs")
+        .arg(options.apply_susfs.unwrap_or(false).to_string())
         .current_dir(run_dir)
         .env("CI_CENTRAL_ROOT", central_root)
         .env("KOKUBAN_REUSE_TOOLCHAINS", "1")
@@ -739,7 +743,11 @@ fn local_layout(
     let project_key = sanitize_path_component(&options.project);
     let branch_key = sanitize_path_component(&options.branch);
     let variant = resolved_variant(&options.branch, &options.variant);
-    let variant_key = sanitize_path_component(&variant);
+    let variant_key = if options.apply_susfs.unwrap_or(false) {
+        format!("{}-susfs", sanitize_path_component(&variant))
+    } else {
+        sanitize_path_component(&variant)
+    };
     let run_dir = local_root
         .join("builds")
         .join(project_key)
@@ -758,6 +766,10 @@ fn print_plan(plan: &LocalBuildPlan<'_>) {
     println!("  release: {}", plan.options.do_release);
     println!("  apply_bbg: {}", plan.options.apply_bbg);
     println!("  apply_hybridmount: {}", plan.options.apply_hybridmount);
+    println!(
+        "  apply_susfs: {}",
+        plan.options.apply_susfs.unwrap_or(false)
+    );
     println!("  offline: {}", plan.options.offline);
     println!("  no_fetch: {}", plan.options.no_fetch);
     println!("  clean: {}", plan.options.clean);
@@ -793,9 +805,15 @@ fn print_plan(plan: &LocalBuildPlan<'_>) {
     );
 }
 
-pub fn handle_local_build(options: LocalBuildOptions) -> Result<()> {
+pub fn handle_local_build(mut options: LocalBuildOptions) -> Result<()> {
     let central_root = fs::canonicalize(get_root_dir()).context("Failed to locate CI root")?;
     let proj = load_project(&options.project)?;
+    let variant = resolved_variant(&options.branch, &options.variant);
+    options.apply_susfs = Some(crate::susfs::resolve(
+        options.apply_susfs,
+        &variant,
+        proj.susfs.as_ref(),
+    )?);
     let local_root = options.local_root.clone().unwrap_or(default_local_root()?);
     let project_key = sanitize_path_component(&options.project);
     let (variant, _variant_key, run_dir, source_dir, mirror_dir) =
@@ -884,6 +902,7 @@ pub fn handle_local_build(options: LocalBuildOptions) -> Result<()> {
         kernel_commit,
         apply_bbg: options.apply_bbg,
         apply_hybridmount: options.apply_hybridmount,
+        apply_susfs: options.apply_susfs.unwrap_or(false),
         local_root: local_root.display().to_string(),
         workspace: run_dir.display().to_string(),
         kernel_source: source_dir.display().to_string(),

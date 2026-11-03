@@ -135,6 +135,14 @@ pub fn handle_features(project: Option<String>) -> Result<()> {
         } else {
             println!("bbg=disabled");
         }
+        println!(
+            "susfs={}",
+            if proj.susfs.is_some() {
+                "configured"
+            } else {
+                "unavailable"
+            }
+        );
         println!("hybridmount=enabled");
         return Ok(());
     }
@@ -425,6 +433,13 @@ pub fn handle_config_show() -> Result<()> {
     println!("config_file={}", settings::config_file()?.display());
     println!("apply_bbg={}", settings.apply_bbg);
     println!("apply_hybridmount={}", settings.apply_hybridmount);
+    println!(
+        "apply_susfs={}",
+        settings
+            .apply_susfs
+            .map(|value| value.to_string())
+            .unwrap_or_else(|| "auto".into())
+    );
     println!(
         "local_root={}",
         settings

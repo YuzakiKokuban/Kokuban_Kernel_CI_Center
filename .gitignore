@@ -8,3 +8,5 @@ toolchain_download/
 .compiler_wrappers/
 kernel_source/
 AnyKernel3/
+.superpowers/
+__pycache__/

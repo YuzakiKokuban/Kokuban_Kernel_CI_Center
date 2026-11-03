@@ -6,6 +6,16 @@ on:
     - cron: '0 0 * * 1'
   # Manual escape hatch: run a wave immediately without waiting for Monday.
   workflow_dispatch:
+    inputs:
+      verify_only:
+        description: 'Check upstream detection and source repository access without updating or building'
+        type: boolean
+        default: false
+
+# A scheduled/manual wave must finish before another wave can observe its tracker.
+concurrency:
+  group: upstream-wave-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -19,7 +29,20 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Setup Rust for preview waves
+        if: github.ref != 'refs/heads/main'
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: 1.92.0
+
+      - name: Build preview CI Core
+        if: github.ref != 'refs/heads/main'
+        run: |
+          cargo build --release --locked --manifest-path ci_core_rs/Cargo.toml
+          cp ci_core_rs/target/release/kokuban_ci_core ./kokuban_ci_core
+
       - name: Download CI Core
+        if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
@@ -27,20 +50,45 @@ jobs:
       - name: Check Upstream
         id: watcher
         run: ./kokuban_ci_core watch
-        
-      - name: Commit Updated Tracker
-        if: steps.watcher.outputs.found_updates == 'true'
+
+      - name: Verify source repository access without changes
+        if: inputs.verify_only
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          UPDATE_MATRIX: ${{ steps.watcher.outputs.matrix }}
         run: |
-          git config --global user.name "Kokuban-Watcher"
-          git config --global user.email "watcher@kokuban.dev"
-          git add configs/upstream_commits.json
-          git commit -m "ci: update upstream records"
-          git push
+          set -euo pipefail
+          pending_count=$(jq 'length' <<< "$UPDATE_MATRIX")
+          printf 'Verification only: %s pending project updates. No sources, builds, releases or tracker records changed.\n' "$pending_count" >> "$GITHUB_STEP_SUMMARY"
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::GH_TOKEN is required to verify source repository access"
+            exit 1
+          fi
+          failed=0
+          while IFS=$'\t' read -r project repo; do
+            if ! permission=$(gh api "repos/$repo" --jq '.permissions.push' 2>/dev/null); then
+              printf '%s %s status=repository-unavailable\n' "$project" "$repo"
+              failed=1
+              continue
+            fi
+            if [ "$permission" != true ]; then
+              printf '%s %s status=push-permission-missing\n' "$project" "$repo"
+              failed=1
+              continue
+            fi
+            if ! branch_sha=$(gh api "repos/$repo/git/ref/heads/bakasu" --jq '.object.sha' 2>/dev/null) || [[ ! "$branch_sha" =~ ^[[:xdigit:]]{40}$ ]]; then
+              printf '%s %s status=bakasu-branch-unavailable\n' "$project" "$repo"
+              failed=1
+              continue
+            fi
+            printf '%s %s status=push-permission-and-bakasu-branch-verified\n' "$project" "$repo"
+          done < <(jq -r 'to_entries[] | select(.key | startswith("_") | not) | [.key, .value.repo] | @tsv' configs/projects.json)
+          exit "$failed"
 
   # Serialized fan-out: one kernel repo updated at a time (no burst of clones/pushes).
   update-projects:
     needs: check
-    if: needs.check.outputs.found_updates == 'true'
+    if: ${{ !inputs.verify_only && needs.check.outputs.found_updates == 'true' }}
     strategy:
       fail-fast: false
       max-parallel: 1
@@ -50,11 +98,33 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Setup Rust for preview waves
+        if: github.ref != 'refs/heads/main'
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: 1.92.0
+
+      - name: Build preview CI Core
+        if: github.ref != 'refs/heads/main'
+        run: |
+          cargo build --release --locked --manifest-path ci_core_rs/Cargo.toml
+          cp ci_core_rs/target/release/kokuban_ci_core ./kokuban_ci_core
+
       - name: Download CI Core
+        if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           ./scripts/fetch-ci-core.sh
+      - name: Verify source update credentials
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::GH_TOKEN is required with write access to the kernel source repositories"
+            exit 1
+          fi
+
       - name: Perform Update
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
@@ -73,7 +143,7 @@ jobs:
   # strictly one at a time, from the central repo.
   build-projects:
     needs: [check, update-projects]
-    if: needs.check.outputs.found_updates == 'true'
+    if: ${{ !inputs.verify_only && needs.check.outputs.found_updates == 'true' }}
     strategy:
       fail-fast: false
       max-parallel: 1
@@ -87,4 +157,48 @@ jobs:
       do_release: true
       apply_bbg: false
       apply_hybridmount: true
+      apply_susfs: auto
+      bakasu_setup_arg: ${{ matrix.commit_id }}
     secrets: inherit
+
+  acknowledge-wave:
+    needs: [check, update-projects, build-projects]
+    if: ${{ !inputs.verify_only && needs.check.outputs.found_updates == 'true' && needs.update-projects.result == 'success' && needs.build-projects.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Setup Rust for preview waves
+        if: github.ref != 'refs/heads/main'
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: 1.92.0
+
+      - name: Build preview CI Core
+        if: github.ref != 'refs/heads/main'
+        run: |
+          cargo build --release --locked --manifest-path ci_core_rs/Cargo.toml
+          cp ci_core_rs/target/release/kokuban_ci_core ./kokuban_ci_core
+
+      - name: Download CI Core
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: ./scripts/fetch-ci-core.sh
+
+      - name: Record successful wave
+        env:
+          UPDATE_MATRIX: ${{ needs.check.outputs.matrix }}
+          TARGET_BRANCH: ${{ github.ref_name }}
+        run: |
+          printf '%s\n' "$UPDATE_MATRIX" > /tmp/upstream-wave.json
+          ./kokuban_ci_core ack-upstream --matrix-file /tmp/upstream-wave.json
+          git config user.name "Kokuban-Watcher"
+          git config user.email "watcher@kokuban.dev"
+          git add configs/upstream_commits.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "ci: acknowledge successful upstream wave"
+          git pull --rebase origin "$TARGET_BRANCH"
+          git push origin "HEAD:$TARGET_BRANCH"

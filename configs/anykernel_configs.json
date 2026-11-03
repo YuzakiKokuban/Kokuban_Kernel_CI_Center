@@ -223,5 +223,23 @@
     "patch_vbmeta_flag": "auto",
     "boot_setup": "split_boot",
     "boot_finalize": "flash_boot"
+  },
+  "oneplus15": {
+    "kernel_string": "OP15-Kokuban-Kernel",
+    "device_check": false,
+    "modules": false,
+    "systemless": false,
+    "cleanup": true,
+    "cleanup_on_abort": false,
+    "device_names": [],
+    "supported_versions": "",
+    "supported_patchlevels": "",
+    "supported_vendorpatchlevels": "",
+    "block": "/dev/block/by-name/boot",
+    "is_slot_device": true,
+    "ramdisk_compression": "auto",
+    "patch_vbmeta_flag": "auto",
+    "boot_setup": "split_boot",
+    "boot_finalize": "flash_boot"
   }
 }

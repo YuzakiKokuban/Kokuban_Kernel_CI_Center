@@ -54,6 +54,12 @@ jobs:
       - name: BakaSU hook gate tests
         run: python3 scripts/test-bakasu-hooks.py
 
+      - name: SUSFS integration tests
+        run: python3 scripts/test-susfs.py
+
+      - name: Pixel 4 SUSFS behavior tests
+        run: python3 scripts/test-pixel4-susfs.py
+
       - name: Pixel 4 built-in driver gate tests
         run: python3 scripts/test-pixel4-builtin.py
 
@@ -67,6 +73,11 @@ jobs:
         run: |
           ./kokuban validate
           ./kokuban plan s23_sm8550 main default --no-bbg
+
+      - name: Upstream watcher retry and acknowledgement tests
+        env:
+          CI_CORE_BIN: ci_core_rs/target/release/kokuban_ci_core
+        run: python3 scripts/test-upstream-watcher.py
 
   docker-smoke:
     runs-on: ubuntu-latest

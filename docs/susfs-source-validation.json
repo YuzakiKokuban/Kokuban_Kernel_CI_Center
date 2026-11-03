@@ -1,0 +1,83 @@
+{
+  "z5_sm8550": {
+    "source_ref": "60b9ab1477d71bceaf3ce4040d6c3fb6703c2e91",
+    "success": true,
+    "upstream_inline_checker": true,
+    "susfs_default": true,
+    "local_patch_sha256": "ee4bc0941ff7d2e1efe5027fc3c6f4baa7b79a939d7af0087ae8f523c2b69083"
+  },
+  "s25_sm8750": {
+    "source_ref": "8211b618b3aeb9e3dcb11cbd8e31a2499e22167b",
+    "success": true,
+    "upstream_inline_checker": true,
+    "susfs_default": true,
+    "local_patch_sha256": "d218d84b329ceb3e3151e0bb582f70c95f483a01bba6b0599006e22a5a447dc1"
+  },
+  "s23_sm8550": {
+    "source_ref": "a337b62515d47304205e7c2beb136ca932febb4e",
+    "success": true,
+    "upstream_inline_checker": true,
+    "susfs_default": true,
+    "local_patch_sha256": "d2023434263834a815f7f9724d24e50e825f6c9461d6f76bc1d70898a49ac66f"
+  },
+  "tabs9_sm8550": {
+    "source_ref": "a4d3149293ec9d4797fee8fea31834fe0ca135d6",
+    "success": true,
+    "upstream_inline_checker": true,
+    "susfs_default": true,
+    "local_patch_sha256": "8fa1f448b62b4639bfbc45ba021e8ffda25f18cfb069d2839514d30de71178fe"
+  },
+  "s24_sm8650": {
+    "source_ref": "c6e6c18d6cae376939860d0f2ab4d93f47a63eb4",
+    "success": true,
+    "upstream_inline_checker": true,
+    "susfs_default": true,
+    "local_patch_sha256": "9f8c2d8e8d49cbcab6072dec0981fc33c95571170e64b962df17cf524b21a56a"
+  },
+  "tabs10_mt6989": {
+    "source_ref": "c062f69b1181fc70285bd020ab3e887a0920e9de",
+    "success": true,
+    "upstream_inline_checker": true,
+    "susfs_default": true,
+    "local_patch_sha256": "4ab67969703e11de39c1ceba5eb2430c567bfde1296937ab4095294e2de46fe2"
+  },
+  "z6_sm8650": {
+    "source_ref": "77dc5f8e215f2e4403b0805948466affb22d2972",
+    "success": true,
+    "upstream_inline_checker": true,
+    "susfs_default": true,
+    "local_patch_sha256": "2ddf1d7a67a569699b09502d2cbdb004765322ceddc7c3c8c471313a525c7c43"
+  },
+  "mi17_sm8850": {
+    "source_ref": "b87d0ae699645bc060089257e9b355438679a7cf",
+    "success": true,
+    "upstream_inline_checker": true,
+    "susfs_default": true,
+    "local_patch_sha256": "8b6faf98bfb6a3784f8a1d2158f7242fc62f1d5c30c7f18dd44a0458550735c0"
+  },
+  "razrfold_sm8845": {
+    "source_ref": "764848036204db1da91bcdd052ec7177e9d6e94c",
+    "success": true,
+    "upstream_inline_checker": true,
+    "susfs_default": true,
+    "local_patch_sha256": "ea2e056118a59dcffc2b46f887b0a8d1d4e440a29a2a6d579241e981ea26e4d0"
+  },
+  "floral_sm8150": {
+    "source_ref": "9bf1df6e86457bf38266d0b1e42e2f49769b65f0",
+    "success": true,
+    "upstream_inline_checker": true,
+    "susfs_default": true,
+    "local_patch_sha256": "154e57554701ac5a1fbc14788b6d31a7b7fbb04fad06664d3aebb40f2242951e",
+    "host_behavior_tests_passed": 3,
+    "full_build": true,
+    "build_evidence": "pixel4-build-validation.json"
+  },
+  "oneplus15_sm8850": {
+    "source_ref": "eca7ae52d73834def05ca82332fa3d0db406c7e8",
+    "success": true,
+    "upstream_inline_checker": true,
+    "susfs_default": true,
+    "local_patch_sha256": "8b6faf98bfb6a3784f8a1d2158f7242fc62f1d5c30c7f18dd44a0458550735c0"
+  },
+  "_bakasu_commit": "516d3e87fbc986ccefdde2c2765f1700612441a9"
+}

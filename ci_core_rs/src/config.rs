@@ -33,6 +33,7 @@ pub struct ProjectConfig {
     pub disable_security: Option<Vec<String>>,
     pub readme_placeholders: Option<HashMap<String, String>>,
     pub bbg: Option<BbgConfig>,
+    pub susfs: Option<SusfsConfig>,
     pub watch_upstream_variants: Option<Vec<String>>,
 }
 
@@ -71,6 +72,16 @@ pub struct AbiBaseline {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct BbgConfig {
     pub setup_url: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct SusfsConfig {
+    pub repo: String,
+    pub revision: String,
+    pub patch: String,
+    pub local_patch: Option<String>,
+    #[serde(default)]
+    pub default_enabled: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
