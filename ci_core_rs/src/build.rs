@@ -620,6 +620,9 @@ mod tests {
         .unwrap();
         let required = &[("CONFIG_TEST_DISABLED", "n"), ("CONFIG_HYBRIDMOUNT", "y")];
         assert!(validate_kconfig_entries(&path, required).is_ok());
+        // Kconfig omits invisible children of an unselected hook mode entirely.
+        fs::write(&path, "CONFIG_HYBRIDMOUNT=y\n").unwrap();
+        assert!(validate_kconfig_entries(&path, required).is_ok());
         fs::write(&path, "CONFIG_TEST_DISABLED=y\nCONFIG_HYBRIDMOUNT=y\n").unwrap();
         assert!(validate_kconfig_entries(&path, required).is_err());
         fs::remove_file(path).unwrap();
@@ -1769,11 +1772,17 @@ fn validate_kconfig_entries(path: &Path, entries: &[(&str, &str)]) -> Result<()>
     let missing: Vec<&str> = entries
         .iter()
         .filter_map(|(key, value)| {
-            let expected = format!("{key}={value}");
-            (!content.lines().any(|line| {
-                line == expected || (*value == "n" && line == format!("# {key} is not set"))
-            }))
-            .then_some(*key)
+            let prefix = format!("{key}=");
+            let not_set = format!("# {key} is not set");
+            let actual = content
+                .lines()
+                .rev()
+                .find_map(|line| {
+                    line.strip_prefix(&prefix)
+                        .or_else(|| (line == not_set).then_some("n"))
+                })
+                .unwrap_or("n");
+            (actual != *value).then_some(*key)
         })
         .collect();
 
@@ -2664,8 +2673,36 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
         _ => None,
     };
 
+    let pinned_setup_url = if bakasu_setup_arg.len() == 40
+        && bakasu_setup_arg
+            .bytes()
+            .all(|value| value.is_ascii_hexdigit())
+    {
+        Some(format!(
+            "https://raw.githubusercontent.com/Baka-SU/BakaSU/{bakasu_setup_arg}/kernel/setup.sh"
+        ))
+    } else {
+        None
+    };
+
     if let Some((url, arg)) = setup_url {
-        run_setup_script(url, Some(arg), &kernel_source_path)?;
+        run_setup_script(
+            pinned_setup_url.as_deref().unwrap_or(url),
+            Some(arg),
+            &kernel_source_path,
+        )?;
+        if pinned_setup_url.is_some() {
+            let defconfig_path = project_defconfig_path(&kernel_source_path, &proj.defconfig)?;
+            let source_root = defconfig_path
+                .ancestors()
+                .nth(4)
+                .ok_or_else(|| anyhow!("Cannot locate kernel root for BakaSU verification"))?;
+            let driver = fs::canonicalize(source_root.join("drivers/kernelsu"))
+                .context("Cannot locate the installed BakaSU driver")?;
+            let actual =
+                run_cmd(&["git", "rev-parse", "HEAD"], Some(&driver), true)?.unwrap_or_default();
+            crate::watcher::verify_installed_commit(arg, &actual)?;
+        }
         if apply_susfs {
             integrate_susfs(&kernel_source_path, &project_key, &proj.defconfig, None)?;
         } else {
@@ -2903,15 +2940,15 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
             &[
                 ("CONFIG_LOCALVERSION", "\"\""),
                 ("CONFIG_KSU", "y"),
-                ("CONFIG_KSU_MANUAL_HOOK", "y"),
-                ("CONFIG_KSU_MANUAL_HOOK_AUTO_SETUID_HOOK", "y"),
-                ("CONFIG_KSU_MANUAL_HOOK_AUTO_INITRC_HOOK", "y"),
-                ("CONFIG_KSU_MANUAL_HOOK_AUTO_INPUT_HOOK", "y"),
                 ("CONFIG_HYBRIDMOUNT", "y"),
                 ("CONFIG_QCA_CLD_WLAN", "y"),
                 ("CONFIG_TMPFS_XATTR", "y"),
                 ("CONFIG_KEYS", "y"),
             ],
+        )?;
+        update_kconfig_file(
+            &kernel_source_path.join("out/.config"),
+            &crate::pixel4::hook_config(apply_susfs),
         )?;
     }
     if let Some(disables) = &proj.disable_security {
@@ -3032,13 +3069,13 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
             &final_config,
             &[
                 ("CONFIG_KSU", "y"),
-                ("CONFIG_KSU_MANUAL_HOOK", "y"),
                 ("CONFIG_HYBRIDMOUNT", "y"),
                 ("CONFIG_QCA_CLD_WLAN", "y"),
                 ("CONFIG_TMPFS_XATTR", "y"),
                 ("CONFIG_KEYS", "y"),
             ],
         )?;
+        validate_kconfig_entries(&final_config, &crate::pixel4::hook_config(apply_susfs))?;
     }
     if is_gki_612 {
         validate_kconfig_entries(&final_config, GKI_CUSTOM_KCONFIG_ENTRIES)?;
@@ -3148,7 +3185,10 @@ pub fn handle_build(options: BuildOptions) -> Result<()> {
         run_cmd(
             &[
                 "python3",
-                "scripts/pixel4-builtin.py",
+                crate::utils::get_root_dir()
+                    .join("scripts/pixel4-builtin.py")
+                    .to_str()
+                    .ok_or_else(|| anyhow!("Invalid Pixel 4 verification script path"))?,
                 "--out",
                 kernel_source_path
                     .join("out")

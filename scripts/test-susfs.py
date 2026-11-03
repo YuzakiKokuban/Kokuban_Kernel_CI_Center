@@ -13,6 +13,13 @@ spec.loader.exec_module(susfs)
 
 
 class SusfsTests(unittest.TestCase):
+    def test_reviewed_read_hooks_match_bakasu_three_argument_api(self):
+        for patch in (Path(__file__).resolve().parent.parent / 'configs/susfs').glob('*.patch'):
+            with self.subTest(project=patch.stem):
+                content = patch.read_text()
+                self.assertNotIn('void ksu_handle_sys_read(unsigned int fd)', content)
+                self.assertIn('ksu_handle_sys_read(fd, &buf, &count)', content)
+
     def test_hook_modes_are_exclusive(self):
         with tempfile.TemporaryDirectory() as tmp:
             cfg = Path(tmp) / 'defconfig'

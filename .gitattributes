@@ -1,6 +1,6 @@
 # Unified-diff context retains a leading space before source tabs/blank lines.
-configs/bakasu/*.patch -whitespace
-configs/susfs/*.patch -whitespace
+configs/bakasu/*.patch text eol=lf -whitespace
+configs/susfs/*.patch text eol=lf -whitespace
 
 # Shell entrypoints must also run from Windows checkouts through WSL.
 *.sh text eol=lf

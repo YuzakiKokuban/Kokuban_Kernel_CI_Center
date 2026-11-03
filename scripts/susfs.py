@@ -126,7 +126,7 @@ def integrate(source, project, defconfig, offline=False, patchset=None):
     if not config:
         raise ValueError(f'{project}: no SUSFS patchset configured')
     source = hooks.kernel_root(source.resolve())
-    expected = re.search(r'-(\d+\.\d+)\.patch$', config['patch'])
+    expected = re.search(r'[-_](\d+\.\d+)\.patch$', config['patch'])
     version = '.'.join(map(str, hooks.version_of(source)))
     if not expected or expected[1] != version:
         raise ValueError(f'{project}: SUSFS patchset does not target Linux {version}')

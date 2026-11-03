@@ -8,6 +8,7 @@ mod pixel4;
 mod settings;
 mod susfs;
 mod utils;
+mod watcher;
 
 use anyhow::Result;
 use chrono::Local;
@@ -122,6 +123,11 @@ enum Commands {
     /// an older core whose checks are missing.
     Stamp,
     Watch,
+    /// Record a wave only after all source updates and builds succeeded.
+    AckUpstream {
+        #[arg(long)]
+        matrix_file: PathBuf,
+    },
     Update {
         #[arg(long)]
         token: String,
@@ -335,6 +341,7 @@ fn main() -> Result<()> {
             Ok(())
         }
         Commands::Watch => handle_watch(),
+        Commands::AckUpstream { matrix_file } => handle_ack_upstream(&matrix_file),
         Commands::Update {
             token,
             project,
@@ -873,67 +880,42 @@ fn strip_readme_markers(content: &str) -> String {
 fn handle_watch() -> Result<()> {
     let ksu_configs: HashMap<String, KsuConfigItem> = serde_json::from_str(KSU_CONFIG_JSON)?;
     let upstream_path = get_upstream_path();
-    let mut track_data: HashMap<String, String> = if upstream_path.exists() {
+    let track_data: HashMap<String, String> = if upstream_path.exists() {
         serde_json::from_str(&fs::read_to_string(&upstream_path)?)?
     } else {
         HashMap::new()
     };
 
-    if let Some(hash) = track_data.remove("resukisu") {
-        track_data.entry("bakasu".to_string()).or_insert(hash);
-    }
-    track_data.remove("sukisuultra");
-    track_data.remove("ksu");
-    track_data.remove("mksu");
     let projects_map = load_projects()?;
     let mut update_matrix = Vec::new();
-
-    for (variant, config) in ksu_configs {
+    let mut variants: Vec<_> = ksu_configs.into_iter().collect();
+    variants.sort_by(|a, b| a.0.cmp(&b.0));
+    for (variant, config) in variants {
         let output = run_cmd(
-            &["git", "ls-remote", &config.repo, &config.branch],
+            &[
+                "git",
+                "ls-remote",
+                "--exit-code",
+                &config.repo,
+                &format!("refs/heads/{}", config.branch),
+            ],
             None,
             true,
         )?;
-        let latest_hash = match output {
-            Some(s) => s.split_whitespace().next().unwrap_or("").to_string(),
-            None => continue,
-        };
-
-        let stored_hash = track_data.get(&variant).cloned().unwrap_or_default();
-
-        if latest_hash != stored_hash {
-            track_data.insert(variant.clone(), latest_hash.clone());
-
-            for (p_key, p_val) in &projects_map {
-                if p_key.starts_with("_") {
-                    continue;
-                }
-                let p: ProjectConfig = serde_json::from_value(p_val.clone())?;
-                let supported = p
-                    .supported_ksu
-                    .clone()
-                    .or_else(|| p.watch_upstream_variants.clone())
-                    .unwrap_or_default();
-                let normalized_supported: Vec<String> = supported
-                    .into_iter()
-                    .map(|x| normalize_variant_name(&x))
-                    .collect();
-
-                if normalized_supported.contains(&variant) {
-                    let mut map = HashMap::new();
-                    map.insert("project".to_string(), p_key.clone());
-                    map.insert("variant".to_string(), variant.clone());
-                    map.insert(
-                        "commit_id".to_string(),
-                        latest_hash.chars().take(7).collect(),
-                    );
-                    update_matrix.push(map);
-                }
-            }
-        }
+        let latest_hash = output
+            .as_deref()
+            .unwrap_or_default()
+            .split_whitespace()
+            .next()
+            .unwrap_or_default();
+        update_matrix.extend(watcher::pending_updates(
+            &projects_map,
+            &track_data,
+            &variant,
+            latest_hash,
+        )?);
     }
-
-    save_json(&upstream_path, &track_data)?;
+    // Detection must not acknowledge anything: failed updates/builds remain retryable.
 
     if let Ok(path) = env::var("GITHUB_OUTPUT") {
         let mut file = OpenOptions::new().append(true).create(true).open(path)?;
@@ -952,12 +934,29 @@ fn handle_watch() -> Result<()> {
     Ok(())
 }
 
+fn handle_ack_upstream(matrix_file: &Path) -> Result<()> {
+    let upstream_path = get_upstream_path();
+    let mut tracker: HashMap<String, String> = if upstream_path.exists() {
+        serde_json::from_str(&fs::read_to_string(&upstream_path)?)?
+    } else {
+        HashMap::new()
+    };
+    let matrix = serde_json::from_str(&fs::read_to_string(matrix_file)?)?;
+    watcher::acknowledge(&mut tracker, &matrix)?;
+    save_json(&upstream_path, &tracker)
+}
+
 fn handle_update(
     token: String,
     project_key: String,
     variant: String,
     commit_id: String,
 ) -> Result<()> {
+    watcher::validate_commit(&commit_id)?;
+    anyhow::ensure!(
+        !token.trim().is_empty(),
+        "GH_TOKEN is required to update kernel source repositories"
+    );
     let proj = load_project(&project_key)?;
 
     let normalized_variant = normalize_variant_name(&variant);
@@ -969,19 +968,22 @@ fn handle_update(
     }
 
     let auth_url = github_clone_url(&repo_url, Some(&token));
-    run_cmd(
-        &[
-            "git",
+    // Do not include the authenticated URL in an error (run_cmd prints arguments).
+    let clone_status = Command::new("git")
+        .args([
             "clone",
             "--depth=1",
             "--branch",
             &normalized_variant,
             &auth_url,
             target_dir.to_str().unwrap(),
-        ],
-        None,
-        false,
-    )?;
+        ])
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .status()?;
+    anyhow::ensure!(
+        clone_status.success(),
+        "Unable to clone kernel source; check GH_TOKEN repository access"
+    );
 
     fs::write(target_dir.join("KERNELSU_VERSION.txt"), &commit_id)?;
 
@@ -993,14 +995,32 @@ fn handle_update(
     let ksu_configs: HashMap<String, KsuConfigItem> = serde_json::from_str(KSU_CONFIG_JSON)?;
     if let Some(cfg) = ksu_configs.get(&normalized_variant) {
         let setup_script = target_dir.join("setup.sh");
-        let script_content = reqwest::blocking::get(&cfg.setup_url)?.text()?;
+        let setup_url = cfg.setup_url.replace(
+            &format!("/{}/kernel/", cfg.branch),
+            &format!("/{commit_id}/kernel/"),
+        );
+        let script_content = reqwest::blocking::get(&setup_url)?
+            .error_for_status()?
+            .text()?;
         fs::write(&setup_script, script_content)?;
 
+        let mut setup_args = cfg.setup_args.clone();
+        if setup_args.is_empty() {
+            setup_args.push(commit_id.clone());
+        } else {
+            setup_args[0] = commit_id.clone();
+        }
         let mut args = vec!["bash", "setup.sh"];
-        let setup_args_refs: Vec<&str> = cfg.setup_args.iter().map(|s| s.as_str()).collect();
-        args.extend(setup_args_refs);
+        args.extend(setup_args.iter().map(String::as_str));
 
         run_cmd(&args, Some(&target_dir), false)?;
+        let installed = run_cmd(
+            &["git", "rev-parse", "HEAD"],
+            Some(&target_dir.join("KernelSU")),
+            true,
+        )?
+        .unwrap_or_default();
+        watcher::verify_installed_commit(&commit_id, &installed)?;
         fs::remove_file(setup_script)?;
         if normalized_variant == "bakasu" {
             build::integrate_bakasu_hooks(&target_dir, &project_key, &proj.defconfig, None)?;

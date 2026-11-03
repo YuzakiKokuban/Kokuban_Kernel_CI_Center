@@ -12,7 +12,7 @@ on:
         required: true
         type: string
       latest_commit_short:
-        description: 'The short commit hash of the upstream update'
+        description: 'Upstream commit SHA (full SHA preferred; legacy short SHA is resolved once)'
         required: true
         type: string
       commit_message:
@@ -51,7 +51,22 @@ jobs:
             echo "Unsupported ksu_type: $KSU_TYPE"
             exit 1
           fi
-          SETUP_URL="https://raw.githubusercontent.com/Baka-SU/BakaSU/main/kernel/setup.sh"
+          if [[ -z "$ADMIN_TOKEN" ]]; then
+            echo "::error::ADMIN_TOKEN is required with write access to the kernel source repositories"
+            exit 1
+          fi
+          if [[ ! "$LATEST_COMMIT_SHORT" =~ ^[[:xdigit:]]{7,40}$ ]]; then
+            echo "::error::Expected an upstream commit SHA"
+            exit 1
+          fi
+          # Resolve historical short-SHA callers once, then use the immutable full SHA
+          # for both setup.sh itself and the source revision that setup.sh installs.
+          UPSTREAM_COMMIT=$(GH_TOKEN="$ADMIN_TOKEN" gh api "repos/Baka-SU/BakaSU/commits/$LATEST_COMMIT_SHORT" --jq '.sha')
+          if [[ ! "$UPSTREAM_COMMIT" =~ ^[[:xdigit:]]{40}$ ]]; then
+            echo "::error::Could not resolve a full upstream commit SHA"
+            exit 1
+          fi
+          SETUP_URL="https://raw.githubusercontent.com/Baka-SU/BakaSU/$UPSTREAM_COMMIT/kernel/setup.sh"
 
           echo "Updating projects with commit message: '$COMMIT_MESSAGE'"
           
@@ -65,14 +80,20 @@ jobs:
             git clone --depth=1 --branch "$KSU_TYPE" "https://x-access-token:$ADMIN_TOKEN@github.com/$PROJECT_REPO.git" "temp_kernel"
             cd temp_kernel
 
-            echo "Writing version file: $LATEST_COMMIT_SHORT"
-            echo "$LATEST_COMMIT_SHORT" > KERNELSU_VERSION.txt
+            echo "Writing version file: $UPSTREAM_COMMIT"
+            echo "$UPSTREAM_COMMIT" > KERNELSU_VERSION.txt
 
             echo "Syncing .gitignore file..."
             cp ${{ github.workspace }}/configs/universal.gitignore ./.gitignore
 
             echo "Running setup.sh from $SETUP_URL..."
-            curl -fLSs "$SETUP_URL" | bash -s main
+            curl -fLSs "$SETUP_URL" -o "$RUNNER_TEMP/bakasu-setup.sh"
+            bash "$RUNNER_TEMP/bakasu-setup.sh" "$UPSTREAM_COMMIT"
+            INSTALLED_COMMIT=$(git -C KernelSU rev-parse HEAD)
+            if [[ "$INSTALLED_COMMIT" != "$UPSTREAM_COMMIT" ]]; then
+              echo "::error::setup.sh did not install the requested upstream revision"
+              exit 1
+            fi
             DEFCONFIG=$(jq -er --arg key "$PROJECT_KEY" '.[$key].defconfig' "$GITHUB_WORKSPACE/configs/projects.json")
             python3 "$GITHUB_WORKSPACE/scripts/bakasu-hooks.py" \
               --source "$PWD" --project "$PROJECT_KEY" --defconfig "$DEFCONFIG"

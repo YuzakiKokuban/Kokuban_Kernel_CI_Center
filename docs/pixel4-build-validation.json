@@ -1,0 +1,21 @@
+{
+  "project": "floral_sm8150",
+  "kernel_release": "4.14.355-Kokuban-Kaltsit-BakaSU-g9bf1df6e8645-openela",
+  "variant": "bakasu",
+  "features": [
+    "susfs",
+    "hybridmount"
+  ],
+  "full_build": true,
+  "device_tested": false,
+  "source_commit": "9bf1df6e86457bf38266d0b1e42e2f49769b65f0",
+  "bakasu_commit": "516d3e87fbc986ccefdde2c2765f1700612441a9",
+  "archive": "Pixel4_Kernel-4.14.355-Kokuban-Kaltsit-BakaSU-g9bf1df6e8645-openela-susfs-hybridmount-20261103-1355.zip",
+  "archive_sha256": "7eca9bb425d7b3bb57da9e9d36b549c0af6243b28229908e720fe6b6f3ec81de",
+  "image_sha256": "9e791a6401c4f7f46a27ca561e2cb398b1eb03ffd9df2c4db6ca95d12d4ac6f7",
+  "zip_integrity": true,
+  "anykernel_name_verified": true,
+  "builtin_wlan_audio_incrementalfs_verified": true,
+  "external_module_payload": false,
+  "note": "WSL full build and image-only packaging gates passed. No device boot or runtime SUSFS verification has been performed."
+}
