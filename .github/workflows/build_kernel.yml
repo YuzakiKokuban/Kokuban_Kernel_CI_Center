@@ -291,6 +291,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         run: |
+          if [[ "$PROJECT" == floral_sm8150 && -f kernel_source/ci/pixelos17.json ]]; then
+            bash scripts/build-pixel4-cnb.sh
+            exit 0
+          fi
           ARGS=(--project "$PROJECT" --branch "$VARIANT" --do-release "$DO_RELEASE")
           if [ -n "$CUSTOM_LOCALVERSION" ]; then
             ARGS+=("--custom-localversion=$CUSTOM_LOCALVERSION")
