@@ -1,0 +1,17 @@
+name: Verify Pixel 4 ROM kernel
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/verify-flame-rom-kernel.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  kernel:
+    uses: ./.github/workflows/build_kernel.yml
+    with:
+      project: floral_sm8150
+      branch: bakasu
+      ksu_variant: bakasu
+      do_release: false
+    secrets: inherit
