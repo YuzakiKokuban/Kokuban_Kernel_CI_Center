@@ -286,6 +286,20 @@ jobs:
             fi
           done
 
+      - name: Prepare memory for Pixel 4 CNB full LTO
+        if: env.PROJECT == 'floral_sm8150'
+        run: |
+          if [[ -f kernel_source/ci/pixelos17.json ]]; then
+            # Preserve the ROM's full LTO and CFI on standard hosted runners.
+            # These preinstalled SDKs are unused by this standalone kernel build.
+            sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+            sudo fallocate -l 32G /mnt/flame-kernel.swap
+            sudo chmod 600 /mnt/flame-kernel.swap
+            sudo mkswap /mnt/flame-kernel.swap
+            sudo swapon /mnt/flame-kernel.swap
+            free -h
+          fi
+
       - name: Build and Release
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
