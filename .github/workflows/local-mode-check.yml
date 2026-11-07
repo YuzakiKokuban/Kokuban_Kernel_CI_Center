@@ -39,6 +39,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y shellcheck
 
+      - name: Pixel 4 CNB delegation tests
+        run: python3 scripts/test-pixel4-cnb.py
+
       - name: Rust format
         run: cargo fmt --manifest-path ci_core_rs/Cargo.toml --check
 
