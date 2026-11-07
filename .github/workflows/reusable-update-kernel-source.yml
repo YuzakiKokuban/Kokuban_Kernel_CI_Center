@@ -80,6 +80,13 @@ jobs:
             git clone --depth=1 --branch "$KSU_TYPE" "https://x-access-token:$ADMIN_TOKEN@github.com/$PROJECT_REPO.git" "temp_kernel"
             cd temp_kernel
 
+            if [[ -f ci/pixelos17.json ]]; then
+              echo "Pinned PixelOS ROM kernel: keep its reviewed BakaSU/SUSFS source unchanged."
+              cd ..
+              rm -rf temp_kernel
+              continue
+            fi
+
             echo "Writing version file: $UPSTREAM_COMMIT"
             echo "$UPSTREAM_COMMIT" > KERNELSU_VERSION.txt
 
