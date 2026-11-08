@@ -40,8 +40,8 @@
       "FIVE"
     ],
     "susfs": {
-      "repo": "https://github.com/ShirkNeko/susfs4ksu.git",
-      "revision": "6a701d403cf8930d9b8142cfb06509d0a5c3ddab",
+      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
+      "revision": "41da83f3b1721c1a44d05212093d0934441f975c",
       "patch": "kernel_patches/50_add_susfs_in_gki-android13-5.15.patch",
       "default_enabled": true,
       "local_patch": "configs/susfs/z5_sm8550.patch"
@@ -87,8 +87,8 @@
       "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
     },
     "susfs": {
-      "repo": "https://github.com/cctv18/susfs4oki.git",
-      "revision": "3f6aae536724af0df3dfa15f932034d14a5dbc5c",
+      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
+      "revision": "6f21c8c9a9ea02a9281a2a019dc4802cde5698bc",
       "patch": "kernel_patches/50_add_susfs_in_gki-android15-6.6.patch",
       "default_enabled": true,
       "local_patch": "configs/susfs/s25_sm8750.patch"
@@ -131,8 +131,8 @@
       "FIVE"
     ],
     "susfs": {
-      "repo": "https://github.com/ShirkNeko/susfs4ksu.git",
-      "revision": "6a701d403cf8930d9b8142cfb06509d0a5c3ddab",
+      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
+      "revision": "41da83f3b1721c1a44d05212093d0934441f975c",
       "patch": "kernel_patches/50_add_susfs_in_gki-android13-5.15.patch",
       "default_enabled": true,
       "local_patch": "configs/susfs/s23_sm8550.patch"
@@ -175,8 +175,8 @@
       "FIVE"
     ],
     "susfs": {
-      "repo": "https://github.com/ShirkNeko/susfs4ksu.git",
-      "revision": "6a701d403cf8930d9b8142cfb06509d0a5c3ddab",
+      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
+      "revision": "41da83f3b1721c1a44d05212093d0934441f975c",
       "patch": "kernel_patches/50_add_susfs_in_gki-android13-5.15.patch",
       "default_enabled": true,
       "local_patch": "configs/susfs/tabs9_sm8550.patch"
@@ -219,8 +219,8 @@
       "FIVE"
     ],
     "susfs": {
-      "repo": "https://github.com/cctv18/susfs4oki.git",
-      "revision": "fad7721e8d2e724dbe8c1f0fdcc22881fd9d5077",
+      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
+      "revision": "5f85e6e7838a54ad363de5749d33361a5da2316b",
       "patch": "kernel_patches/50_add_susfs_in_gki-android14-6.1.patch",
       "default_enabled": true,
       "local_patch": "configs/susfs/s24_sm8650.patch"
@@ -262,8 +262,8 @@
       "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
     },
     "susfs": {
-      "repo": "https://github.com/cctv18/susfs4oki.git",
-      "revision": "fad7721e8d2e724dbe8c1f0fdcc22881fd9d5077",
+      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
+      "revision": "5f85e6e7838a54ad363de5749d33361a5da2316b",
       "patch": "kernel_patches/50_add_susfs_in_gki-android14-6.1.patch",
       "default_enabled": true,
       "local_patch": "configs/susfs/tabs10_mt6989.patch"
@@ -309,8 +309,8 @@
       "setup_url": "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh"
     },
     "susfs": {
-      "repo": "https://github.com/cctv18/susfs4oki.git",
-      "revision": "fad7721e8d2e724dbe8c1f0fdcc22881fd9d5077",
+      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
+      "revision": "5f85e6e7838a54ad363de5749d33361a5da2316b",
       "patch": "kernel_patches/50_add_susfs_in_gki-android14-6.1.patch",
       "default_enabled": true,
       "local_patch": "configs/susfs/z6_sm8650.patch"
@@ -345,8 +345,8 @@
       "DEVICE_NAME_EN": "Xiaomi 17 Series"
     },
     "susfs": {
-      "repo": "https://github.com/cctv18/susfs4oki.git",
-      "revision": "5f236a7b573c5a21ad0e5871ee96b63b89486596",
+      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
+      "revision": "c6788e2a21dc717beb7dd3a36b729b58bc909927",
       "patch": "kernel_patches/50_add_susfs_in_gki-android16-6.12.patch",
       "default_enabled": true,
       "local_patch": "configs/susfs/mi17_sm8850.patch"
@@ -400,8 +400,8 @@
       "DEVICE_NAME_EN": "Motorola Razr Fold"
     },
     "susfs": {
-      "repo": "https://github.com/cctv18/susfs4oki.git",
-      "revision": "5f236a7b573c5a21ad0e5871ee96b63b89486596",
+      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
+      "revision": "c6788e2a21dc717beb7dd3a36b729b58bc909927",
       "patch": "kernel_patches/50_add_susfs_in_gki-android16-6.12.patch",
       "default_enabled": true,
       "local_patch": "configs/susfs/razrfold_sm8845.patch"
@@ -473,8 +473,8 @@
     },
     "build_style": "gki-6.12",
     "susfs": {
-      "repo": "https://github.com/cctv18/susfs4oki.git",
-      "revision": "5f236a7b573c5a21ad0e5871ee96b63b89486596",
+      "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
+      "revision": "c6788e2a21dc717beb7dd3a36b729b58bc909927",
       "patch": "kernel_patches/50_add_susfs_in_gki-android16-6.12.patch",
       "default_enabled": true,
       "local_patch": "configs/susfs/oneplus15_sm8850.patch"

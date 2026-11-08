@@ -626,7 +626,27 @@
  	return res;
 --- a/fs/namespace.c
 +++ b/fs/namespace.c
-@@ -202,6 +202,10 @@
+@@ -36,9 +36,19 @@
+ #include <linux/fs_context.h>
+ #include <linux/shmem_fs.h>
+ #include <linux/mnt_idmapping.h>
++#ifdef CONFIG_KSU_SUSFS
++#include <linux/susfs_def.h>
++#endif // #ifdef CONFIG_KSU_SUSFS
+ 
+ #include "pnode.h"
+ #include "internal.h"
++
++#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
++extern bool susfs_is_current_ksu_domain(void);
++extern struct static_key_true susfs_is_sdcard_android_data_not_decrypted;
++
++#define CL_COPY_MNT_NS BIT(25) /* used by copy_mnt_ns() */
++#endif // #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
+ 
+ /* Maximum number of mounts in a mount namespace */
+ unsigned int sysctl_mount_max __read_mostly = 100000;
+@@ -202,6 +212,10 @@
  
  static void mnt_free_id(struct mount *mnt)
  {
@@ -637,7 +657,7 @@
  	ida_free(&mnt_id_ida, mnt->mnt_id);
  }
  
-@@ -210,7 +214,25 @@
+@@ -210,7 +224,25 @@
   */
  static int mnt_alloc_group_id(struct mount *mnt)
  {
@@ -663,7 +683,7 @@
  
  	if (res < 0)
  		return res;
-@@ -259,6 +281,119 @@
+@@ -259,6 +291,119 @@
  	return mnt->mnt_count;
  #endif
  }
@@ -783,7 +803,7 @@
  
  static struct mount *alloc_vfsmnt(const char *name)
  {
-@@ -736,6 +871,20 @@
+@@ -736,6 +881,20 @@
  	struct hlist_head *head = m_hash(mnt, dentry);
  	struct mount *p;
  
@@ -804,7 +824,7 @@
  	hlist_for_each_entry_rcu(p, head, mnt_hash)
  #ifdef CONFIG_KDP_NS
  		if (((struct kdp_mount *)(p->mnt_parent))->mnt == mnt && p->mnt_mountpoint == dentry)
-@@ -1097,7 +1246,21 @@
+@@ -1097,7 +1256,21 @@
  	if (!fc->root)
  		return ERR_PTR(-EINVAL);
  
@@ -826,7 +846,7 @@
  	if (!mnt)
  		return ERR_PTR(-ENOMEM);
  
-@@ -1208,8 +1371,42 @@
+@@ -1208,8 +1381,42 @@
  	struct super_block *sb = old->mnt.mnt_sb;
  	struct mount *mnt;
  	int err;
@@ -869,7 +889,7 @@
  	if (!mnt)
  		return ERR_PTR(-ENOMEM);
  
-@@ -1249,6 +1446,11 @@
+@@ -1249,6 +1456,11 @@
  #else
  	mnt->mnt.mnt_flags = old->mnt.mnt_flags;
  	mnt->mnt.mnt_flags &= ~(MNT_WRITE_HOLD|MNT_MARKED|MNT_INTERNAL);
@@ -881,7 +901,7 @@
  
  	atomic_inc(&sb->s_active);
  	mnt->mnt.mnt_userns = mnt_user_ns(&old->mnt);
-@@ -3872,6 +4074,9 @@
+@@ -3872,6 +4084,9 @@
  	copy_flags = CL_COPY_UNBINDABLE | CL_EXPIRE;
  	if (user_ns != ns->user_ns)
  		copy_flags |= CL_SHARED_TO_SLAVE;
@@ -891,7 +911,7 @@
  	new = copy_tree(old, old->mnt.mnt_root, copy_flags);
  	if (IS_ERR(new)) {
  		namespace_unlock();
-@@ -5197,3 +5402,43 @@
+@@ -5197,3 +5412,43 @@
  	.install	= mntns_install,
  	.owner		= mntns_owner,
  };
@@ -1643,7 +1663,7 @@
  
 +#ifdef CONFIG_KSU_SUSFS
 +extern struct static_key_true ksu_is_init_rc_hook_enabled;
-+extern __attribute__((cold)) int ksu_handle_sys_read(unsigned int fd, char __user **buf, size_t *count);
++extern __attribute__((cold)) int ksu_handle_sys_read(unsigned int fd, char __user **buf_ptr, size_t *count_ptr);
 +#endif
 +
  SYSCALL_DEFINE3(read, unsigned int, fd, char __user *, buf, size_t, count)
