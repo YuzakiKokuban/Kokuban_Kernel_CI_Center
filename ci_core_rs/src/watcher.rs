@@ -35,9 +35,11 @@ pub fn pending_updates(
             continue;
         }
         let project: ProjectConfig = serde_json::from_value(value.clone())?;
+        // Building with a driver does not imply permission to replace its pinned source.
+        // An explicit empty watch list opts a project out of upstream update/build waves.
         let supported = project
-            .supported_ksu
-            .or(project.watch_upstream_variants)
+            .watch_upstream_variants
+            .or(project.supported_ksu)
             .unwrap_or_default();
         if supported
             .iter()
@@ -84,6 +86,38 @@ mod tests {
             "existing": {"repo":"owner/kernel", "defconfig":"vendor/test", "localversion_base":"-Test", "supported_ksu":["bakasu"]},
             "new": {"repo":"owner/new", "defconfig":"vendor/new", "localversion_base":"-New", "watch_upstream_variants":["bakasu"]}
         })).unwrap()
+    }
+
+    #[test]
+    fn explicit_watch_policy_overrides_build_support() {
+        let projects = serde_json::from_value(serde_json::json!({
+            "pinned": {"repo":"owner/pinned", "defconfig":"test", "localversion_base":"-Test",
+                "supported_ksu":["bakasu"], "watch_upstream_variants":[]},
+            "rolling": {"repo":"owner/rolling", "defconfig":"test", "localversion_base":"-Test",
+                "supported_ksu":["bakasu"]}
+        }))
+        .unwrap();
+        let matrix =
+            pending_updates(&projects, &HashMap::new(), "bakasu", &"a".repeat(40)).unwrap();
+        assert_eq!(matrix.len(), 1);
+        assert_eq!(matrix[0]["project"], "rolling");
+    }
+
+    #[test]
+    fn pinned_rom_kernel_is_excluded_from_upstream_waves() {
+        let projects = serde_json::from_str(include_str!("../../configs/projects.json")).unwrap();
+        let matrix =
+            pending_updates(&projects, &HashMap::new(), "bakasu", &"a".repeat(40)).unwrap();
+        assert!(
+            !matrix
+                .iter()
+                .any(|entry| entry["project"] == "floral_sm8150")
+        );
+        assert!(
+            matrix
+                .iter()
+                .any(|entry| entry["project"] == "oneplus15_sm8850")
+        );
     }
 
     #[test]

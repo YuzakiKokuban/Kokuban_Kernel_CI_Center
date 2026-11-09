@@ -432,9 +432,7 @@
       "DEVICE_NAME_CN": "谷歌 Pixel 4 / Pixel 4 XL",
       "DEVICE_NAME_EN": "Google Pixel 4 / Pixel 4 XL"
     },
-    "watch_upstream_variants": [
-      "bakasu"
-    ],
+    "watch_upstream_variants": [],
     "susfs": {
       "repo": "https://github.com/JackA1ltman/NonGKI_Kernel_Build_2nd.git",
       "revision": "f59ce26a196508276e54453d0fe98c5a36b2b51b",
