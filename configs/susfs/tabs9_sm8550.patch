@@ -1369,8 +1369,8 @@
  	}
  
  	start = vma->vm_start;
-@@ -882,6 +920,13 @@
- 	struct vm_area_struct *vma = get_data_vma(v);
+@@ -889,6 +927,13 @@
+ 	struct vm_area_struct *vma = v;
  	struct mem_size_stats mss;
  
 +#ifdef CONFIG_KSU_SUSFS_SUS_MAP

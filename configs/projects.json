@@ -141,7 +141,7 @@
   "tabs9_sm8550": {
     "repo": "YuzakiKokuban/android_kernel_samsung_sm8550_TabS9",
     "defconfig": "defconfig",
-    "localversion_base": "-android13-Kokuban-Hutao-DZA1",
+    "localversion_base": "-android13-Kokuban-Hutao-EZI2",
     "lto": "thin",
     "supported_ksu": [
       "bakasu"
