@@ -297,8 +297,6 @@ jobs:
             sudo chmod 600 /mnt/flame-kernel.swap
             sudo mkswap /mnt/flame-kernel.swap
             sudo swapon /mnt/flame-kernel.swap
-            # Reclaim cold pages earlier and leave headroom for the runner's heartbeat.
-            sudo sysctl -w vm.swappiness=100
             free -h
           fi
 
@@ -308,8 +306,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         run: |
           if [[ "$PROJECT" == floral_sm8150 && -f kernel_source/ci/pixelos17.json ]]; then
-            export KOKUBAN_MAKE_JOBS=2
-            nice -n 10 ionice -c 2 -n 7 bash scripts/build-pixel4-cnb.sh
+            bash scripts/build-pixel4-cnb.sh
             exit 0
           fi
           ARGS=(--project "$PROJECT" --branch "$VARIANT" --do-release "$DO_RELEASE")
