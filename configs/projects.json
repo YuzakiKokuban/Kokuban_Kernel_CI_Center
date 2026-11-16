@@ -41,7 +41,7 @@
     ],
     "susfs": {
       "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
-      "revision": "41da83f3b1721c1a44d05212093d0934441f975c",
+      "revision": "c1d1da42b74771944207ec45aaceff9c57e84985",
       "patch": "kernel_patches/50_add_susfs_in_gki-android13-5.15.patch",
       "default_enabled": true,
       "local_patch": "configs/susfs/z5_sm8550.patch"
@@ -88,7 +88,7 @@
     },
     "susfs": {
       "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
-      "revision": "6f21c8c9a9ea02a9281a2a019dc4802cde5698bc",
+      "revision": "f98f08223bbf469cc0a1542166383d253557fc32",
       "patch": "kernel_patches/50_add_susfs_in_gki-android15-6.6.patch",
       "default_enabled": true,
       "local_patch": "configs/susfs/s25_sm8750.patch"
@@ -132,7 +132,7 @@
     ],
     "susfs": {
       "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
-      "revision": "41da83f3b1721c1a44d05212093d0934441f975c",
+      "revision": "c1d1da42b74771944207ec45aaceff9c57e84985",
       "patch": "kernel_patches/50_add_susfs_in_gki-android13-5.15.patch",
       "default_enabled": true,
       "local_patch": "configs/susfs/s23_sm8550.patch"
@@ -176,7 +176,7 @@
     ],
     "susfs": {
       "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
-      "revision": "41da83f3b1721c1a44d05212093d0934441f975c",
+      "revision": "c1d1da42b74771944207ec45aaceff9c57e84985",
       "patch": "kernel_patches/50_add_susfs_in_gki-android13-5.15.patch",
       "default_enabled": true,
       "local_patch": "configs/susfs/tabs9_sm8550.patch"
@@ -220,7 +220,7 @@
     ],
     "susfs": {
       "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
-      "revision": "5f85e6e7838a54ad363de5749d33361a5da2316b",
+      "revision": "f76b81f2a6bf98e4029cc0c823c054edbec29803",
       "patch": "kernel_patches/50_add_susfs_in_gki-android14-6.1.patch",
       "default_enabled": true,
       "local_patch": "configs/susfs/s24_sm8650.patch"
@@ -263,7 +263,7 @@
     },
     "susfs": {
       "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
-      "revision": "5f85e6e7838a54ad363de5749d33361a5da2316b",
+      "revision": "f76b81f2a6bf98e4029cc0c823c054edbec29803",
       "patch": "kernel_patches/50_add_susfs_in_gki-android14-6.1.patch",
       "default_enabled": true,
       "local_patch": "configs/susfs/tabs10_mt6989.patch"
@@ -310,7 +310,7 @@
     },
     "susfs": {
       "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
-      "revision": "5f85e6e7838a54ad363de5749d33361a5da2316b",
+      "revision": "f76b81f2a6bf98e4029cc0c823c054edbec29803",
       "patch": "kernel_patches/50_add_susfs_in_gki-android14-6.1.patch",
       "default_enabled": true,
       "local_patch": "configs/susfs/z6_sm8650.patch"
@@ -346,7 +346,7 @@
     },
     "susfs": {
       "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
-      "revision": "c6788e2a21dc717beb7dd3a36b729b58bc909927",
+      "revision": "9b0b13f069673b9b07b713a5c66977de4d62b175",
       "patch": "kernel_patches/50_add_susfs_in_gki-android16-6.12.patch",
       "default_enabled": true,
       "local_patch": "configs/susfs/mi17_sm8850.patch"
@@ -401,7 +401,7 @@
     },
     "susfs": {
       "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
-      "revision": "c6788e2a21dc717beb7dd3a36b729b58bc909927",
+      "revision": "9b0b13f069673b9b07b713a5c66977de4d62b175",
       "patch": "kernel_patches/50_add_susfs_in_gki-android16-6.12.patch",
       "default_enabled": true,
       "local_patch": "configs/susfs/razrfold_sm8845.patch"
@@ -435,7 +435,7 @@
     "watch_upstream_variants": [],
     "susfs": {
       "repo": "https://github.com/JackA1ltman/NonGKI_Kernel_Build_2nd.git",
-      "revision": "f59ce26a196508276e54453d0fe98c5a36b2b51b",
+      "revision": "bbe032eb06c50d24a9207bf2ece5e25cf2460bd0",
       "patch": "Patches/Patch/susfs_patch_to_4.14.patch",
       "local_patch": "configs/susfs/floral_sm8150.patch",
       "default_enabled": true
@@ -472,7 +472,7 @@
     "build_style": "gki-6.12",
     "susfs": {
       "repo": "https://gitlab.com/simonpunk/susfs4ksu.git",
-      "revision": "c6788e2a21dc717beb7dd3a36b729b58bc909927",
+      "revision": "9b0b13f069673b9b07b713a5c66977de4d62b175",
       "patch": "kernel_patches/50_add_susfs_in_gki-android16-6.12.patch",
       "default_enabled": true,
       "local_patch": "configs/susfs/oneplus15_sm8850.patch"

@@ -1,23 +1,25 @@
-# SUSFS integration — 2026-11-08
+# SUSFS integration — 2026-11-16
 
-The center supports two exclusive BakaSU hook modes: manual hooks and SUSFS inline hooks. LKM cannot enable SUSFS. Every configured device now defaults to SUSFS in BakaSU mode, including Pixel 4; `--no-susfs` retains the manual-hook build path.
+The center supports BakaSU with either manual hooks or SUSFS inline hooks. LKM builds cannot enable SUSFS. BakaSU builds default to SUSFS. Where the center applies an overlay, `--no-susfs` selects manual hooks.
 
 ## Source and patch provenance
 
 - OP15 source: `cctv18/android_gki_kernel_common`, branch `android16-6.12-2026-03`, commit `58ee67741556c83c523f48518284c4a6b1ef31d6` (Linux 6.12.69).
 - Imported snapshot: `YuzakiKokuban/android_kernel_oneplus_sm8850`. GitHub refused a second fork in the existing Xiaomi fork network; the user explicitly authorized an independent repository. The import commit records upstream provenance rather than copying the whole Linux history.
-- All ten GKI projects use the official [simonpunk/susfs4ksu](https://gitlab.com/simonpunk/susfs4ksu) repository, pinned by kernel branch:
-  - 5.15: `gki-android13-5.15`, commit `41da83f3b1721c1a44d05212093d0934441f975c`.
-  - 6.1: `gki-android14-6.1`, commit `5f85e6e7838a54ad363de5749d33361a5da2316b`.
-  - 6.6: `gki-android15-6.6`, commit `6f21c8c9a9ea02a9281a2a019dc4802cde5698bc`.
-  - 6.12: `gki-android16-6.12`, commit `c6788e2a21dc717beb7dd3a36b729b58bc909927`.
-- Pixel 4 / 4.14: `JackA1ltman/NonGKI_Kernel_Build_2nd`, commit `f59ce26a196508276e54453d0fe98c5a36b2b51b`, `Patches/Patch/susfs_patch_to_4.14.patch`, adapted to floral source `9bf1df6e86457bf38266d0b1e42e2f49769b65f0`.
+- All ten GKI projects use SUSFS 2.4.0 from the official [simonpunk/susfs4ksu](https://gitlab.com/simonpunk/susfs4ksu) repository.
+  - Linux 5.15 uses `gki-android13-5.15` at `c1d1da42b74771944207ec45aaceff9c57e84985`.
+  - Linux 6.1 uses `gki-android14-6.1` at `f76b81f2a6bf98e4029cc0c823c054edbec29803`.
+  - Linux 6.6 uses `gki-android15-6.6` at `f98f08223bbf469cc0a1542166383d253557fc32`.
+  - Linux 6.12 uses `gki-android16-6.12` at `9b0b13f069673b9b07b713a5c66977de4d62b175`.
+- The Pixel 4 legacy overlay uses the SUSFS 2.4.0 community port at `bbe032eb06c50d24a9207bf2ece5e25cf2460bd0`, adapted to floral source `9bf1df6e86457bf38266d0b1e42e2f49769b65f0`. The PixelOS 17 CNB build uses the SUSFS version embedded in its pinned ROM kernel source. [Community 4.14 patch](https://github.com/JackA1ltman/NonGKI_Kernel_Build_2nd/blob/bbe032eb06c50d24a9207bf2ece5e25cf2460bd0/Patches/Patch/susfs_patch_to_4.14.patch)
 
 The device patches under `configs/susfs` adapt upstream patch context to the actual source snapshots. They retain vendor code, including GKI VMA padding hooks. Runtime application uses `--fuzz=0`; failed hunks are not ignored. Known manual-hook patches are reversed in a temporary staging tree before SUSFS is applied. The actual source is updated only after staged patch/configuration and call-site checks pass. The regular manual-hook path continues to reject mixed or stale SUSFS trees.
 
-Patch implementation files and headers come from the pinned upstream revision. SUSFS can be disabled using `--no-susfs`, or explicitly enabled on a configured BakaSU project with `--with-susfs`. An offline first build requires the patchset to have been cached previously.
+GKI uses implementation files and headers from the pinned upstream revision. The Pixel 4 legacy overlay carries its adapted implementation and headers in the device patch. SUSFS can be disabled using `--no-susfs`, or explicitly enabled on a configured BakaSU project with `--with-susfs`. An offline first build requires the patchset to have been cached previously.
 
 ## Validation boundary
+
+The 2026-11-16 update includes the SUS path UID filter used by BakaSU `sync-up` and the GKI SELinux xattr fixes. All ten GKI `bakasu` source snapshots and the Pixel 4 legacy source passed strict patch application, repeat integration and the inline hook checker from BakaSU `main` and `sync-up`. The Tab S9 smoke build compiled the affected SUSFS, VFS, SELinux and BakaSU dispatch objects. Full kernel builds and device boot tests for 2.4.0 are pending.
 
 The 2026-11-08 migration replaces the former ShirkNeko/cctv18 GKI payloads and refreshes device patches for the official sources. It includes the priority UID filter call sites and retains the reviewed vendor VMA adaptations and BakaSU three-argument read hook. The official headers define `CMD_SUSFS_SET_PRIORITY_UID_FILTER`, which was missing in the failed Xiaomi 17 build with BakaSU `sync-up`. All ten patches were regenerated against exact source commits and checked with `--fuzz=0`; see `susfs-official-migration-validation.json`. Earlier build reports below describe the previous payloads, not full builds of this migration. Pixel 4 retains its dedicated community port because the official 4.14 branch has the older incompatible API.
 
@@ -31,7 +33,7 @@ Pixel 4 also completed a full WSL build with the same pinned BakaSU commit, SUSF
 
 The old simonpunk `kernel-4.14` branch reports SUSFS 1.5.5 and is not a suitable drop-in patchset for the current BakaSU inline-hook API. Community 2.3.0 ports do exist:
 
-1. [JackA1ltman/NonGKI_Kernel_Build_2nd — standalone 4.14 patch](https://github.com/JackA1ltman/NonGKI_Kernel_Build_2nd/blob/mainline/Patches/Patch/susfs_patch_to_4.14.patch). The patch embeds SUSFS 2.3.0 implementation/header changes. Its companion [inline-hook script](https://github.com/JackA1ltman/NonGKI_Kernel_Build_2nd/blob/mainline/Patches/susfs_inline_hook_patches.sh) supplies additional BakaSU call sites. The project's support list includes Pixel 4a/sunfish, not Pixel 4/floral.
+1. The standalone 4.14 patch at `f59ce26a196508276e54453d0fe98c5a36b2b51b` supplied the SUSFS 2.3.0 implementation for the initial floral adaptation. Its companion script supplied additional BakaSU call sites. [Standalone patch](https://github.com/JackA1ltman/NonGKI_Kernel_Build_2nd/blob/f59ce26a196508276e54453d0fe98c5a36b2b51b/Patches/Patch/susfs_patch_to_4.14.patch) · [Inline hook script](https://github.com/JackA1ltman/NonGKI_Kernel_Build_2nd/blob/f59ce26a196508276e54453d0fe98c5a36b2b51b/Patches/susfs_inline_hook_patches.sh)
 2. [mzggr0914/android_kernel_a325x_bakasu](https://github.com/mzggr0914/android_kernel_a325x_bakasu): Linux 4.14.357, SUSFS 2.3.0, upstream BakaSU main retained without driver-side modifications. [Integration notes](https://github.com/mzggr0914/android_kernel_a325x_bakasu/blob/common/docs/susfs-integration.md) explain parent-kernel adapters and fixes to mount allocation, KSTAT, SELinux and command dispatch. This is a useful compatibility reference for the center's policy of leaving BakaSU unchanged.
 3. [souta-lab/agate-bakasu-susfs](https://github.com/souta-lab/agate-bakasu-susfs), branch `feature/susfs-2.3.4.14-port`: maintainer reports Xiaomi 11T boot/root/SUSFS functional verification on Linux 4.14.336. Its documented driver/checker changes mean it is a secondary reference, not a direct replacement for this center's current BakaSU integration.
 
