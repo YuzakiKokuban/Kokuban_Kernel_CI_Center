@@ -11,7 +11,7 @@ jobs:
     uses: ./.github/workflows/build_kernel.yml
     with:
       project: floral_sm8150
-      branch: bakasu
+      branch: afa3160f8f08558d6ec75eb2d646421ab7cbc0f2
       ksu_variant: bakasu
       do_release: false
     secrets: inherit
